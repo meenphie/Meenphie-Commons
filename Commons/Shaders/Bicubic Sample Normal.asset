@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78b2425a2284af743826c689403a4924, type: 3}
+  m_Name: Bicubic Sample Normal
+  m_EditorClassIdentifier: 
+  m_functionInfo: "// Made with Amplify Shader Editor v1.9.8.1\n// Available at the
+    Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19801\nNode;AmplifyShaderEditor.CommentaryNode;130;-1074.157,-571.3032;Inherit;False;2248.869;991.9108;;29;126;131;40;4;44;45;120;124;122;121;119;118;2;123;125;127;66;128;43;6;7;46;68;67;129;167;168;169;239;2D;1,1,1,1;0;0\nNode;AmplifyShaderEditor.CommentaryNode;71;1388.118,-555.2822;Inherit;False;1546.347;970.757;;2;86;78;Outputs;1,1,1,1;0;0\nNode;AmplifyShaderEditor.CommentaryNode;89;-2721.481,-555.8615;Inherit;False;1378.169;964.4158;;7;94;97;105;99;102;101;100;Inputs;1,1,1,1;0;0\nNode;AmplifyShaderEditor.WireNode;127;-95.72092,292.4236;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.LerpOp;45;351.319,-373.6947;Inherit;False;3;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.CustomExpressionNode;2;-672.0914,-60.54211;Inherit;False;{$
+    UV = UV * TexelSize.zw - 0.5@$    float2 f = frac( UV )@$    UV -= f@$$    float4
+    xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx@$    float4 yn = float4( 1.0, 2.0,
+    3.0, 4.0 ) - f.yyyy@$$    float4 xs = xn * xn * xn@$    float4 ys = yn * yn *
+    yn@$$    float3 xv = float3( xs.x, xs.y - 4.0 * xs.x, xs.z - 4.0 * xs.y + 6.0
+    * xs.x )@$    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y
+    + 6.0 * ys.x )@$    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z )@$
+    float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z )@$$    float4 c = float4(
+    UV.x - 0.5, UV.x + 1.5, UV.y - 0.5, UV.y + 1.5 )@$    float4 s = float4( xc.x
+    + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w )@$$    float4 off = ( c + float4(
+    xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize.xyxy@$$    UV0 = off.xz@$    UV1 =
+    off.yz@$    UV2 = off.xw@$    UV3 = off.yw@$    W0 = s.x / ( s.x + s.y )@$ W1
+    = s.z / ( s.z + s.w )@$};7;Create;8;True;UV;FLOAT2;0,0;In;;Float;False;True;TexelSize;FLOAT4;0,0,0,0;In;;Inherit;False;True;UV0;FLOAT2;0,0;Out;;Float;False;True;UV1;FLOAT2;0,0;Out;;Float;False;True;UV2;FLOAT2;0,0;Out;;Float;False;True;UV3;FLOAT2;0,0;Out;;Inherit;False;True;W0;FLOAT;0;Out;;Inherit;False;True;W1;FLOAT;0;Out;;Inherit;False;Bicubic
+    Prepare;False;False;0;;False;9;0;FLOAT;0;False;1;FLOAT2;0,0;False;2;FLOAT4;0,0,0,0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT2;0,0;False;6;FLOAT2;0,0;False;7;FLOAT;0;False;8;FLOAT;0;False;7;FLOAT;0;FLOAT2;4;FLOAT2;5;FLOAT2;6;FLOAT2;7;FLOAT;8;FLOAT;9\nNode;AmplifyShaderEditor.GetLocalVarNode;118;-955.8895,-151.2794;Inherit;False;100;Input_UV;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.WireNode;128;248.1051,292.4236;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.WireNode;68;-88.63429,348.3121;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.LerpOp;44;750.9617,-170.366;Inherit;False;3;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode;119;-652.9467,-253.246;Inherit;False;105;Input_SS;1;0;OBJECT;;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.GetLocalVarNode;124;-967.2612,-508.0312;Inherit;False;101;Input_Texture;1;0;OBJECT;;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.WireNode;167;-339.9795,-424.4737;Inherit;False;1;0;SAMPLER2D;;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.LerpOp;46;355.2469,44.97323;Inherit;False;3;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.TexelSizeNode;40;-982.3898,-15.01096;Inherit;False;-1;Create;1;0;SAMPLER2D;;False;5;FLOAT4;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4\nNode;AmplifyShaderEditor.WireNode;66;225.2129,249.2902;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput;99;-2573.558,-440.557;Inherit;False;Texture;9;1;False;1;0;SAMPLER2D;0;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.WireNode;169;-326.6317,-354.7689;Inherit;False;1;0;SAMPLER2D;;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.WireNode;126;-1003.882,-231.9052;Inherit;False;1;0;SAMPLER2D;;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode;131;941.968,-173.7672;Inherit;False;Output_2D;-1;True;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.WireNode;129;299.7782,302.3605;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.WireNode;123;-399.6465,-182.0461;Inherit;False;1;0;SAMPLERSTATE;;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.WireNode;120;-392.0465,-249.4461;Inherit;False;1;0;SAMPLERSTATE;;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.WireNode;125;-792.2485,-371.2797;Inherit;False;1;0;SAMPLER2D;;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.WireNode;121;-391.6465,-226.8461;Inherit;False;1;0;SAMPLERSTATE;;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.WireNode;168;-329.5981,-387.3966;Inherit;False;1;0;SAMPLER2D;;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.WireNode;67;-92.05823,320.7514;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.WireNode;122;-398.3464,-201.1461;Inherit;False;1;0;SAMPLERSTATE;;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode;101;-1648.95,-438.0066;Inherit;False;Input_Texture;-1;True;1;0;SAMPLER2D;;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.TextureCoordinatesNode;102;-2240,-352;Inherit;False;0;-1;2;3;2;SAMPLER2D;;False;0;FLOAT2;1,1;False;1;FLOAT2;0,0;False;5;FLOAT2;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4\nNode;AmplifyShaderEditor.FunctionInput;94;-2592,-160;Inherit;False;SS;13;3;False;1;0;SAMPLERSTATE;0;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode;105;-1648,-160;Inherit;False;Input_SS;-1;True;1;0;SAMPLERSTATE;;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.FunctionInput;97;-1936,-272;Inherit;False;UV;2;2;False;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode;100;-1640.919,-341.9367;Inherit;False;Input_UV;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SamplerNode;4;-72.57567,-504.1286;Inherit;True;Property;_TextureSample0;Texture
+    Sample 0;0;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;True;Object;-1;Auto;Texture2D;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5\nNode;AmplifyShaderEditor.SamplerNode;6;-77.30836,-298.9066;Inherit;True;Property;_TextureSample1;Texture
+    Sample 1;0;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;True;Object;-1;Auto;Texture2D;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5\nNode;AmplifyShaderEditor.SamplerNode;7;-76.92567,-95.16291;Inherit;True;Property;_TextureSample2;Texture
+    Sample 2;0;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;True;Object;-1;Auto;Texture2D;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5\nNode;AmplifyShaderEditor.SamplerNode;43;-74.23686,113.1873;Inherit;True;Property;_TextureSample4;Texture
+    Sample 4;0;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;True;Object;-1;Auto;Texture2D;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5\nNode;AmplifyShaderEditor.FunctionInput;239;-640,-368;Inherit;False;Scale;1;0;False;1;0;FLOAT;1;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode;78;1496.474,-317.2461;Inherit;False;131;Output_2D;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput;86;1888,-320;Inherit;False;True;-1;RGBA;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;127;0;2;8\nWireConnection;45;0;6;0\nWireConnection;45;1;4;0\nWireConnection;45;2;66;0\nWireConnection;2;1;118;0\nWireConnection;2;2;40;0\nWireConnection;128;0;67;0\nWireConnection;68;0;2;9\nWireConnection;44;0;46;0\nWireConnection;44;1;45;0\nWireConnection;44;2;129;0\nWireConnection;167;0;124;0\nWireConnection;46;0;43;0\nWireConnection;46;1;7;0\nWireConnection;46;2;128;0\nWireConnection;40;0;126;0\nWireConnection;66;0;127;0\nWireConnection;169;0;124;0\nWireConnection;126;0;125;0\nWireConnection;131;0;44;0\nWireConnection;129;0;68;0\nWireConnection;123;0;119;0\nWireConnection;120;0;119;0\nWireConnection;125;0;124;0\nWireConnection;121;0;119;0\nWireConnection;168;0;124;0\nWireConnection;67;0;2;8\nWireConnection;122;0;119;0\nWireConnection;101;0;99;0\nWireConnection;102;2;99;0\nWireConnection;105;0;94;0\nWireConnection;97;0;102;0\nWireConnection;100;0;102;0\nWireConnection;4;0;124;0\nWireConnection;4;1;2;4\nWireConnection;4;5;239;0\nWireConnection;4;7;120;0\nWireConnection;6;0;167;0\nWireConnection;6;1;2;5\nWireConnection;6;5;239;0\nWireConnection;6;7;121;0\nWireConnection;7;0;168;0\nWireConnection;7;1;2;6\nWireConnection;7;5;239;0\nWireConnection;7;7;122;0\nWireConnection;43;0;169;0\nWireConnection;43;1;2;7\nWireConnection;43;5;239;0\nWireConnection;43;7;123;0\nWireConnection;86;0;78;0\nASEEND*/\n//CHKSM=0B7AA1EFA7A2838E720144FB8C2A607A57DDE122"
+  m_functionName: 
+  m_description: 'Fast 4-Tap bicubic texture sampling. Smoother than regular texture
+    sampling at a slightly higher performance cost.
+
+
+    IMPORTANT
+
+    Fetch modes
+    are faster sampling paths for multiple textures that share the same size and
+    UVs. For these modes, the "Bicubic Precompute" node must be used to feed the
+    necessary data.'
+  m_additionalIncludes:
+    m_additionalIncludes: []
+    m_outsideIncludes: []
+  m_additionalPragmas:
+    m_additionalPragmas: []
+    m_outsidePragmas: []
+  m_additionalDirectives:
+    m_validData: 0
+    m_isDirty: 1
+    m_moduleName: ' Additional Directives'
+    m_independentModule: 1
+    m_customEdited: 0
+    m_additionalDirectives: []
+    m_shaderFunctionDirectives: []
+    m_nativeDirectives: []
+    m_nativeDirectivesIndex: -1
+    m_nativeDirectivesFoldout: 0
+    m_directivesSaveItems: []
+  m_nodeCategory: 12
+  m_headerStyle: 1
+  m_headerColor: {r: 1, g: 0.4, b: 0, a: 1}
+  m_customNodeCategory: Rust
+  m_previewPosition: 0
+  m_hidden: 0
+  m_url: 
