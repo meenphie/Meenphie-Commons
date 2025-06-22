@@ -1,19 +1,15 @@
 {
   "name": "com.meenphie.commons",
   "displayName": "Meenphie",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "My packages",
   "dependencies": {},
   "gitDependencies": {},
-  "vpmDependencies": {
-    "com.vrchat.worlds": "3.8.1"
-  },
   "author": {
     "name": "Meenphie",
     "email": "hello@meenphie.com",
-    "url": "https://meenphie.com"
+    "url": "https://github.com/meenphie/Meenphie-Commons"
   },
   "legacyFolders": {},
-  "legacyFiles": {},
-  "localPath": "/home/meenphie/Documents/Unity/VRChat/Worlds/Meenphie Commons/Packages/com.meenphie.commons"
+  "legacyFiles": {}
 }
