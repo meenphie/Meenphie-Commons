@@ -159,7 +159,7 @@ Shader "Meenphie/RNM/Transparent"
 			#endif
 			float3 Albedo6_g2555 = temp_output_5_0_g2555;
 			int White38_g2555 = 1;
-			float4 temp_cast_4 = White38_g2555;
+			float3 temp_cast_1 = White38_g2555;
 			float localBicubicPrepare2_g2567 = ( 0.0 );
 			float2 uv3_Lightmap = i.uv3_texcoord3 * _Lightmap_ST.xy + _Lightmap_ST.zw;
 			float2 Input_UV100_g2567 = uv3_Lightmap;
@@ -195,14 +195,14 @@ Shader "Meenphie/RNM/Transparent"
 			 W12_g2567 = s.z / ( s.z + s.w );
 			}
 			}
-			float4 lerpResult46_g2567 = lerp( tex2D( _Lightmap, UV32_g2567 ) , tex2D( _Lightmap, UV22_g2567 ) , W02_g2567);
-			float4 lerpResult45_g2567 = lerp( tex2D( _Lightmap, UV12_g2567 ) , tex2D( _Lightmap, UV02_g2567 ) , W02_g2567);
-			float4 lerpResult44_g2567 = lerp( lerpResult46_g2567 , lerpResult45_g2567 , W12_g2567);
-			float4 Output_2D131_g2567 = lerpResult44_g2567;
+			float3 lerpResult46_g2567 = lerp( tex2D( _Lightmap, UV32_g2567 ).rgb , tex2D( _Lightmap, UV22_g2567 ).rgb , W02_g2567);
+			float3 lerpResult45_g2567 = lerp( tex2D( _Lightmap, UV12_g2567 ).rgb , tex2D( _Lightmap, UV02_g2567 ).rgb , W02_g2567);
+			float3 lerpResult44_g2567 = lerp( lerpResult46_g2567 , lerpResult45_g2567 , W12_g2567);
+			float3 Output_2D131_g2567 = lerpResult44_g2567;
 			#ifdef _USEBICUBICSAMPLER_ON
-				float4 staticSwitch768_g2555 = Output_2D131_g2567;
+				float3 staticSwitch768_g2555 = Output_2D131_g2567;
 			#else
-				float4 staticSwitch768_g2555 = float4( tex2D( _Lightmap, i.uv3_texcoord3 ).rgb , 0.0 );
+				float3 staticSwitch768_g2555 = tex2D( _Lightmap, i.uv3_texcoord3 ).rgb;
 			#endif
 			float3 appendResult139_g2557 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 			float localBicubicPrepare2_g2558 = ( 0.0 );
@@ -248,16 +248,16 @@ Shader "Meenphie/RNM/Transparent"
 			float3 normalizeResult326_g2557 = normalize( Output_2D131_g2558 );
 			float3 Normal_Map318_g2557 = normalizeResult326_g2557;
 			float dotResult121_g2557 = dot( appendResult139_g2557 , Normal_Map318_g2557 );
-			float localStochasticTiling2_g2571 = ( 0.0 );
+			float localStochasticTiling2_g2569 = ( 0.0 );
 			float2 uv3_RNMX0 = i.uv3_texcoord3 * _RNMX0_ST.xy + _RNMX0_ST.zw;
-			float2 UV2_g2571 = uv3_RNMX0;
-			float4 TexelSize2_g2571 = _RNMX0_TexelSize;
-			float4 Offsets2_g2571 = float4( 0,0,0,0 );
-			float2 Weights2_g2571 = float2( 0,0 );
+			float2 UV2_g2569 = uv3_RNMX0;
+			float4 TexelSize2_g2569 = _RNMX0_TexelSize;
+			float4 Offsets2_g2569 = float4( 0,0,0,0 );
+			float2 Weights2_g2569 = float2( 0,0 );
 			{
-			UV2_g2571 = UV2_g2571 * TexelSize2_g2571.zw - 0.5;
-			float2 f = frac( UV2_g2571 );
-			UV2_g2571 -= f;
+			UV2_g2569 = UV2_g2569 * TexelSize2_g2569.zw - 0.5;
+			float2 f = frac( UV2_g2569 );
+			UV2_g2569 -= f;
 			float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 			float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 			float4 xs = xn * xn * xn;
@@ -266,56 +266,56 @@ Shader "Meenphie/RNM/Transparent"
 			float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 			float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 			float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			float4 c = float4( UV2_g2571.x - 0.5, UV2_g2571.x + 1.5, UV2_g2571.y - 0.5, UV2_g2571.y + 1.5 );
+			float4 c = float4( UV2_g2569.x - 0.5, UV2_g2569.x + 1.5, UV2_g2569.y - 0.5, UV2_g2569.y + 1.5 );
 			float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
 			float w0 = s.x / ( s.x + s.y );
 			float w1 = s.z / ( s.z + s.w );
-			Offsets2_g2571 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g2571.xyxy;
-			Weights2_g2571 = float2( w0, w1 );
+			Offsets2_g2569 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g2569.xyxy;
+			Weights2_g2569 = float2( w0, w1 );
 			}
-			float4 temp_output_1_34_g2568 = Offsets2_g2571;
+			float4 temp_output_1_34_g2568 = Offsets2_g2569;
 			float4 Input_FetchOffsets197_g2572 = temp_output_1_34_g2568;
-			float2 temp_output_1_54_g2568 = Weights2_g2571;
+			float2 temp_output_1_54_g2568 = Weights2_g2569;
 			float2 Input_FetchWeights200_g2572 = temp_output_1_54_g2568;
 			float2 break187_g2572 = Input_FetchWeights200_g2572;
-			float4 lerpResult181_g2572 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g2572).yw ) , tex2D( _RNMX0, (Input_FetchOffsets197_g2572).xw ) , break187_g2572.x);
-			float4 lerpResult182_g2572 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g2572).yz ) , tex2D( _RNMX0, (Input_FetchOffsets197_g2572).xz ) , break187_g2572.x);
-			float4 lerpResult176_g2572 = lerp( lerpResult181_g2572 , lerpResult182_g2572 , break187_g2572.y);
-			float4 Output_Fetch2D202_g2572 = lerpResult176_g2572;
+			float3 lerpResult181_g2572 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g2572).yw ).rgb , tex2D( _RNMX0, (Input_FetchOffsets197_g2572).xw ).rgb , break187_g2572.x);
+			float3 lerpResult182_g2572 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g2572).yz ).rgb , tex2D( _RNMX0, (Input_FetchOffsets197_g2572).xz ).rgb , break187_g2572.x);
+			float3 lerpResult176_g2572 = lerp( lerpResult181_g2572 , lerpResult182_g2572 , break187_g2572.y);
+			float3 Output_Fetch2D202_g2572 = lerpResult176_g2572;
 			#ifdef _USEBICUBICSAMPLER_ON
-				float4 staticSwitch705_g2555 = Output_Fetch2D202_g2572;
+				float3 staticSwitch705_g2555 = Output_Fetch2D202_g2572;
 			#else
-				float4 staticSwitch705_g2555 = float4( tex2D( _RNMX0, i.uv3_texcoord3 ).rgb , 0.0 );
+				float3 staticSwitch705_g2555 = tex2D( _RNMX0, i.uv3_texcoord3 ).rgb;
 			#endif
 			float3 appendResult146_g2557 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
 			float dotResult122_g2557 = dot( appendResult146_g2557 , Normal_Map318_g2557 );
-			float4 Input_FetchOffsets197_g2569 = temp_output_1_34_g2568;
-			float2 Input_FetchWeights200_g2569 = temp_output_1_54_g2568;
-			float2 break187_g2569 = Input_FetchWeights200_g2569;
-			float4 lerpResult181_g2569 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g2569).yw ) , tex2D( _RNMY0, (Input_FetchOffsets197_g2569).xw ) , break187_g2569.x);
-			float4 lerpResult182_g2569 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g2569).yz ) , tex2D( _RNMY0, (Input_FetchOffsets197_g2569).xz ) , break187_g2569.x);
-			float4 lerpResult176_g2569 = lerp( lerpResult181_g2569 , lerpResult182_g2569 , break187_g2569.y);
-			float4 Output_Fetch2D202_g2569 = lerpResult176_g2569;
-			#ifdef _USEBICUBICSAMPLER_ON
-				float4 staticSwitch715_g2555 = Output_Fetch2D202_g2569;
-			#else
-				float4 staticSwitch715_g2555 = float4( tex2D( _RNMY0, i.uv3_texcoord3 ).rgb , 0.0 );
-			#endif
-			float3 appendResult149_g2557 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-			float dotResult120_g2557 = dot( appendResult149_g2557 , Normal_Map318_g2557 );
 			float4 Input_FetchOffsets197_g2570 = temp_output_1_34_g2568;
 			float2 Input_FetchWeights200_g2570 = temp_output_1_54_g2568;
 			float2 break187_g2570 = Input_FetchWeights200_g2570;
-			float4 lerpResult181_g2570 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g2570).yw ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g2570).xw ) , break187_g2570.x);
-			float4 lerpResult182_g2570 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g2570).yz ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g2570).xz ) , break187_g2570.x);
-			float4 lerpResult176_g2570 = lerp( lerpResult181_g2570 , lerpResult182_g2570 , break187_g2570.y);
-			float4 Output_Fetch2D202_g2570 = lerpResult176_g2570;
+			float3 lerpResult181_g2570 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g2570).yw ).rgb , tex2D( _RNMY0, (Input_FetchOffsets197_g2570).xw ).rgb , break187_g2570.x);
+			float3 lerpResult182_g2570 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g2570).yz ).rgb , tex2D( _RNMY0, (Input_FetchOffsets197_g2570).xz ).rgb , break187_g2570.x);
+			float3 lerpResult176_g2570 = lerp( lerpResult181_g2570 , lerpResult182_g2570 , break187_g2570.y);
+			float3 Output_Fetch2D202_g2570 = lerpResult176_g2570;
 			#ifdef _USEBICUBICSAMPLER_ON
-				float4 staticSwitch716_g2555 = Output_Fetch2D202_g2570;
+				float3 staticSwitch715_g2555 = Output_Fetch2D202_g2570;
 			#else
-				float4 staticSwitch716_g2555 = float4( tex2D( _RNMZ0, i.uv3_texcoord3 ).rgb , 0.0 );
+				float3 staticSwitch715_g2555 = tex2D( _RNMY0, i.uv3_texcoord3 ).rgb;
 			#endif
-			float4 temp_output_714_0_g2555 = ( ( ( saturate( dotResult121_g2557 ) * ( staticSwitch705_g2555 * 1.0 ) ) + ( saturate( dotResult122_g2557 ) * ( staticSwitch715_g2555 * 1.0 ) ) ) + ( saturate( dotResult120_g2557 ) * ( staticSwitch716_g2555 * 1.0 ) ) );
+			float3 appendResult149_g2557 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+			float dotResult120_g2557 = dot( appendResult149_g2557 , Normal_Map318_g2557 );
+			float4 Input_FetchOffsets197_g2571 = temp_output_1_34_g2568;
+			float2 Input_FetchWeights200_g2571 = temp_output_1_54_g2568;
+			float2 break187_g2571 = Input_FetchWeights200_g2571;
+			float3 lerpResult181_g2571 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g2571).yw ).rgb , tex2D( _RNMZ0, (Input_FetchOffsets197_g2571).xw ).rgb , break187_g2571.x);
+			float3 lerpResult182_g2571 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g2571).yz ).rgb , tex2D( _RNMZ0, (Input_FetchOffsets197_g2571).xz ).rgb , break187_g2571.x);
+			float3 lerpResult176_g2571 = lerp( lerpResult181_g2571 , lerpResult182_g2571 , break187_g2571.y);
+			float3 Output_Fetch2D202_g2571 = lerpResult176_g2571;
+			#ifdef _USEBICUBICSAMPLER_ON
+				float3 staticSwitch716_g2555 = Output_Fetch2D202_g2571;
+			#else
+				float3 staticSwitch716_g2555 = tex2D( _RNMZ0, i.uv3_texcoord3 ).rgb;
+			#endif
+			float3 temp_output_714_0_g2555 = ( ( ( saturate( dotResult121_g2557 ) * ( staticSwitch705_g2555 * 1.0 ) ) + ( saturate( dotResult122_g2557 ) * ( staticSwitch715_g2555 * 1.0 ) ) ) + ( saturate( dotResult120_g2557 ) * ( staticSwitch716_g2555 * 1.0 ) ) );
 			float3 appendResult139_g2559 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 			float localBicubicPrepare2_g2560 = ( 0.0 );
 			float2 Input_UV100_g2560 = uv_BumpMap;
@@ -359,16 +359,16 @@ Shader "Meenphie/RNM/Transparent"
 			float3 normalizeResult326_g2559 = normalize( Output_2D131_g2560 );
 			float3 Normal_Map318_g2559 = normalizeResult326_g2559;
 			float dotResult121_g2559 = dot( appendResult139_g2559 , Normal_Map318_g2559 );
-			float localStochasticTiling2_g2564 = ( 0.0 );
+			float localStochasticTiling2_g2562 = ( 0.0 );
 			float2 uv3_RNMX1 = i.uv3_texcoord3 * _RNMX1_ST.xy + _RNMX1_ST.zw;
-			float2 UV2_g2564 = uv3_RNMX1;
-			float4 TexelSize2_g2564 = _RNMX1_TexelSize;
-			float4 Offsets2_g2564 = float4( 0,0,0,0 );
-			float2 Weights2_g2564 = float2( 0,0 );
+			float2 UV2_g2562 = uv3_RNMX1;
+			float4 TexelSize2_g2562 = _RNMX1_TexelSize;
+			float4 Offsets2_g2562 = float4( 0,0,0,0 );
+			float2 Weights2_g2562 = float2( 0,0 );
 			{
-			UV2_g2564 = UV2_g2564 * TexelSize2_g2564.zw - 0.5;
-			float2 f = frac( UV2_g2564 );
-			UV2_g2564 -= f;
+			UV2_g2562 = UV2_g2562 * TexelSize2_g2562.zw - 0.5;
+			float2 f = frac( UV2_g2562 );
+			UV2_g2562 -= f;
 			float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 			float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 			float4 xs = xn * xn * xn;
@@ -377,118 +377,118 @@ Shader "Meenphie/RNM/Transparent"
 			float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 			float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 			float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			float4 c = float4( UV2_g2564.x - 0.5, UV2_g2564.x + 1.5, UV2_g2564.y - 0.5, UV2_g2564.y + 1.5 );
+			float4 c = float4( UV2_g2562.x - 0.5, UV2_g2562.x + 1.5, UV2_g2562.y - 0.5, UV2_g2562.y + 1.5 );
 			float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
 			float w0 = s.x / ( s.x + s.y );
 			float w1 = s.z / ( s.z + s.w );
-			Offsets2_g2564 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g2564.xyxy;
-			Weights2_g2564 = float2( w0, w1 );
+			Offsets2_g2562 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g2562.xyxy;
+			Weights2_g2562 = float2( w0, w1 );
 			}
-			float4 temp_output_1_34_g2561 = Offsets2_g2564;
+			float4 temp_output_1_34_g2561 = Offsets2_g2562;
 			float4 Input_FetchOffsets197_g2565 = temp_output_1_34_g2561;
-			float2 temp_output_1_54_g2561 = Weights2_g2564;
+			float2 temp_output_1_54_g2561 = Weights2_g2562;
 			float2 Input_FetchWeights200_g2565 = temp_output_1_54_g2561;
 			float2 break187_g2565 = Input_FetchWeights200_g2565;
-			float4 lerpResult181_g2565 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g2565).yw ) , tex2D( _RNMX1, (Input_FetchOffsets197_g2565).xw ) , break187_g2565.x);
-			float4 lerpResult182_g2565 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g2565).yz ) , tex2D( _RNMX1, (Input_FetchOffsets197_g2565).xz ) , break187_g2565.x);
-			float4 lerpResult176_g2565 = lerp( lerpResult181_g2565 , lerpResult182_g2565 , break187_g2565.y);
-			float4 Output_Fetch2D202_g2565 = lerpResult176_g2565;
+			float3 lerpResult181_g2565 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g2565).yw ).rgb , tex2D( _RNMX1, (Input_FetchOffsets197_g2565).xw ).rgb , break187_g2565.x);
+			float3 lerpResult182_g2565 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g2565).yz ).rgb , tex2D( _RNMX1, (Input_FetchOffsets197_g2565).xz ).rgb , break187_g2565.x);
+			float3 lerpResult176_g2565 = lerp( lerpResult181_g2565 , lerpResult182_g2565 , break187_g2565.y);
+			float3 Output_Fetch2D202_g2565 = lerpResult176_g2565;
 			#ifdef _USEBICUBICSAMPLER_ON
-				float4 staticSwitch764_g2555 = Output_Fetch2D202_g2565;
+				float3 staticSwitch764_g2555 = Output_Fetch2D202_g2565;
 			#else
-				float4 staticSwitch764_g2555 = float4( tex2D( _RNMX1, i.uv3_texcoord3 ).rgb , 0.0 );
+				float3 staticSwitch764_g2555 = tex2D( _RNMX1, i.uv3_texcoord3 ).rgb;
 			#endif
 			float3 appendResult146_g2559 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
 			float dotResult122_g2559 = dot( appendResult146_g2559 , Normal_Map318_g2559 );
-			float4 Input_FetchOffsets197_g2562 = temp_output_1_34_g2561;
-			float2 Input_FetchWeights200_g2562 = temp_output_1_54_g2561;
-			float2 break187_g2562 = Input_FetchWeights200_g2562;
-			float4 lerpResult181_g2562 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g2562).yw ) , tex2D( _RNMY1, (Input_FetchOffsets197_g2562).xw ) , break187_g2562.x);
-			float4 lerpResult182_g2562 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g2562).yz ) , tex2D( _RNMY1, (Input_FetchOffsets197_g2562).xz ) , break187_g2562.x);
-			float4 lerpResult176_g2562 = lerp( lerpResult181_g2562 , lerpResult182_g2562 , break187_g2562.y);
-			float4 Output_Fetch2D202_g2562 = lerpResult176_g2562;
-			#ifdef _USEBICUBICSAMPLER_ON
-				float4 staticSwitch753_g2555 = Output_Fetch2D202_g2562;
-			#else
-				float4 staticSwitch753_g2555 = float4( tex2D( _RNMY1, i.uv3_texcoord3 ).rgb , 0.0 );
-			#endif
-			float3 appendResult149_g2559 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-			float dotResult120_g2559 = dot( appendResult149_g2559 , Normal_Map318_g2559 );
 			float4 Input_FetchOffsets197_g2563 = temp_output_1_34_g2561;
 			float2 Input_FetchWeights200_g2563 = temp_output_1_54_g2561;
 			float2 break187_g2563 = Input_FetchWeights200_g2563;
-			float4 lerpResult181_g2563 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g2563).yw ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g2563).xw ) , break187_g2563.x);
-			float4 lerpResult182_g2563 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g2563).yz ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g2563).xz ) , break187_g2563.x);
-			float4 lerpResult176_g2563 = lerp( lerpResult181_g2563 , lerpResult182_g2563 , break187_g2563.y);
-			float4 Output_Fetch2D202_g2563 = lerpResult176_g2563;
+			float3 lerpResult181_g2563 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g2563).yw ).rgb , tex2D( _RNMY1, (Input_FetchOffsets197_g2563).xw ).rgb , break187_g2563.x);
+			float3 lerpResult182_g2563 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g2563).yz ).rgb , tex2D( _RNMY1, (Input_FetchOffsets197_g2563).xz ).rgb , break187_g2563.x);
+			float3 lerpResult176_g2563 = lerp( lerpResult181_g2563 , lerpResult182_g2563 , break187_g2563.y);
+			float3 Output_Fetch2D202_g2563 = lerpResult176_g2563;
 			#ifdef _USEBICUBICSAMPLER_ON
-				float4 staticSwitch750_g2555 = Output_Fetch2D202_g2563;
+				float3 staticSwitch753_g2555 = Output_Fetch2D202_g2563;
 			#else
-				float4 staticSwitch750_g2555 = float4( tex2D( _RNMZ1, i.uv3_texcoord3 ).rgb , 0.0 );
+				float3 staticSwitch753_g2555 = tex2D( _RNMY1, i.uv3_texcoord3 ).rgb;
 			#endif
-			float4 lerpResult442_g2555 = lerp( temp_output_714_0_g2555 , ( ( ( saturate( dotResult121_g2559 ) * ( staticSwitch764_g2555 * 1.0 ) ) + ( saturate( dotResult122_g2559 ) * ( staticSwitch753_g2555 * 1.0 ) ) ) + ( saturate( dotResult120_g2559 ) * ( staticSwitch750_g2555 * 1.0 ) ) ) , _LightmapLerp);
+			float3 appendResult149_g2559 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+			float dotResult120_g2559 = dot( appendResult149_g2559 , Normal_Map318_g2559 );
+			float4 Input_FetchOffsets197_g2564 = temp_output_1_34_g2561;
+			float2 Input_FetchWeights200_g2564 = temp_output_1_54_g2561;
+			float2 break187_g2564 = Input_FetchWeights200_g2564;
+			float3 lerpResult181_g2564 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g2564).yw ).rgb , tex2D( _RNMZ1, (Input_FetchOffsets197_g2564).xw ).rgb , break187_g2564.x);
+			float3 lerpResult182_g2564 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g2564).yz ).rgb , tex2D( _RNMZ1, (Input_FetchOffsets197_g2564).xz ).rgb , break187_g2564.x);
+			float3 lerpResult176_g2564 = lerp( lerpResult181_g2564 , lerpResult182_g2564 , break187_g2564.y);
+			float3 Output_Fetch2D202_g2564 = lerpResult176_g2564;
+			#ifdef _USEBICUBICSAMPLER_ON
+				float3 staticSwitch750_g2555 = Output_Fetch2D202_g2564;
+			#else
+				float3 staticSwitch750_g2555 = tex2D( _RNMZ1, i.uv3_texcoord3 ).rgb;
+			#endif
+			float3 lerpResult442_g2555 = lerp( temp_output_714_0_g2555 , ( ( ( saturate( dotResult121_g2559 ) * ( staticSwitch764_g2555 * 1.0 ) ) + ( saturate( dotResult122_g2559 ) * ( staticSwitch753_g2555 * 1.0 ) ) ) + ( saturate( dotResult120_g2559 ) * ( staticSwitch750_g2555 * 1.0 ) ) ) , _LightmapLerp);
 			#if defined( _LIGHTMAPPINGMODE_SIMPLE )
-				float4 staticSwitch565_g2555 = staticSwitch768_g2555;
+				float3 staticSwitch565_g2555 = staticSwitch768_g2555;
 			#elif defined( _LIGHTMAPPINGMODE_RNM )
-				float4 staticSwitch565_g2555 = temp_output_714_0_g2555;
+				float3 staticSwitch565_g2555 = temp_output_714_0_g2555;
 			#elif defined( _LIGHTMAPPINGMODE_RNMLERP )
-				float4 staticSwitch565_g2555 = lerpResult442_g2555;
+				float3 staticSwitch565_g2555 = lerpResult442_g2555;
 			#else
-				float4 staticSwitch565_g2555 = staticSwitch768_g2555;
+				float3 staticSwitch565_g2555 = staticSwitch768_g2555;
 			#endif
 			#ifdef _LIGHTMAPPING_ON
-				float4 staticSwitch569_g2555 = staticSwitch565_g2555;
+				float3 staticSwitch569_g2555 = staticSwitch565_g2555;
 			#else
-				float4 staticSwitch569_g2555 = temp_cast_4;
+				float3 staticSwitch569_g2555 = temp_cast_1;
 			#endif
-			float4 Lightmap46_g2555 = staticSwitch569_g2555;
+			float3 Lightmap46_g2555 = staticSwitch569_g2555;
 			#ifdef _LIGHTMAPPING_ON
-				float4 staticSwitch566_g2555 = ( float4( Albedo6_g2555 , 0.0 ) * Lightmap46_g2555 );
+				float3 staticSwitch566_g2555 = ( Albedo6_g2555 * Lightmap46_g2555 );
 			#else
-				float4 staticSwitch566_g2555 = float4( Albedo6_g2555 , 0.0 );
+				float3 staticSwitch566_g2555 = Albedo6_g2555;
 			#endif
 			#ifdef _LIGHTMAPPING_ON
-				float4 staticSwitch696_g2555 = ( float4( staticSwitch572_g2555 , 0.0 ) + staticSwitch566_g2555 );
+				float3 staticSwitch696_g2555 = ( staticSwitch572_g2555 + staticSwitch566_g2555 );
 			#else
-				float4 staticSwitch696_g2555 = ( float4( staticSwitch572_g2555 , 0.0 ) * staticSwitch566_g2555 );
+				float3 staticSwitch696_g2555 = ( staticSwitch572_g2555 * staticSwitch566_g2555 );
 			#endif
 			#ifdef _LIGHTMAP_DEBUG_MODE_ON
-				float4 staticSwitch686_g2555 = Lightmap46_g2555;
+				float3 staticSwitch686_g2555 = Lightmap46_g2555;
 			#else
-				float4 staticSwitch686_g2555 = staticSwitch696_g2555;
+				float3 staticSwitch686_g2555 = staticSwitch696_g2555;
 			#endif
-			o.Emission = staticSwitch686_g2555.rgb;
+			o.Emission = staticSwitch686_g2555;
 			float2 uv_MetallicMap = i.uv_texcoord * _MetallicMap_ST.xy + _MetallicMap_ST.zw;
+			float saferPower803_g2555 = abs( tex2D( _MetallicMap, uv_MetallicMap ).a );
 			#ifdef _LIGHTMAP_DEBUG_MODE_ON
-				float3 staticSwitch692_g2555 = float3( 0,0,0 );
+				float staticSwitch692_g2555 = 0.0;
 			#else
-				float3 staticSwitch692_g2555 = ( _Metallic * tex2D( _MetallicMap, uv_MetallicMap ).rgb );
+				float staticSwitch692_g2555 = ( _Metallic * pow( saferPower803_g2555 , 3.0 ) );
 			#endif
-			float3 Metallic699_g2555 = staticSwitch692_g2555;
-			o.Metallic = Metallic699_g2555.x;
+			float Metallic699_g2555 = staticSwitch692_g2555;
+			o.Metallic = Metallic699_g2555;
 			float2 uv_EmissionMap164_g2555 = i.uv_texcoord;
+			float saferPower804_g2555 = abs( tex2D( _EmissionMap1, uv_EmissionMap164_g2555 ).a );
 			#ifdef _LIGHTMAP_DEBUG_MODE_ON
-				float4 staticSwitch693_g2555 = float4( 0,0,0,0 );
+				float staticSwitch693_g2555 = 0.0;
 			#else
-				float4 staticSwitch693_g2555 = ( _Glossiness * ( 1.0 - tex2D( _EmissionMap1, uv_EmissionMap164_g2555 ) ) );
+				float staticSwitch693_g2555 = ( _Glossiness * ( 1.0 - pow( saferPower804_g2555 , 3.0 ) ) );
 			#endif
-			o.Smoothness = staticSwitch693_g2555.r;
-			float4 temp_cast_16 = White38_g2555;
-			float4 temp_cast_17 = White38_g2555;
-			float4 saferPower606_g2555 = abs( Lightmap46_g2555 );
-			float4 temp_cast_18 = (_OcclusionPower).xxxx;
-			float4 clampResult579_g2555 = clamp( pow( saferPower606_g2555 , temp_cast_18 ) , float4( 0,0,0,0 ) , float4( 1,1,1,0 ) );
+			o.Smoothness = staticSwitch693_g2555;
+			float grayscale799_g2555 = Luminance( Lightmap46_g2555 );
+			float saferPower606_g2555 = abs( grayscale799_g2555 );
+			float clampResult579_g2555 = clamp( pow( saferPower606_g2555 , _OcclusionPower ) , 0.0 , 1.0 );
 			#ifdef _LIGHTMAPOCCLUSION_ON
-				float4 staticSwitch573_g2555 = clampResult579_g2555;
+				float staticSwitch573_g2555 = clampResult579_g2555;
 			#else
-				float4 staticSwitch573_g2555 = temp_cast_17;
+				float staticSwitch573_g2555 = (float)White38_g2555;
 			#endif
 			#ifdef _LIGHTMAPPING_ON
-				float4 staticSwitch576_g2555 = staticSwitch573_g2555;
+				float staticSwitch576_g2555 = staticSwitch573_g2555;
 			#else
-				float4 staticSwitch576_g2555 = temp_cast_16;
+				float staticSwitch576_g2555 = (float)White38_g2555;
 			#endif
-			o.Occlusion = staticSwitch576_g2555.r;
+			o.Occlusion = staticSwitch576_g2555;
 			o.Alpha = ( tex2DNode259_g2555.a * _Color.a );
 		}
 
@@ -499,7 +499,7 @@ Shader "Meenphie/RNM/Transparent"
 }
 /*ASEBEGIN
 Version=19901
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2644;192,-1200;Inherit;False;RNM;0;;2555;b3ba55a08dd6b49c7be16c6f35cf2033;0;0;8;FLOAT3;625;FLOAT3;238;COLOR;624;FLOAT3;96;COLOR;97;COLOR;95;FLOAT;156;FLOAT;427
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2644;192,-1200;Inherit;False;RNM;0;;2555;b3ba55a08dd6b49c7be16c6f35cf2033;0;0;8;FLOAT3;625;FLOAT3;238;FLOAT3;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427
 Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;Meenphie_ShaderGUI;0;0;Standard;Meenphie/RNM/Transparent;False;False;False;False;True;False;False;True;True;False;False;False;False;False;True;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Transparent;0.5;True;False;0;False;Transparent;;Transparent;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;2;5;False;;10;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
 WireConnection;1092;0;2644;625
 WireConnection;1092;1;2644;238
@@ -509,4 +509,4 @@ WireConnection;1092;4;2644;97
 WireConnection;1092;5;2644;95
 WireConnection;1092;9;2644;156
 ASEEND*/
-//CHKSM=DFB0C703BA0804E77A635BEB995062E85829FBD5
+//CHKSM=45B46B3A459E8B51F9ABBF69C1ED900A7D34124E

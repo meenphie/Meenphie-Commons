@@ -459,18 +459,20 @@ Shader "Meenphie/RNM/Standard"
 			#endif
 			o.Emission = staticSwitch686_g4141;
 			float2 uv_MetallicMap = i.uv_texcoord * _MetallicMap_ST.xy + _MetallicMap_ST.zw;
+			float saferPower803_g4141 = abs( tex2D( _MetallicMap, uv_MetallicMap ).a );
 			#ifdef _LIGHTMAP_DEBUG_MODE_ON
 				float staticSwitch692_g4141 = 0.0;
 			#else
-				float staticSwitch692_g4141 = ( _Metallic * tex2D( _MetallicMap, uv_MetallicMap ).r );
+				float staticSwitch692_g4141 = ( _Metallic * pow( saferPower803_g4141 , 3.0 ) );
 			#endif
 			float Metallic699_g4141 = staticSwitch692_g4141;
 			o.Metallic = Metallic699_g4141;
 			float2 uv_EmissionMap164_g4141 = i.uv_texcoord;
+			float saferPower804_g4141 = abs( tex2D( _EmissionMap1, uv_EmissionMap164_g4141 ).a );
 			#ifdef _LIGHTMAP_DEBUG_MODE_ON
 				float staticSwitch693_g4141 = 0.0;
 			#else
-				float staticSwitch693_g4141 = ( _Glossiness * ( 1.0 - tex2D( _EmissionMap1, uv_EmissionMap164_g4141 ).r ) );
+				float staticSwitch693_g4141 = ( _Glossiness * ( 1.0 - pow( saferPower804_g4141 , 3.0 ) ) );
 			#endif
 			o.Smoothness = staticSwitch693_g4141;
 			float grayscale799_g4141 = Luminance( Lightmap46_g4141 );
@@ -506,4 +508,4 @@ WireConnection;1092;3;2742;96
 WireConnection;1092;4;2742;97
 WireConnection;1092;5;2742;95
 ASEEND*/
-//CHKSM=DF80CECA88D0222E0021D2C97EF388E34F0C796C
+//CHKSM=CE54900863488493B4F1AC8D17A6FB2D3507E695
