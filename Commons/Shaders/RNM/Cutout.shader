@@ -14,6 +14,7 @@ Shader "Meenphie/RNM/Cutout"
 		[HDR][NoScaleOffset][Meenphie_DrawerTextureSingleLine] _EmissionMap1( "Roughness Map", 2D ) = "black" {}
 		_Metallic( "Metallic", Range( 0, 1 ) ) = 0
 		_Glossiness( "Smoothness", Range( 0, 1 ) ) = 0.5
+		[Toggle( _USEGEOMETRICANTIALIASING_ON )] _UseGeometricAntiAliasing( "Use Geometric Anti Aliasing", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 1
 		[Toggle( _EMISSION_ON )] _EMISSION( "Emission Enabled", Float ) = 0
@@ -58,6 +59,7 @@ Shader "Meenphie/RNM/Cutout"
 		#pragma shader_feature_local _EMISSION_ON
 		#pragma shader_feature_local _LIGHTMAPPINGMODE_SIMPLE _LIGHTMAPPINGMODE_RNM _LIGHTMAPPINGMODE_RNMLERP
 		#pragma shader_feature_local _USEBICUBICSAMPLER_ON
+		#pragma shader_feature_local _USEGEOMETRICANTIALIASING_ON
 		#pragma shader_feature_local _LIGHTMAPOCCLUSION_ON
 		#define ASE_VERSION 19901
 		#pragma surface surf Standard keepalpha exclude_path:deferred noambient nodynlightmap nodirlightmap 
@@ -65,6 +67,8 @@ Shader "Meenphie/RNM/Cutout"
 		{
 			float2 uv_texcoord;
 			float2 uv3_texcoord3;
+			float3 worldNormal;
+			INTERNAL_DATA
 		};
 
 		uniform float _EmissionFlags;
@@ -471,10 +475,21 @@ Shader "Meenphie/RNM/Cutout"
 			o.Metallic = Metallic699_g1954;
 			float2 uv_EmissionMap164_g1954 = i.uv_texcoord;
 			float saferPower804_g1954 = abs( tex2D( _EmissionMap1, uv_EmissionMap164_g1954 ).a );
+			float temp_output_70_0_g1954 = ( _Glossiness * ( 1.0 - pow( saferPower804_g1954 , 3.0 ) ) );
+			float3 ase_normalWS = WorldNormalVector( i, float3( 0, 0, 1 ) );
+			float3 temp_output_3_0_g1972 = ddx( ase_normalWS );
+			float dotResult5_g1972 = dot( temp_output_3_0_g1972 , temp_output_3_0_g1972 );
+			float3 temp_output_4_0_g1972 = ddy( ase_normalWS );
+			float dotResult6_g1972 = dot( temp_output_4_0_g1972 , temp_output_4_0_g1972 );
+			#ifdef _USEGEOMETRICANTIALIASING_ON
+				float staticSwitch824_g1954 = min( temp_output_70_0_g1954 , ( 1.0 - pow( saturate( max( dotResult5_g1972 , dotResult6_g1972 ) ) , 0.333 ) ) );
+			#else
+				float staticSwitch824_g1954 = temp_output_70_0_g1954;
+			#endif
 			#ifdef _LIGHTMAP_DEBUG_MODE_ON
 				float staticSwitch693_g1954 = 0.0;
 			#else
-				float staticSwitch693_g1954 = ( _Glossiness * ( 1.0 - pow( saferPower804_g1954 , 3.0 ) ) );
+				float staticSwitch693_g1954 = staticSwitch824_g1954;
 			#endif
 			o.Smoothness = staticSwitch693_g1954;
 			float grayscale799_g1954 = Luminance( Lightmap46_g1954 );
@@ -512,4 +527,4 @@ WireConnection;343;4;838;97
 WireConnection;343;5;838;95
 WireConnection;343;10;838;427
 ASEEND*/
-//CHKSM=95156161A38FED656E2F052509958429F4392F57
+//CHKSM=E5DBF0E4828AFE080F86CD14FFA774BDF8E76B93

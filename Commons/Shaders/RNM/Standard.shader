@@ -13,6 +13,7 @@ Shader "Meenphie/RNM/Standard"
 		[HDR][NoScaleOffset][Meenphie_DrawerTextureSingleLine] _EmissionMap1( "Roughness Map", 2D ) = "black" {}
 		_Metallic( "Metallic", Range( 0, 1 ) ) = 0
 		_Glossiness( "Smoothness", Range( 0, 1 ) ) = 0.5
+		[Toggle( _USEGEOMETRICANTIALIASING_ON )] _UseGeometricAntiAliasing( "Use Geometric Anti Aliasing", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 1
 		[Toggle( _EMISSION_ON )] _EMISSION( "Emission Enabled", Float ) = 0
@@ -35,8 +36,8 @@ Shader "Meenphie/RNM/Standard"
 		_OcclusionPower( "Occlusion Power", Float ) = 0.5
 		[Toggle( _USEBICUBICSAMPLER_ON )] _UseBicubicSampler( "Use Bicubic Sampler", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
-		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
+		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Forward Rendering Options)]
 		[ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
@@ -57,6 +58,7 @@ Shader "Meenphie/RNM/Standard"
 		#pragma shader_feature_local _EMISSION_ON
 		#pragma shader_feature_local _LIGHTMAPPINGMODE_SIMPLE _LIGHTMAPPINGMODE_RNM _LIGHTMAPPINGMODE_RNMLERP
 		#pragma shader_feature_local _USEBICUBICSAMPLER_ON
+		#pragma shader_feature_local _USEGEOMETRICANTIALIASING_ON
 		#pragma shader_feature_local _LIGHTMAPOCCLUSION_ON
 		#define ASE_VERSION 19901
 		#pragma surface surf Standard keepalpha exclude_path:deferred noambient nodynlightmap nodirlightmap 
@@ -64,6 +66,8 @@ Shader "Meenphie/RNM/Standard"
 		{
 			float2 uv_texcoord;
 			float2 uv3_texcoord3;
+			float3 worldNormal;
+			INTERNAL_DATA
 		};
 
 		uniform float _EmissionFlags;
@@ -469,10 +473,21 @@ Shader "Meenphie/RNM/Standard"
 			o.Metallic = Metallic699_g4141;
 			float2 uv_EmissionMap164_g4141 = i.uv_texcoord;
 			float saferPower804_g4141 = abs( tex2D( _EmissionMap1, uv_EmissionMap164_g4141 ).a );
+			float temp_output_70_0_g4141 = ( _Glossiness * ( 1.0 - pow( saferPower804_g4141 , 3.0 ) ) );
+			float3 ase_normalWS = WorldNormalVector( i, float3( 0, 0, 1 ) );
+			float3 temp_output_3_0_g4159 = ddx( ase_normalWS );
+			float dotResult5_g4159 = dot( temp_output_3_0_g4159 , temp_output_3_0_g4159 );
+			float3 temp_output_4_0_g4159 = ddy( ase_normalWS );
+			float dotResult6_g4159 = dot( temp_output_4_0_g4159 , temp_output_4_0_g4159 );
+			#ifdef _USEGEOMETRICANTIALIASING_ON
+				float staticSwitch824_g4141 = min( temp_output_70_0_g4141 , ( 1.0 - pow( saturate( max( dotResult5_g4159 , dotResult6_g4159 ) ) , 0.333 ) ) );
+			#else
+				float staticSwitch824_g4141 = temp_output_70_0_g4141;
+			#endif
 			#ifdef _LIGHTMAP_DEBUG_MODE_ON
 				float staticSwitch693_g4141 = 0.0;
 			#else
-				float staticSwitch693_g4141 = ( _Glossiness * ( 1.0 - pow( saferPower804_g4141 , 3.0 ) ) );
+				float staticSwitch693_g4141 = staticSwitch824_g4141;
 			#endif
 			o.Smoothness = staticSwitch693_g4141;
 			float grayscale799_g4141 = Luminance( Lightmap46_g4141 );
@@ -508,4 +523,4 @@ WireConnection;1092;3;2742;96
 WireConnection;1092;4;2742;97
 WireConnection;1092;5;2742;95
 ASEEND*/
-//CHKSM=CE54900863488493B4F1AC8D17A6FB2D3507E695
+//CHKSM=16617D9EEB64902D37125DCE8F0AF88318EEE582
