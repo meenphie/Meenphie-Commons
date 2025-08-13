@@ -26,19 +26,26 @@ public static class LightmapAssigner
 
         Debug.Log($"Found {sceneMaterials.Count} GI materials in scene.");
 
-        // Assign textures to each material
+        string[] suffixes = { "_RNMX", "_RNMY", "_RNMZ" };
+        string[] shaderProps = { "_RNMX0", "_RNMY0", "_RNMZ0" };
+
         foreach (Material mat in sceneMaterials)
         {
             string matName = mat.name;
 
-            string[] suffixes = { "_RNMX", "_RNMY", "_RNMZ" };
-            string[] shaderProps = { "_RNMX0", "_RNMY0", "_RNMZ0" };
-
             for (int i = 0; i < suffixes.Length; i++)
             {
                 string searchName = matName + suffixes[i];
-                string[] texGuids = AssetDatabase.FindAssets(searchName + " t:Texture");
 
+                // Check if texture is already set and has the correct name
+                Texture currentTex = mat.GetTexture(shaderProps[i]);
+                if (currentTex != null && currentTex.name == searchName)
+                {
+                    // Already correct, skip
+                    continue;
+                }
+
+                string[] texGuids = AssetDatabase.FindAssets(searchName + " t:Texture");
                 if (texGuids.Length > 0)
                 {
                     string texPath = AssetDatabase.GUIDToAssetPath(texGuids[0]);
@@ -57,6 +64,7 @@ public static class LightmapAssigner
                 }
             }
         }
+
         AssetDatabase.SaveAssets();
     }
 }
