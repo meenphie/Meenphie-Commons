@@ -29,40 +29,53 @@ public static class LightmapAssigner
         string[] suffixes = { "_RNMX", "_RNMY", "_RNMZ" };
         string[] shaderProps = { "_RNMX0", "_RNMY0", "_RNMZ0" };
 
-        foreach (Material mat in sceneMaterials)
+        int matIndex = 0;
+        int totalSteps = sceneMaterials.Count;
+
+        try
         {
-            string matName = mat.name;
-
-            for (int i = 0; i < suffixes.Length; i++)
+            foreach (Material mat in sceneMaterials)
             {
-                string searchName = matName + suffixes[i];
+                float progress = (float)matIndex / totalSteps;
+                EditorUtility.DisplayProgressBar("Assigning Lightmaps", $"Processing {mat.name}...", progress);
 
-                // Check if texture is already set and has the correct name
-                Texture currentTex = mat.GetTexture(shaderProps[i]);
-                if (currentTex != null && currentTex.name == searchName)
+                string matName = mat.name;
+
+                for (int i = 0; i < suffixes.Length; i++)
                 {
-                    // Already correct, skip
-                    continue;
-                }
+                    string searchName = matName + suffixes[i];
 
-                string[] texGuids = AssetDatabase.FindAssets(searchName + " t:Texture");
-                if (texGuids.Length > 0)
-                {
-                    string texPath = AssetDatabase.GUIDToAssetPath(texGuids[0]);
-                    Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(texPath);
+                    // Skip if already correct
+                    Texture currentTex = mat.GetTexture(shaderProps[i]);
+                    if (currentTex != null && currentTex.name == searchName)
+                        continue;
 
-                    if (tex != null)
+                    // Find and assign texture
+                    string[] texGuids = AssetDatabase.FindAssets(searchName + " t:Texture");
+                    if (texGuids.Length > 0)
                     {
-                        mat.SetTexture(shaderProps[i], tex);
-                        Debug.Log($"Assigned {tex.name} → {mat.name}:{shaderProps[i]}");
-                        EditorUtility.SetDirty(mat);
+                        string texPath = AssetDatabase.GUIDToAssetPath(texGuids[0]);
+                        Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(texPath);
+
+                        if (tex != null)
+                        {
+                            mat.SetTexture(shaderProps[i], tex);
+                            Debug.Log($"Assigned {tex.name} → {mat.name}:{shaderProps[i]}");
+                            EditorUtility.SetDirty(mat);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"No texture found for {searchName} for material {mat.name}");
                     }
                 }
-                else
-                {
-                    Debug.LogWarning($"No texture found for {searchName} for material {mat.name}");
-                }
+
+                matIndex++;
             }
+        }
+        finally
+        {
+            EditorUtility.ClearProgressBar();
         }
 
         AssetDatabase.SaveAssets();
