@@ -1,7 +1,7 @@
 {
   "name": "com.meenphie.commons",
   "displayName": "Meenphie",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "My packages",
   "dependencies": {},
   "gitDependencies": {},
