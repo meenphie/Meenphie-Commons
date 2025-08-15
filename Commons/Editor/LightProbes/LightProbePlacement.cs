@@ -9,8 +9,9 @@ public class LightProbePlacement : EditorWindow
     static string current = "Hello";
     static bool working = false;
 
-    float mergeDistance = 1;
-    LightProbeGroup probeObject; // Changed from GameObject to LightProbeGroup
+    float heightOffset = 1.0f;
+    float mergeDistance = 1.0f;
+    LightProbeGroup probeObject;
     bool disableMerging;
 
     [MenuItem("Window/Generate Light Probes")]
@@ -83,7 +84,7 @@ public class LightProbePlacement : EditorWindow
                         newProbe += prooo;
                     }
                     newProbe /= nearbyProbes.Count;
-                    newProbe += Vector3.up;
+                    newProbe += Vector3.up * heightOffset;
 
                     mergedProbes.Add(newProbe);
                     done += 1;
@@ -110,6 +111,7 @@ public class LightProbePlacement : EditorWindow
             PlaceProbes();
         }
 
+        heightOffset = EditorGUILayout.FloatField("Height placement", heightOffset);
         mergeDistance = EditorGUILayout.FloatField("Vector merge distance", mergeDistance);
         disableMerging = EditorGUILayout.Toggle("Disable merging", disableMerging);
         probeObject = (LightProbeGroup)EditorGUILayout.ObjectField("Light Probe Group", probeObject, typeof(LightProbeGroup), true);
