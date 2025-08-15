@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
+using System.Linq;
 
 public static class LightmapAssigner
 {
@@ -24,34 +25,51 @@ public static class LightmapAssigner
             }
         }
 
-        Debug.Log($"Found {sceneMaterials.Count} GI materials in scene.");
-
         string[] suffixes = { "_RNMX", "_RNMY", "_RNMZ" };
         string[] shaderProps = { "_RNMX0", "_RNMY0", "_RNMZ0" };
 
-        int matIndex = 0;
-        int totalSteps = sceneMaterials.Count;
+        // Group materials by their detected group name
+        Dictionary<string, List<Material>> groups = new Dictionary<string, List<Material>>();
+
+        foreach (Material mat in sceneMaterials)
+        {
+            string[] words = mat.name.Split(' ', '-', '_')
+                                     .Where(w => !string.IsNullOrWhiteSpace(w) && w != "GI")
+                                     .ToArray();
+
+            // Pick first word that matches a texture name in the project
+            string groupKey = words.FirstOrDefault(word =>
+                AssetDatabase.FindAssets(word + "_RNMX t:Texture").Length > 0
+            );
+
+            if (string.IsNullOrEmpty(groupKey))
+                continue;
+
+            if (!groups.ContainsKey(groupKey))
+                groups[groupKey] = new List<Material>();
+
+            groups[groupKey].Add(mat);
+        }
+
+        int groupIndex = 0;
+        int totalGroups = groups.Count;
+        int assignCount = 0;
 
         try
         {
-            foreach (Material mat in sceneMaterials)
+            foreach (var kvp in groups)
             {
-                float progress = (float)matIndex / totalSteps;
-                EditorUtility.DisplayProgressBar("Assigning Lightmaps", $"Processing {mat.name}...", progress);
+                string groupName = kvp.Key;
+                List<Material> materials = kvp.Value;
 
-                string matName = mat.name;
+                float progress = (float)groupIndex / totalGroups;
+                EditorUtility.DisplayProgressBar("Assigning Lightmaps", $"Processing group {groupName}...", progress);
 
                 for (int i = 0; i < suffixes.Length; i++)
                 {
-                    string searchName = matName + suffixes[i];
-
-                    // Skip if already correct
-                    Texture currentTex = mat.GetTexture(shaderProps[i]);
-                    if (currentTex != null && currentTex.name == searchName)
-                        continue;
-
-                    // Find and assign texture
+                    string searchName = groupName + suffixes[i];
                     string[] texGuids = AssetDatabase.FindAssets(searchName + " t:Texture");
+
                     if (texGuids.Length > 0)
                     {
                         string texPath = AssetDatabase.GUIDToAssetPath(texGuids[0]);
@@ -59,18 +77,25 @@ public static class LightmapAssigner
 
                         if (tex != null)
                         {
-                            mat.SetTexture(shaderProps[i], tex);
-                            Debug.Log($"Assigned {tex.name} → {mat.name}:{shaderProps[i]}");
-                            EditorUtility.SetDirty(mat);
+                            foreach (Material mat in materials)
+                            {
+                                Texture currentTex = mat.GetTexture(shaderProps[i]);
+                                if (currentTex != null && currentTex.name == tex.name)
+                                    continue;
+
+                                mat.SetTexture(shaderProps[i], tex);
+                                EditorUtility.SetDirty(mat);
+                                assignCount++;
+                            }
                         }
                     }
                     else
                     {
-                        Debug.LogWarning($"No texture found for {searchName} for material {mat.name}");
+                        Debug.LogWarning($"No texture found for {searchName} (group {groupName})");
                     }
                 }
 
-                matIndex++;
+                groupIndex++;
             }
         }
         finally
@@ -79,5 +104,7 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
+
+        Debug.Log($"Added {assignCount} Lightmaps");
     }
 }
