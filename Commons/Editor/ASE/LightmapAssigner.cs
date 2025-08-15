@@ -9,7 +9,7 @@ public static class LightmapAssigner
     [MenuItem("Meenphie/Assign Lightmaps")]
     public static void AssignLightmaps()
     {
-        // Collect all GI materials used in the active scene
+        // Collect all GI materials in the active scene
         HashSet<Material> sceneMaterials = new HashSet<Material>();
 
         foreach (GameObject go in SceneManager.GetActiveScene().GetRootGameObjects())
@@ -28,74 +28,73 @@ public static class LightmapAssigner
         string[] suffixes = { "_RNMX", "_RNMY", "_RNMZ" };
         string[] shaderProps = { "_RNMX0", "_RNMY0", "_RNMZ0" };
 
-        // Group materials by their detected group name
-        Dictionary<string, List<Material>> groups = new Dictionary<string, List<Material>>();
+        // Find all available lightmap groups in the project
+        Dictionary<string, Texture[]> lightmapGroups = new Dictionary<string, Texture[]>();
 
-        foreach (Material mat in sceneMaterials)
+        string[] rnmxGuids = AssetDatabase.FindAssets("_RNMX t:Texture");
+        foreach (string guid in rnmxGuids)
         {
-            string[] words = mat.name.Split(' ', '-', '_')
-                                     .Where(w => !string.IsNullOrWhiteSpace(w) && w != "GI")
-                                     .ToArray();
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Texture texX = AssetDatabase.LoadAssetAtPath<Texture>(path);
+            if (texX == null) continue;
 
-            // Pick first word that matches a texture name in the project
-            string groupKey = words.FirstOrDefault(word =>
-                AssetDatabase.FindAssets(word + "_RNMX t:Texture").Length > 0
-            );
+            string baseName = texX.name.Replace("_RNMX", "");
+            if (!lightmapGroups.ContainsKey(baseName))
+                lightmapGroups[baseName] = new Texture[3];
 
-            if (string.IsNullOrEmpty(groupKey))
-                continue;
+            lightmapGroups[baseName][0] = texX; // RNMX
 
-            if (!groups.ContainsKey(groupKey))
-                groups[groupKey] = new List<Material>();
+            // Load matching RNMY
+            string[] yGuids = AssetDatabase.FindAssets(baseName + "_RNMY t:Texture");
+            if (yGuids.Length > 0)
+                lightmapGroups[baseName][1] = AssetDatabase.LoadAssetAtPath<Texture>(AssetDatabase.GUIDToAssetPath(yGuids[0]));
 
-            groups[groupKey].Add(mat);
+            // Load matching RNMZ
+            string[] zGuids = AssetDatabase.FindAssets(baseName + "_RNMZ t:Texture");
+            if (zGuids.Length > 0)
+                lightmapGroups[baseName][2] = AssetDatabase.LoadAssetAtPath<Texture>(AssetDatabase.GUIDToAssetPath(zGuids[0]));
         }
 
-        int groupIndex = 0;
-        int totalGroups = groups.Count;
         int assignCount = 0;
+        int matIndex = 0;
+        int totalMats = sceneMaterials.Count;
 
         try
         {
-            foreach (var kvp in groups)
+            foreach (Material mat in sceneMaterials)
             {
-                string groupName = kvp.Key;
-                List<Material> materials = kvp.Value;
+                float progress = (float)matIndex / totalMats;
+                EditorUtility.DisplayProgressBar("Assigning Lightmaps", $"Processing {mat.name}...", progress);
 
-                float progress = (float)groupIndex / totalGroups;
-                EditorUtility.DisplayProgressBar("Assigning Lightmaps", $"Processing group {groupName}...", progress);
+                bool assignedAny = false;
 
-                for (int i = 0; i < suffixes.Length; i++)
+                foreach (var kvp in lightmapGroups)
                 {
-                    string searchName = groupName + suffixes[i];
-                    string[] texGuids = AssetDatabase.FindAssets(searchName + " t:Texture");
+                    string groupName = kvp.Key;
 
-                    if (texGuids.Length > 0)
+                    if (mat.name.IndexOf(groupName, System.StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        string texPath = AssetDatabase.GUIDToAssetPath(texGuids[0]);
-                        Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(texPath);
+                        Texture[] texSet = kvp.Value;
 
-                        if (tex != null)
+                        for (int i = 0; i < 3; i++)
                         {
-                            foreach (Material mat in materials)
-                            {
-                                Texture currentTex = mat.GetTexture(shaderProps[i]);
-                                if (currentTex != null && currentTex.name == tex.name)
-                                    continue;
+                            if (texSet[i] == null) continue;
 
-                                mat.SetTexture(shaderProps[i], tex);
-                                EditorUtility.SetDirty(mat);
-                                assignCount++;
-                            }
+                            Texture currentTex = mat.GetTexture(shaderProps[i]);
+                            if (currentTex != null && currentTex.name == texSet[i].name)
+                                continue;
+
+                            mat.SetTexture(shaderProps[i], texSet[i]);
+                            EditorUtility.SetDirty(mat);
+                            assignCount++;
+                            assignedAny = true;
                         }
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"No texture found for {searchName} (group {groupName})");
+
+                        break; // found matching group, stop searching
                     }
                 }
 
-                groupIndex++;
+                matIndex++;
             }
         }
         finally
@@ -104,7 +103,6 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
-
-        Debug.Log($"Added {assignCount} Lightmaps");
+        Debug.Log($"Lightmap assignment complete. Total assignments made: {assignCount}");
     }
 }
