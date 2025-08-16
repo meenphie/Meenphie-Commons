@@ -23,7 +23,7 @@ Shader "Meenphie/Standard/Opaque (Outline)"
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[Meenphie_DrawerCategory(OUTLINE,true,0,0)] _CATEGORYOUTLINE( "CATEGORY OUTLINE", Float ) = 0
 		_OutlineColor( "Outline Color", Color ) = ( 0.02, 0.02, 0.02, 0 )
-		_OutlineWidth( "Outline Width", Range( 0.001, 0.1 ) ) = 0.025
+		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.005
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE( "CATEGORY SPACE OUTLINE", Float ) = 0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
@@ -192,4 +192,4 @@ WireConnection;1092;4;2867;97
 WireConnection;1092;5;2867;95
 WireConnection;1092;11;2867;860
 ASEEND*/
-//CHKSM=EB0D91DC11FEDE028EFEF2E9A2619A28394E35F4
+//CHKSM=E8BACA442383CC38803505122AE4E1D62372384A

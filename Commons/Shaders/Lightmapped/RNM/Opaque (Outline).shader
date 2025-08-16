@@ -1,6 +1,6 @@
 // Made with Amplify Shader Editor v1.9.9.3
 // Available at the Unity Asset Store - http://u3d.as/y3X 
-Shader "Meenphie/Lightmapping/RNM/Opaque"
+Shader "Meenphie/Lightmapped/RNM/Opaque (Outline)"
 {
 	Properties
 	{
@@ -28,9 +28,13 @@ Shader "Meenphie/Lightmapping/RNM/Opaque"
 		[Toggle( _LIGHTMAPOCCLUSION_ON )] _LightmapOcclusion( "Lightmap Occlusion", Float ) = 1
 		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
+		[Meenphie_DrawerCategory(OUTLINE,true,0,0)] _CATEGORYOUTLINE( "CATEGORY OUTLINE", Float ) = 0
+		_OutlineColor( "Outline Color", Color ) = ( 0.02, 0.02, 0.02, 0 )
+		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.005
+		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE( "CATEGORY SPACE OUTLINE", Float ) = 0
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
-		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
+		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
@@ -41,6 +45,36 @@ Shader "Meenphie/Lightmapping/RNM/Opaque"
 
 	SubShader
 	{
+		Tags{ }
+		Cull Front
+		CGPROGRAM
+		#pragma target 3.0
+		#pragma surface outlineSurf Outline nofog  keepalpha noshadow noambient novertexlights nolightmap nodynlightmap nodirlightmap nometa noforwardadd vertex:outlineVertexDataFunc 
+		
+		
+		
+		
+		struct Input
+		{
+			half filler;
+		};
+		uniform float4 _OutlineColor;
+		uniform float _OutlineWidth;
+		
+		void outlineVertexDataFunc( inout appdata_full v, out Input o )
+		{
+			UNITY_INITIALIZE_OUTPUT( Input, o );
+			float outlineVar = _OutlineWidth;
+			v.vertex.xyz += ( v.normal * outlineVar );
+		}
+		inline half4 LightingOutline( SurfaceOutput s, half3 lightDir, half atten ) { return half4 ( 0,0,0, s.Alpha); }
+		void outlineSurf( Input i, inout SurfaceOutput o )
+		{
+			o.Emission = _OutlineColor.rgb;
+		}
+		ENDCG
+		
+
 		Tags{ "RenderType" = "Opaque"  "Queue" = "Geometry+0" "ForceNoShadowCasting" = "True" "IsEmissive" = "true"  }
 		Cull Back
 		CGPROGRAM
@@ -55,7 +89,7 @@ Shader "Meenphie/Lightmapping/RNM/Opaque"
 		#pragma shader_feature_local_fragment _GLOSSINESSMAP
 		#pragma shader_feature_local_fragment _LIGHTMAPOCCLUSION_ON
 		#define ASE_VERSION 19903
-		#pragma surface surf Standard keepalpha exclude_path:deferred nodynlightmap nodirlightmap 
+		#pragma surface surf Standard keepalpha exclude_path:deferred nodynlightmap nodirlightmap vertex:vertexDataFunc 
 		struct Input
 		{
 			float2 uv_texcoord;
@@ -69,6 +103,8 @@ Shader "Meenphie/Lightmapping/RNM/Opaque"
 		uniform float _CATEGORYEMISSION;
 		uniform float _CATEGORYSPACEEMISSION;
 		uniform float _EmissionFlags;
+		uniform float _CATEGORYOUTLINE;
+		uniform float _CATEGORYSPACEOUTLINE;
 		uniform sampler2D _BumpMap;
 		uniform float _NormalScale;
 		uniform float4 _Color;
@@ -88,6 +124,16 @@ Shader "Meenphie/Lightmapping/RNM/Opaque"
 		uniform float _Glossiness;
 		uniform sampler2D _GlossinessMap;
 		uniform float _OcclusionPower;
+
+		void vertexDataFunc( inout appdata_full v, out Input o )
+		{
+			UNITY_INITIALIZE_OUTPUT( Input, o );
+			float Outline_GUI888_g1352 = ( _CATEGORYOUTLINE + _CATEGORYSPACEOUTLINE );
+			float3 temp_cast_0 = (Outline_GUI888_g1352).xxx;
+			float3 lerpResult889_g1352 = lerp( 0 , temp_cast_0 , float3( 0,0,0 ));
+			v.vertex.xyz += lerpResult889_g1352;
+			v.vertex.w = 1;
+		}
 
 		void surf( Input i , inout SurfaceOutputStandard o )
 		{
@@ -221,13 +267,14 @@ Shader "Meenphie/Lightmapping/RNM/Opaque"
 }
 /*ASEBEGIN
 Version=19903
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2858;192,-1200;Inherit;False;Meenphie;0;;1352;b3ba55a08dd6b49c7be16c6f35cf2033;5,869,1,871,1,872,1,847,1,867,0;0;9;FLOAT3;625;FLOAT3;238;FLOAT3;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
-Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;0;Standard;Meenphie/Lightmapping/RNM/Opaque;False;False;False;False;False;False;False;True;True;False;False;False;False;False;False;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Opaque;0.5;True;False;0;False;Opaque;;Geometry;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;0;0;False;;0;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2858;192,-1200;Inherit;False;Meenphie;0;;1352;b3ba55a08dd6b49c7be16c6f35cf2033;5,869,1,871,1,872,1,847,1,867,1;0;9;FLOAT3;625;FLOAT3;238;FLOAT3;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
+Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;0;Standard;Meenphie/Lightmapped/RNM/Opaque (Outline);False;False;False;False;False;False;False;True;True;False;False;False;False;False;False;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Opaque;0.5;True;False;0;False;Opaque;;Geometry;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;0;0;False;;0;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
 WireConnection;1092;0;2858;625
 WireConnection;1092;1;2858;238
 WireConnection;1092;2;2858;624
 WireConnection;1092;3;2858;96
 WireConnection;1092;4;2858;97
 WireConnection;1092;5;2858;95
+WireConnection;1092;11;2858;860
 ASEEND*/
-//CHKSM=22A06E154EB591D2993DE05F503FC7BC740DCA0E
+//CHKSM=1EC2749A82A4FABC91DD1B3FF838E9E45BC29172
