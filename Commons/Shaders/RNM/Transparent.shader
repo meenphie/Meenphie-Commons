@@ -27,12 +27,12 @@ Shader "Meenphie/RNM/Transparent"
 		[Meenphie_DrawerTextureSingleLine] _RNMY0( "RNMY 0", 2D ) = "gray" {}
 		[Meenphie_DrawerTextureSingleLine] _RNMZ0( "RNMZ 0", 2D ) = "gray" {}
 		[Toggle( _LIGHTMAPOCCLUSION_ON )] _LightmapOcclusion( "Lightmap Occlusion", Float ) = 1
-		_OcclusionPower( "Occlusion Power", Float ) = 0.5
+		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Forward Rendering Options)]
@@ -51,11 +51,11 @@ Shader "Meenphie/RNM/Transparent"
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
 		#pragma shader_feature_local _LIGHTMAPPING_ON
-		#pragma shader_feature_local _EMISSION_ON
-		#pragma shader_feature_local _METALLICMAP
-		#pragma shader_feature_local _USEGEOMETRICANTIALIASING_ON
-		#pragma shader_feature_local _GLOSSINESSMAP
-		#pragma shader_feature_local _LIGHTMAPOCCLUSION_ON
+		#pragma shader_feature_local_fragment _EMISSION_ON
+		#pragma shader_feature_local_fragment _METALLICMAP
+		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
+		#pragma shader_feature_local_fragment _GLOSSINESSMAP
+		#pragma shader_feature_local_fragment _LIGHTMAPOCCLUSION_ON
 		#define ASE_VERSION 19903
 		#pragma surface surf Standard alpha:fade keepalpha exclude_path:deferred noambient nodynlightmap nodirlightmap 
 		struct Input
@@ -77,13 +77,13 @@ Shader "Meenphie/RNM/Transparent"
 		uniform float _NormalScale;
 		uniform float4 _Color;
 		uniform sampler2D _MainTex;
-		uniform float3 _EmissionColor;
-		uniform sampler2D _EmissionMap;
 		uniform sampler2D _RNMX0;
 		uniform float4 _RNMX0_ST;
 		float4 _RNMX0_TexelSize;
 		uniform sampler2D _RNMY0;
 		uniform sampler2D _RNMZ0;
+		uniform float3 _EmissionColor;
+		uniform sampler2D _EmissionMap;
 		uniform float _Metallic;
 		uniform sampler2D _MetallicMap;
 		uniform float4 _MetallicMap_ST;
@@ -105,17 +105,9 @@ Shader "Meenphie/RNM/Transparent"
 			float4 tex2DNode259_g2555 = tex2D( _MainTex, uv_MainTex259_g2555 );
 			float3 temp_output_5_0_g2555 = ( _Color.rgb * tex2DNode259_g2555.rgb );
 			o.Albedo = temp_output_5_0_g2555;
-			float3 temp_cast_0 = 0;
-			float2 uv_EmissionMap81_g2555 = i.uv_texcoord;
-			float3 Emission86_g2555 = ( _EmissionColor + tex2D( _EmissionMap, uv_EmissionMap81_g2555 ).rgb );
-			#ifdef _EMISSION_ON
-				float3 staticSwitch572_g2555 = Emission86_g2555;
-			#else
-				float3 staticSwitch572_g2555 = temp_cast_0;
-			#endif
 			float3 Albedo6_g2555 = temp_output_5_0_g2555;
 			int White38_g2555 = 1;
-			float3 temp_cast_1 = White38_g2555;
+			float3 temp_cast_0 = White38_g2555;
 			float3 appendResult139_g2557 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 			float3 normalizeResult326_g2557 = normalize( Normal_Map700_g2555 );
 			float3 Normal_Map318_g2557 = normalizeResult326_g2557;
@@ -174,20 +166,24 @@ Shader "Meenphie/RNM/Transparent"
 			float3 Output_Fetch2D202_g2561 = lerpResult176_g2561;
 			float3 temp_output_838_0_g2555 = ( ( ( saturate( dotResult121_g2557 ) * ( Output_Fetch2D202_g2562 * 1.0 ) ) + ( saturate( dotResult122_g2557 ) * ( Output_Fetch2D202_g2560 * 1.0 ) ) ) + ( saturate( dotResult120_g2557 ) * ( Output_Fetch2D202_g2561 * 1.0 ) ) );
 			#ifdef _LIGHTMAPPING_ON
-				float3 staticSwitch569_g2555 = temp_output_838_0_g2555;
+				float3 staticSwitch566_g2555 = temp_output_838_0_g2555;
 			#else
-				float3 staticSwitch569_g2555 = temp_cast_1;
+				float3 staticSwitch566_g2555 = temp_cast_0;
 			#endif
-			float3 Lightmap46_g2555 = staticSwitch569_g2555;
-			#ifdef _LIGHTMAPPING_ON
-				float3 staticSwitch566_g2555 = ( Albedo6_g2555 * Lightmap46_g2555 );
+			float3 Lightmap46_g2555 = staticSwitch566_g2555;
+			float3 temp_output_614_0_g2555 = ( Albedo6_g2555 * Lightmap46_g2555 );
+			float3 temp_cast_1 = 0;
+			float2 uv_EmissionMap81_g2555 = i.uv_texcoord;
+			#ifdef _EMISSION_ON
+				float3 staticSwitch851_g2555 = ( _EmissionColor + tex2D( _EmissionMap, uv_EmissionMap81_g2555 ).rgb );
 			#else
-				float3 staticSwitch566_g2555 = Albedo6_g2555;
+				float3 staticSwitch851_g2555 = temp_cast_1;
 			#endif
+			float3 Emission86_g2555 = staticSwitch851_g2555;
 			#ifdef _LIGHTMAPPING_ON
-				float3 staticSwitch696_g2555 = ( staticSwitch572_g2555 + staticSwitch566_g2555 );
+				float3 staticSwitch696_g2555 = ( Emission86_g2555 + temp_output_614_0_g2555 );
 			#else
-				float3 staticSwitch696_g2555 = ( staticSwitch572_g2555 * staticSwitch566_g2555 );
+				float3 staticSwitch696_g2555 = ( temp_output_614_0_g2555 * Emission86_g2555 );
 			#endif
 			o.Emission = staticSwitch696_g2555;
 			float2 uv_MetallicMap = i.uv_texcoord * _MetallicMap_ST.xy + _MetallicMap_ST.zw;
@@ -250,4 +246,4 @@ WireConnection;1092;4;2644;97
 WireConnection;1092;5;2644;95
 WireConnection;1092;9;2644;156
 ASEEND*/
-//CHKSM=3652E95A4BF1F41387E5395BB76727D05405C61A
+//CHKSM=8C90BB46D2631E6FCEC823B5E5BF5C2AAA6AF7A1
