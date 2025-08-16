@@ -16,15 +16,15 @@ Shader "Meenphie/Standard/Cutout"
 		_Glossiness( "Smoothness", Range( 0, 1 ) ) = 0.5
 		[Toggle( _USEGEOMETRICANTIALIASING_ON )] _UseGeometricAntiAliasing( "Use Geometric Anti Aliasing", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
-		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 1
+		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
 		[Toggle( _EMISSION_ON )] _EMISSION( "Emission Enabled", Float ) = 0
 		[HDR][Gamma] _EmissionColor( "Emission Color", Color ) = ( 0, 0, 0 )
 		[NoScaleOffset][Meenphie_DrawerTextureSingleLine] _EmissionMap( "Emission Map", 2D ) = "black" {}
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
+		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
-		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Forward Rendering Options)]
@@ -55,11 +55,11 @@ Shader "Meenphie/Standard/Cutout"
 			INTERNAL_DATA
 		};
 
-		uniform float _CATEGORYSPACESURFACEOPTIONS;
 		uniform float _CATEGORY_SURFACEOPTIONS;
-		uniform float _EmissionFlags;
-		uniform float _CATEGORYSPACEEMISSION;
+		uniform float _CATEGORYSPACESURFACEOPTIONS;
 		uniform float _CATEGORYEMISSION;
+		uniform float _CATEGORYSPACEEMISSION;
+		uniform float _EmissionFlags;
 		uniform sampler2D _BumpMap;
 		uniform float _NormalScale;
 		uniform float4 _Color;
@@ -149,4 +149,4 @@ WireConnection;343;4;838;97
 WireConnection;343;5;838;95
 WireConnection;343;10;838;427
 ASEEND*/
-//CHKSM=6AC9EEEBDF9FE65CEC226E3348C4052B145DA69C
+//CHKSM=F394239E8CD3BCBD8CCE59AF58FCF13F9E67B4F2

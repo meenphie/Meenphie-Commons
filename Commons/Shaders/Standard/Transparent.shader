@@ -15,7 +15,7 @@ Shader "Meenphie/Standard/Transparent"
 		_Glossiness( "Smoothness", Range( 0, 1 ) ) = 0.5
 		[Toggle( _USEGEOMETRICANTIALIASING_ON )] _UseGeometricAntiAliasing( "Use Geometric Anti Aliasing", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
-		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 1
+		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
 		[Toggle( _EMISSION_ON )] _EMISSION( "Emission Enabled", Float ) = 0
 		[HDR][Gamma] _EmissionColor( "Emission Color", Color ) = ( 0, 0, 0 )
 		[NoScaleOffset][Meenphie_DrawerTextureSingleLine] _EmissionMap( "Emission Map", 2D ) = "black" {}
@@ -54,11 +54,11 @@ Shader "Meenphie/Standard/Transparent"
 			INTERNAL_DATA
 		};
 
-		uniform float _CATEGORYSPACESURFACEOPTIONS;
 		uniform float _CATEGORY_SURFACEOPTIONS;
-		uniform float _EmissionFlags;
-		uniform float _CATEGORYSPACEEMISSION;
+		uniform float _CATEGORYSPACESURFACEOPTIONS;
 		uniform float _CATEGORYEMISSION;
+		uniform float _CATEGORYSPACEEMISSION;
+		uniform float _EmissionFlags;
 		uniform sampler2D _BumpMap;
 		uniform float _NormalScale;
 		uniform float4 _Color;
@@ -146,4 +146,4 @@ WireConnection;1092;4;2644;97
 WireConnection;1092;5;2644;95
 WireConnection;1092;9;2644;156
 ASEEND*/
-//CHKSM=00F5B083FEB6A25F62B102D4DB87965473F8F3DA
+//CHKSM=80C96667373A2DF8204D76E528F717E9128644A7

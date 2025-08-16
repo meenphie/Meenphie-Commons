@@ -13,12 +13,14 @@ MonoBehaviour:
   m_Name: Bicubic Sampler
   m_EditorClassIdentifier: 
   m_functionInfo: "// Made with Amplify Shader Editor v1.9.9.3\n// Available at the
-    Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19903\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;4;-1280,-128;Inherit;False;Texture;10;0;False;1;0;SAMPLER2D;0;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.TextureCoordinatesNode,
+    Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19903\nNode;AmplifyShaderEditor.TextureCoordinatesNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3;-1024,-32;Inherit;False;2;-1;2;3;2;SAMPLER2D;;False;0;FLOAT2;1,1;False;1;FLOAT2;0,0;False;5;FLOAT2;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4\nNode;AmplifyShaderEditor.FunctionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;9;-768,-128;Inherit;False;Bicubic
-    Sample;-1;;107;ce0e14d5ad5eac645b2e5892ab3506ff;2,92,0,72,0;7;99;SAMPLER2D;0;False;91;SAMPLER2DARRAY;0;False;93;FLOAT;0;False;97;FLOAT2;0,0;False;198;FLOAT4;0,0,0,0;False;199;FLOAT2;0,0;False;94;SAMPLERSTATE;0;False;5;FLOAT3;86;FLOAT;84;FLOAT;85;FLOAT;82;FLOAT;83\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;-480,-128;Inherit;False;True;-1;Color;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;3;2;4;0\nWireConnection;9;99;4;0\nWireConnection;9;97;3;0\nWireConnection;0;0;9;86\nASEEND*/\n//CHKSM=66D0CD9877E78573173643087763D767EFB94B91"
+    Sample;-1;;107;ce0e14d5ad5eac645b2e5892ab3506ff;2,92,0,72,0;7;99;SAMPLER2D;0;False;91;SAMPLER2DARRAY;0;False;93;FLOAT;0;False;97;FLOAT2;0,0;False;198;FLOAT4;0,0,0,0;False;199;FLOAT2;0,0;False;94;SAMPLERSTATE;0;False;5;FLOAT3;86;FLOAT;84;FLOAT;85;FLOAT;82;FLOAT;83\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;4;-1280,-128;Inherit;False;Texture;10;0;False;1;0;SAMPLER2D;0;False;1;SAMPLER2D;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-1280,-32;Inherit;False;Texture
+    SS;14;1;False;1;0;SAMPLERSTATE;0;False;1;SAMPLERSTATE;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;-480,-128;Inherit;False;True;-1;Color;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;3;2;4;0\nWireConnection;9;99;4;0\nWireConnection;9;97;3;0\nWireConnection;9;94;10;0\nWireConnection;0;0;9;86\nASEEND*/\n//CHKSM=A40B9CA097186F07D54450CA182A1891C3BE7BF4"
   m_functionName: 
   m_description: 
   m_additionalIncludes:
