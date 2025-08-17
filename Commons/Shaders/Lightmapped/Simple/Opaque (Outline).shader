@@ -62,7 +62,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque (Outline)"
 		void outlineVertexDataFunc( inout appdata_full v, out Input o )
 		{
 			UNITY_INITIALIZE_OUTPUT( Input, o );
-			float outlineVar = _OutlineWidth;
+			float outlineVar = ( _OutlineWidth * v.color.r );
 			v.vertex.xyz += ( v.normal * outlineVar );
 		}
 		inline half4 LightingOutline( SurfaceOutput s, half3 lightDir, half atten ) { return half4 ( 0,0,0, s.Alpha); }
@@ -255,4 +255,4 @@ WireConnection;1092;4;2867;97
 WireConnection;1092;5;2867;95
 WireConnection;1092;11;2867;860
 ASEEND*/
-//CHKSM=28A99A69316D9743C879191BDFE1F14160E8FFEF
+//CHKSM=D8520B7E633272D153A6BB9D1F518CCD559BB742

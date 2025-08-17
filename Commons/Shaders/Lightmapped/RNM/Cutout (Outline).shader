@@ -65,7 +65,7 @@ Shader "Meenphie/Lightmapped/RNM/Cutout (Outline)"
 		void outlineVertexDataFunc( inout appdata_full v, out Input o )
 		{
 			UNITY_INITIALIZE_OUTPUT( Input, o );
-			float outlineVar = _OutlineWidth;
+			float outlineVar = ( _OutlineWidth * v.color.r );
 			v.vertex.xyz += ( v.normal * outlineVar );
 		}
 		inline half4 LightingOutline( SurfaceOutput s, half3 lightDir, half atten ) { return half4 ( 0,0,0, s.Alpha); }
@@ -281,4 +281,4 @@ WireConnection;343;5;838;95
 WireConnection;343;10;838;427
 WireConnection;343;11;838;860
 ASEEND*/
-//CHKSM=F09122D33E91E22CD38590847D28B01B5F2D7A63
+//CHKSM=5093E08EBC43CA53D4C4A7D46F526A05C22D3A43

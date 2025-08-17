@@ -57,7 +57,7 @@ Shader "Meenphie/Standard/Cutout (Outline)"
 		void outlineVertexDataFunc( inout appdata_full v, out Input o )
 		{
 			UNITY_INITIALIZE_OUTPUT( Input, o );
-			float outlineVar = _OutlineWidth;
+			float outlineVar = ( _OutlineWidth * v.color.r );
 			v.vertex.xyz += ( v.normal * outlineVar );
 		}
 		inline half4 LightingOutline( SurfaceOutput s, half3 lightDir, half atten ) { return half4 ( 0,0,0, s.Alpha); }
@@ -196,4 +196,4 @@ WireConnection;343;5;839;95
 WireConnection;343;10;839;427
 WireConnection;343;11;839;860
 ASEEND*/
-//CHKSM=5A5ECBF24606AAABBD4D82F0CE05B0102F9D0D9E
+//CHKSM=464575EC434A0C7E7207CF758B7034B4A170C69F
