@@ -1,4 +1,4 @@
-// Made with Amplify Shader Editor v1.9.9.3
+// Made with Amplify Shader Editor v1.9.9.4
 // Available at the Unity Asset Store - http://u3d.as/y3X 
 Shader "Meenphie/Standard/Transparent"
 {
@@ -45,7 +45,7 @@ Shader "Meenphie/Standard/Transparent"
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
 		#pragma shader_feature_local_fragment _GLOSSINESSMAP
-		#define ASE_VERSION 19903
+		#define ASE_VERSION 19904
 		#pragma surface surf Standard alpha:fade keepalpha exclude_path:deferred nodynlightmap nodirlightmap 
 		struct Input
 		{
@@ -63,9 +63,9 @@ Shader "Meenphie/Standard/Transparent"
 		uniform float _NormalScale;
 		uniform float4 _Color;
 		uniform sampler2D _MainTex;
+		uniform float _Metallic;
 		uniform float3 _EmissionColor;
 		uniform sampler2D _EmissionMap;
-		uniform float _Metallic;
 		uniform sampler2D _MetallicMap;
 		uniform float4 _MetallicMap_ST;
 		uniform float _Glossiness;
@@ -86,9 +86,10 @@ Shader "Meenphie/Standard/Transparent"
 			float3 temp_output_5_0_g2555 = ( _Color.rgb * tex2DNode259_g2555.rgb );
 			o.Albedo = temp_output_5_0_g2555;
 			float3 Albedo6_g2555 = temp_output_5_0_g2555;
+			float Metallic_Value893_g2555 = _Metallic;
 			float White38_g2555 = 1.0;
 			float Lightmap46_g2555 = White38_g2555;
-			float3 temp_output_614_0_g2555 = ( Albedo6_g2555 * Lightmap46_g2555 );
+			float3 temp_output_614_0_g2555 = ( Albedo6_g2555 * ( ( 1.0 - Metallic_Value893_g2555 ) * Lightmap46_g2555 ) );
 			float3 temp_cast_0 = 0;
 			float2 uv_EmissionMap81_g2555 = i.uv_texcoord;
 			#ifdef _EMISSION_ON
@@ -135,8 +136,8 @@ Shader "Meenphie/Standard/Transparent"
 	CustomEditor "AmplifyShaderEditor.MaterialInspector"
 }
 /*ASEBEGIN
-Version=19903
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2644;192,-1200;Inherit;False;Meenphie;0;;2555;b3ba55a08dd6b49c7be16c6f35cf2033;5,869,0,871,0,872,0,847,1,867,0;0;9;FLOAT3;625;FLOAT3;238;FLOAT3;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
+Version=19904
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2644;192,-1200;Inherit;False;Meenphie;0;;2555;b3ba55a08dd6b49c7be16c6f35cf2033;5,869,0,872,0,871,0,847,1,867,0;0;9;FLOAT3;625;FLOAT3;238;FLOAT3;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
 Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;0;Standard;Meenphie/Standard/Transparent;False;False;False;False;False;False;False;True;True;False;False;False;False;False;True;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Transparent;0.5;True;False;0;False;Transparent;;Transparent;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;2;5;False;;10;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
 WireConnection;1092;0;2644;625
 WireConnection;1092;1;2644;238
@@ -146,4 +147,4 @@ WireConnection;1092;4;2644;97
 WireConnection;1092;5;2644;95
 WireConnection;1092;9;2644;156
 ASEEND*/
-//CHKSM=80C96667373A2DF8204D76E528F717E9128644A7
+//CHKSM=28017CB125F5514BCF991489FA94053A57575E37

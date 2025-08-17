@@ -1,4 +1,4 @@
-// Made with Amplify Shader Editor v1.9.9.3
+// Made with Amplify Shader Editor v1.9.9.4
 // Available at the Unity Asset Store - http://u3d.as/y3X 
 Shader "Meenphie/Lightmapped/Simple/Opaque"
 {
@@ -22,7 +22,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[Meenphie_DrawerCategory(LIGHTMAPPING,true,0,0)] _CATEGORYLIGHTMAPPING( "CATEGORY LIGHTMAPPING", Float ) = 0
-		[Meenphie_DrawerTextureSingleLine] _Lightmap( "Lightmap", 2D ) = "gray" {}
+		[Meenphie_DrawerTextureSingleLine] _Lightmap( "Lightmap", 2D ) = "black" {}
 		[Toggle( _LIGHTMAPOCCLUSION_ON )] _LightmapOcclusion( "Lightmap Occlusion", Float ) = 1
 		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
@@ -52,7 +52,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
 		#pragma shader_feature_local_fragment _GLOSSINESSMAP
 		#pragma shader_feature_local_fragment _LIGHTMAPOCCLUSION_ON
-		#define ASE_VERSION 19903
+		#define ASE_VERSION 19904
 		#pragma surface surf Standard keepalpha exclude_path:deferred nodynlightmap nodirlightmap 
 		struct Input
 		{
@@ -73,12 +73,12 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 		uniform sampler2D _MainTex;
 		uniform float3 _EmissionColor;
 		uniform sampler2D _EmissionMap;
+		uniform float _Metallic;
 		uniform sampler2D _Lightmap;
 		uniform float4 _Lightmap_ST;
 		float4 _Lightmap_TexelSize;
 		uniform float _CATEGORYLIGHTMAPPING;
 		uniform float _CATEGORYSPACELIGHTMAPPING;
-		uniform float _Metallic;
 		uniform sampler2D _MetallicMap;
 		uniform float4 _MetallicMap_ST;
 		uniform float _Glossiness;
@@ -108,6 +108,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 			#endif
 			float3 Emission86_g1368 = staticSwitch851_g1368;
 			float3 Albedo6_g1368 = temp_output_5_0_g1368;
+			float Metallic_Value893_g1368 = _Metallic;
 			float localBicubicPrepare2_g1383 = ( 0.0 );
 			float2 uv3_Lightmap = i.uv3_texcoord3 * _Lightmap_ST.xy + _Lightmap_ST.zw;
 			float2 Input_UV100_g1383 = uv3_Lightmap;
@@ -143,16 +144,16 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 			 W12_g1383 = s.z / ( s.z + s.w );
 			}
 			}
-			float3 lerpResult46_g1383 = lerp( tex2D( _Lightmap, UV32_g1383 ).rgb , tex2D( _Lightmap, UV22_g1383 ).rgb , W02_g1383);
-			float3 lerpResult45_g1383 = lerp( tex2D( _Lightmap, UV12_g1383 ).rgb , tex2D( _Lightmap, UV02_g1383 ).rgb , W02_g1383);
-			float3 lerpResult44_g1383 = lerp( lerpResult46_g1383 , lerpResult45_g1383 , W12_g1383);
-			float3 Output_2D131_g1383 = lerpResult44_g1383;
+			float4 lerpResult46_g1383 = lerp( tex2D( _Lightmap, UV32_g1383 ) , tex2D( _Lightmap, UV22_g1383 ) , W02_g1383);
+			float4 lerpResult45_g1383 = lerp( tex2D( _Lightmap, UV12_g1383 ) , tex2D( _Lightmap, UV02_g1383 ) , W02_g1383);
+			float4 lerpResult44_g1383 = lerp( lerpResult46_g1383 , lerpResult45_g1383 , W12_g1383);
+			float4 Output_2D131_g1383 = lerpResult44_g1383;
 			float Lightmap_GUI886_g1368 = ( _CATEGORYLIGHTMAPPING + _CATEGORYSPACELIGHTMAPPING );
-			float3 temp_cast_1 = (Lightmap_GUI886_g1368).xxx;
-			float3 lerpResult882_g1368 = lerp( Output_2D131_g1383 , temp_cast_1 , float3( 0,0,0 ));
-			float3 Lightmap46_g1368 = lerpResult882_g1368;
-			float3 temp_output_614_0_g1368 = ( Albedo6_g1368 * Lightmap46_g1368 );
-			o.Emission = ( Emission86_g1368 + temp_output_614_0_g1368 );
+			float4 temp_cast_3 = (Lightmap_GUI886_g1368).xxxx;
+			float4 lerpResult882_g1368 = lerp( Output_2D131_g1383 , temp_cast_3 , float4( 0,0,0,0 ));
+			float4 Lightmap46_g1368 = lerpResult882_g1368;
+			float4 temp_output_614_0_g1368 = ( float4( Albedo6_g1368 , 0.0 ) * ( ( 1.0 - Metallic_Value893_g1368 ) * Lightmap46_g1368 ) );
+			o.Emission = ( float4( Emission86_g1368 , 0.0 ) + temp_output_614_0_g1368 ).rgb;
 			float2 uv_MetallicMap = i.uv_texcoord * _MetallicMap_ST.xy + _MetallicMap_ST.zw;
 			float saferPower803_g1368 = abs( tex2D( _MetallicMap, uv_MetallicMap ).a );
 			#ifdef _METALLICMAP
@@ -181,7 +182,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 			#endif
 			o.Smoothness = staticSwitch824_g1368;
 			float White38_g1368 = 1.0;
-			float dotResult835_g1368 = dot( Lightmap46_g1368 , float3( 0.299, 0.587, 0.114 ) );
+			float dotResult835_g1368 = dot( Lightmap46_g1368 , float4( float3( 0.299, 0.587, 0.114 ) , 0.0 ) );
 			float saferPower606_g1368 = abs( dotResult835_g1368 );
 			#ifdef _LIGHTMAPOCCLUSION_ON
 				float staticSwitch573_g1368 = pow( saferPower606_g1368 , _OcclusionPower );
@@ -198,8 +199,8 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 	CustomEditor "AmplifyShaderEditor.MaterialInspector"
 }
 /*ASEBEGIN
-Version=19903
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2859;192,-1200;Inherit;False;Meenphie;0;;1368;b3ba55a08dd6b49c7be16c6f35cf2033;5,869,1,871,1,872,1,847,0,867,0;0;9;FLOAT3;625;FLOAT3;238;FLOAT3;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
+Version=19904
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2859;192,-1200;Inherit;False;Meenphie;0;;1368;b3ba55a08dd6b49c7be16c6f35cf2033;5,869,1,872,1,871,1,847,0,867,0;0;9;FLOAT3;625;FLOAT3;238;COLOR;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
 Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;0;Standard;Meenphie/Lightmapped/Simple/Opaque;False;False;False;False;False;False;False;True;True;False;False;False;False;False;False;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Opaque;0.5;True;False;0;False;Opaque;;Geometry;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;0;0;False;;0;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
 WireConnection;1092;0;2859;625
 WireConnection;1092;1;2859;238
@@ -208,4 +209,4 @@ WireConnection;1092;3;2859;96
 WireConnection;1092;4;2859;97
 WireConnection;1092;5;2859;95
 ASEEND*/
-//CHKSM=FB534EC0B6DFD4642D3D3B15ED093D1A0B330E7A
+//CHKSM=C6ED1C28D02D23D66B85432B95FA097E15A36F84
