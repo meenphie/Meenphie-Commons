@@ -23,6 +23,7 @@ Shader "Meenphie/Standard/Opaque"
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
@@ -41,6 +42,7 @@ Shader "Meenphie/Standard/Opaque"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -83,9 +85,13 @@ Shader "Meenphie/Standard/Opaque"
 			o.Normal = Normal_Map700_g1368;
 			float2 uv_MainTex259_g1368 = i.uv_texcoord;
 			float4 tex2DNode259_g1368 = tex2D( _MainTex, uv_MainTex259_g1368 );
-			float3 temp_output_5_0_g1368 = ( _Color.rgb * tex2DNode259_g1368.rgb );
-			o.Albedo = temp_output_5_0_g1368;
-			float3 Albedo6_g1368 = temp_output_5_0_g1368;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g1368 = tex2DNode259_g1368.rgb;
+			#else
+				float3 staticSwitch899_g1368 = _Color.rgb;
+			#endif
+			float3 Albedo6_g1368 = staticSwitch899_g1368;
+			o.Albedo = Albedo6_g1368;
 			float Metallic_Value893_g1368 = _Metallic;
 			float White38_g1368 = 1.0;
 			float Lightmap46_g1368 = White38_g1368;
@@ -146,4 +152,4 @@ WireConnection;1092;3;2859;96
 WireConnection;1092;4;2859;97
 WireConnection;1092;5;2859;95
 ASEEND*/
-//CHKSM=251229E94FB5835AA43B825D1A4136318EBC9F65
+//CHKSM=2F6C327DB2A32799E40AE40896308AD0642EB771

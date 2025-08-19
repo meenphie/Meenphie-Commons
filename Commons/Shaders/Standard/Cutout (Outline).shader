@@ -26,9 +26,10 @@ Shader "Meenphie/Standard/Cutout (Outline)"
 		_OutlineColor( "Outline Color", Color ) = ( 0.02, 0.02, 0.02, 0 )
 		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.005
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE( "CATEGORY SPACE OUTLINE", Float ) = 0
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Forward Rendering Options)]
@@ -76,6 +77,7 @@ Shader "Meenphie/Standard/Cutout (Outline)"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -131,9 +133,13 @@ Shader "Meenphie/Standard/Cutout (Outline)"
 			o.Normal = Normal_Map700_g1970;
 			float2 uv_MainTex259_g1970 = i.uv_texcoord;
 			float4 tex2DNode259_g1970 = tex2D( _MainTex, uv_MainTex259_g1970 );
-			float3 temp_output_5_0_g1970 = ( _Color.rgb * tex2DNode259_g1970.rgb );
-			o.Albedo = temp_output_5_0_g1970;
-			float3 Albedo6_g1970 = temp_output_5_0_g1970;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g1970 = tex2DNode259_g1970.rgb;
+			#else
+				float3 staticSwitch899_g1970 = _Color.rgb;
+			#endif
+			float3 Albedo6_g1970 = staticSwitch899_g1970;
+			o.Albedo = Albedo6_g1970;
 			float Metallic_Value893_g1970 = _Metallic;
 			float White38_g1970 = 1.0;
 			float Lightmap46_g1970 = White38_g1970;
@@ -197,4 +203,4 @@ WireConnection;343;5;839;95
 WireConnection;343;10;839;427
 WireConnection;343;11;839;860
 ASEEND*/
-//CHKSM=C4D93C2C9B1D39AB0DC6B76292DA2A9E521D074E
+//CHKSM=31ECCCB812C55E700B1E7978BF2612A16AAC090F

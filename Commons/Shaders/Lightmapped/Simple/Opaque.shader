@@ -27,6 +27,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
@@ -47,6 +48,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -97,8 +99,13 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 			o.Normal = Normal_Map700_g1368;
 			float2 uv_MainTex259_g1368 = i.uv_texcoord;
 			float4 tex2DNode259_g1368 = tex2D( _MainTex, uv_MainTex259_g1368 );
-			float3 temp_output_5_0_g1368 = ( _Color.rgb * tex2DNode259_g1368.rgb );
-			o.Albedo = temp_output_5_0_g1368;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g1368 = tex2DNode259_g1368.rgb;
+			#else
+				float3 staticSwitch899_g1368 = _Color.rgb;
+			#endif
+			float3 Albedo6_g1368 = staticSwitch899_g1368;
+			o.Albedo = Albedo6_g1368;
 			float3 temp_cast_0 = 0;
 			float2 uv_EmissionMap81_g1368 = i.uv_texcoord;
 			#ifdef _EMISSION_ON
@@ -107,24 +114,23 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 				float3 staticSwitch851_g1368 = temp_cast_0;
 			#endif
 			float3 Emission86_g1368 = staticSwitch851_g1368;
-			float3 Albedo6_g1368 = temp_output_5_0_g1368;
 			float Metallic_Value893_g1368 = _Metallic;
-			float localBicubicPrepare2_g1383 = ( 0.0 );
+			float localBicubicPrepare2_g1381 = ( 0.0 );
 			float2 uv3_Lightmap = i.uv3_texcoord3 * _Lightmap_ST.xy + _Lightmap_ST.zw;
-			float2 Input_UV100_g1383 = uv3_Lightmap;
-			float2 UV2_g1383 = Input_UV100_g1383;
-			float4 TexelSize2_g1383 = _Lightmap_TexelSize;
-			float2 UV02_g1383 = float2( 0,0 );
-			float2 UV12_g1383 = float2( 0,0 );
-			float2 UV22_g1383 = float2( 0,0 );
-			float2 UV32_g1383 = float2( 0,0 );
-			float W02_g1383 = 0;
-			float W12_g1383 = 0;
+			float2 Input_UV100_g1381 = uv3_Lightmap;
+			float2 UV2_g1381 = Input_UV100_g1381;
+			float4 TexelSize2_g1381 = _Lightmap_TexelSize;
+			float2 UV02_g1381 = float2( 0,0 );
+			float2 UV12_g1381 = float2( 0,0 );
+			float2 UV22_g1381 = float2( 0,0 );
+			float2 UV32_g1381 = float2( 0,0 );
+			float W02_g1381 = 0;
+			float W12_g1381 = 0;
 			{
 			{
-			 UV2_g1383 = UV2_g1383 * TexelSize2_g1383.zw - 0.5;
-			    float2 f = frac( UV2_g1383 );
-			    UV2_g1383 -= f;
+			 UV2_g1381 = UV2_g1381 * TexelSize2_g1381.zw - 0.5;
+			    float2 f = frac( UV2_g1381 );
+			    UV2_g1381 -= f;
 			    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 			    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 			    float4 xs = xn * xn * xn;
@@ -133,24 +139,24 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 			    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 			    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 			 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			    float4 c = float4( UV2_g1383.x - 0.5, UV2_g1383.x + 1.5, UV2_g1383.y - 0.5, UV2_g1383.y + 1.5 );
+			    float4 c = float4( UV2_g1381.x - 0.5, UV2_g1381.x + 1.5, UV2_g1381.y - 0.5, UV2_g1381.y + 1.5 );
 			    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1383.xyxy;
-			    UV02_g1383 = off.xz;
-			    UV12_g1383 = off.yz;
-			    UV22_g1383 = off.xw;
-			    UV32_g1383 = off.yw;
-			    W02_g1383 = s.x / ( s.x + s.y );
-			 W12_g1383 = s.z / ( s.z + s.w );
+			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1381.xyxy;
+			    UV02_g1381 = off.xz;
+			    UV12_g1381 = off.yz;
+			    UV22_g1381 = off.xw;
+			    UV32_g1381 = off.yw;
+			    W02_g1381 = s.x / ( s.x + s.y );
+			 W12_g1381 = s.z / ( s.z + s.w );
 			}
 			}
-			float4 lerpResult46_g1383 = lerp( tex2D( _Lightmap, UV32_g1383 ) , tex2D( _Lightmap, UV22_g1383 ) , W02_g1383);
-			float4 lerpResult45_g1383 = lerp( tex2D( _Lightmap, UV12_g1383 ) , tex2D( _Lightmap, UV02_g1383 ) , W02_g1383);
-			float4 lerpResult44_g1383 = lerp( lerpResult46_g1383 , lerpResult45_g1383 , W12_g1383);
-			float4 Output_2D131_g1383 = lerpResult44_g1383;
+			float4 lerpResult46_g1381 = lerp( tex2D( _Lightmap, UV32_g1381 ) , tex2D( _Lightmap, UV22_g1381 ) , W02_g1381);
+			float4 lerpResult45_g1381 = lerp( tex2D( _Lightmap, UV12_g1381 ) , tex2D( _Lightmap, UV02_g1381 ) , W02_g1381);
+			float4 lerpResult44_g1381 = lerp( lerpResult46_g1381 , lerpResult45_g1381 , W12_g1381);
+			float4 Output_2D131_g1381 = lerpResult44_g1381;
 			float Lightmap_GUI886_g1368 = ( _CATEGORYLIGHTMAPPING + _CATEGORYSPACELIGHTMAPPING );
 			float4 temp_cast_3 = (Lightmap_GUI886_g1368).xxxx;
-			float4 lerpResult882_g1368 = lerp( Output_2D131_g1383 , temp_cast_3 , float4( 0,0,0,0 ));
+			float4 lerpResult882_g1368 = lerp( Output_2D131_g1381 , temp_cast_3 , float4( 0,0,0,0 ));
 			float4 Lightmap46_g1368 = lerpResult882_g1368;
 			float4 temp_output_614_0_g1368 = ( float4( Albedo6_g1368 , 0.0 ) * ( ( 1.0 - Metallic_Value893_g1368 ) * Lightmap46_g1368 ) );
 			o.Emission = ( float4( Emission86_g1368 , 0.0 ) + temp_output_614_0_g1368 ).rgb;
@@ -209,4 +215,4 @@ WireConnection;1092;3;2859;96
 WireConnection;1092;4;2859;97
 WireConnection;1092;5;2859;95
 ASEEND*/
-//CHKSM=C6ED1C28D02D23D66B85432B95FA097E15A36F84
+//CHKSM=BC7E9870F577C03AE4E637AB08C81D64794DBB90

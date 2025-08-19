@@ -34,6 +34,7 @@ Shader "Meenphie/Lightmapped/RNM/Cutout (Outline)"
 		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.005
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE( "CATEGORY SPACE OUTLINE", Float ) = 0
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
@@ -84,6 +85,7 @@ Shader "Meenphie/Lightmapped/RNM/Cutout (Outline)"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -149,8 +151,13 @@ Shader "Meenphie/Lightmapped/RNM/Cutout (Outline)"
 			o.Normal = Normal_Map700_g1954;
 			float2 uv_MainTex259_g1954 = i.uv_texcoord;
 			float4 tex2DNode259_g1954 = tex2D( _MainTex, uv_MainTex259_g1954 );
-			float3 temp_output_5_0_g1954 = ( _Color.rgb * tex2DNode259_g1954.rgb );
-			o.Albedo = temp_output_5_0_g1954;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g1954 = tex2DNode259_g1954.rgb;
+			#else
+				float3 staticSwitch899_g1954 = _Color.rgb;
+			#endif
+			float3 Albedo6_g1954 = staticSwitch899_g1954;
+			o.Albedo = Albedo6_g1954;
 			float3 temp_cast_0 = 0;
 			float2 uv_EmissionMap81_g1954 = i.uv_texcoord;
 			#ifdef _EMISSION_ON
@@ -159,22 +166,21 @@ Shader "Meenphie/Lightmapped/RNM/Cutout (Outline)"
 				float3 staticSwitch851_g1954 = temp_cast_0;
 			#endif
 			float3 Emission86_g1954 = staticSwitch851_g1954;
-			float3 Albedo6_g1954 = temp_output_5_0_g1954;
 			float Metallic_Value893_g1954 = _Metallic;
-			float3 appendResult139_g1956 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
-			float3 normalizeResult326_g1956 = normalize( Normal_Map700_g1954 );
-			float3 Normal_Map318_g1956 = normalizeResult326_g1956;
-			float dotResult121_g1956 = dot( appendResult139_g1956 , Normal_Map318_g1956 );
-			float localStochasticTiling2_g1964 = ( 0.0 );
+			float3 appendResult139_g1969 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
+			float3 normalizeResult326_g1969 = normalize( Normal_Map700_g1954 );
+			float3 Normal_Map318_g1969 = normalizeResult326_g1969;
+			float dotResult121_g1969 = dot( appendResult139_g1969 , Normal_Map318_g1969 );
+			float localStochasticTiling2_g1962 = ( 0.0 );
 			float2 uv3_RNMX0 = i.uv3_texcoord3 * _RNMX0_ST.xy + _RNMX0_ST.zw;
-			float2 UV2_g1964 = uv3_RNMX0;
-			float4 TexelSize2_g1964 = _RNMX0_TexelSize;
-			float4 Offsets2_g1964 = float4( 0,0,0,0 );
-			float2 Weights2_g1964 = float2( 0,0 );
+			float2 UV2_g1962 = uv3_RNMX0;
+			float4 TexelSize2_g1962 = _RNMX0_TexelSize;
+			float4 Offsets2_g1962 = float4( 0,0,0,0 );
+			float2 Weights2_g1962 = float2( 0,0 );
 			{
-			UV2_g1964 = UV2_g1964 * TexelSize2_g1964.zw - 0.5;
-			float2 f = frac( UV2_g1964 );
-			UV2_g1964 -= f;
+			UV2_g1962 = UV2_g1962 * TexelSize2_g1962.zw - 0.5;
+			float2 f = frac( UV2_g1962 );
+			UV2_g1962 -= f;
 			float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 			float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 			float4 xs = xn * xn * xn;
@@ -183,44 +189,44 @@ Shader "Meenphie/Lightmapped/RNM/Cutout (Outline)"
 			float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 			float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 			float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			float4 c = float4( UV2_g1964.x - 0.5, UV2_g1964.x + 1.5, UV2_g1964.y - 0.5, UV2_g1964.y + 1.5 );
+			float4 c = float4( UV2_g1962.x - 0.5, UV2_g1962.x + 1.5, UV2_g1962.y - 0.5, UV2_g1962.y + 1.5 );
 			float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
 			float w0 = s.x / ( s.x + s.y );
 			float w1 = s.z / ( s.z + s.w );
-			Offsets2_g1964 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1964.xyxy;
-			Weights2_g1964 = float2( w0, w1 );
+			Offsets2_g1962 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1962.xyxy;
+			Weights2_g1962 = float2( w0, w1 );
 			}
-			float4 temp_output_1_34_g1963 = Offsets2_g1964;
-			float4 Input_FetchOffsets197_g1967 = temp_output_1_34_g1963;
-			float2 temp_output_1_54_g1963 = Weights2_g1964;
-			float2 Input_FetchWeights200_g1967 = temp_output_1_54_g1963;
-			float2 break187_g1967 = Input_FetchWeights200_g1967;
-			float4 lerpResult181_g1967 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g1967).yw ) , tex2D( _RNMX0, (Input_FetchOffsets197_g1967).xw ) , break187_g1967.x);
-			float4 lerpResult182_g1967 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g1967).yz ) , tex2D( _RNMX0, (Input_FetchOffsets197_g1967).xz ) , break187_g1967.x);
-			float4 lerpResult176_g1967 = lerp( lerpResult181_g1967 , lerpResult182_g1967 , break187_g1967.y);
-			float4 Output_Fetch2D202_g1967 = lerpResult176_g1967;
-			float3 appendResult146_g1956 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-			float dotResult122_g1956 = dot( appendResult146_g1956 , Normal_Map318_g1956 );
-			float4 Input_FetchOffsets197_g1965 = temp_output_1_34_g1963;
-			float2 Input_FetchWeights200_g1965 = temp_output_1_54_g1963;
+			float4 temp_output_1_34_g1961 = Offsets2_g1962;
+			float4 Input_FetchOffsets197_g1965 = temp_output_1_34_g1961;
+			float2 temp_output_1_54_g1961 = Weights2_g1962;
+			float2 Input_FetchWeights200_g1965 = temp_output_1_54_g1961;
 			float2 break187_g1965 = Input_FetchWeights200_g1965;
-			float4 lerpResult181_g1965 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g1965).yw ) , tex2D( _RNMY0, (Input_FetchOffsets197_g1965).xw ) , break187_g1965.x);
-			float4 lerpResult182_g1965 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g1965).yz ) , tex2D( _RNMY0, (Input_FetchOffsets197_g1965).xz ) , break187_g1965.x);
+			float4 lerpResult181_g1965 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g1965).yw ) , tex2D( _RNMX0, (Input_FetchOffsets197_g1965).xw ) , break187_g1965.x);
+			float4 lerpResult182_g1965 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g1965).yz ) , tex2D( _RNMX0, (Input_FetchOffsets197_g1965).xz ) , break187_g1965.x);
 			float4 lerpResult176_g1965 = lerp( lerpResult181_g1965 , lerpResult182_g1965 , break187_g1965.y);
 			float4 Output_Fetch2D202_g1965 = lerpResult176_g1965;
-			float3 appendResult149_g1956 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-			float dotResult120_g1956 = dot( appendResult149_g1956 , Normal_Map318_g1956 );
-			float4 Input_FetchOffsets197_g1966 = temp_output_1_34_g1963;
-			float2 Input_FetchWeights200_g1966 = temp_output_1_54_g1963;
-			float2 break187_g1966 = Input_FetchWeights200_g1966;
-			float4 lerpResult181_g1966 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g1966).yw ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g1966).xw ) , break187_g1966.x);
-			float4 lerpResult182_g1966 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g1966).yz ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g1966).xz ) , break187_g1966.x);
-			float4 lerpResult176_g1966 = lerp( lerpResult181_g1966 , lerpResult182_g1966 , break187_g1966.y);
-			float4 Output_Fetch2D202_g1966 = lerpResult176_g1966;
-			float4 temp_output_838_0_g1954 = ( ( ( saturate( dotResult121_g1956 ) * ( Output_Fetch2D202_g1967 * 1.0 ) ) + ( saturate( dotResult122_g1956 ) * ( Output_Fetch2D202_g1965 * 1.0 ) ) ) + ( saturate( dotResult120_g1956 ) * ( Output_Fetch2D202_g1966 * 1.0 ) ) );
+			float3 appendResult146_g1969 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+			float dotResult122_g1969 = dot( appendResult146_g1969 , Normal_Map318_g1969 );
+			float4 Input_FetchOffsets197_g1963 = temp_output_1_34_g1961;
+			float2 Input_FetchWeights200_g1963 = temp_output_1_54_g1961;
+			float2 break187_g1963 = Input_FetchWeights200_g1963;
+			float4 lerpResult181_g1963 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g1963).yw ) , tex2D( _RNMY0, (Input_FetchOffsets197_g1963).xw ) , break187_g1963.x);
+			float4 lerpResult182_g1963 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g1963).yz ) , tex2D( _RNMY0, (Input_FetchOffsets197_g1963).xz ) , break187_g1963.x);
+			float4 lerpResult176_g1963 = lerp( lerpResult181_g1963 , lerpResult182_g1963 , break187_g1963.y);
+			float4 Output_Fetch2D202_g1963 = lerpResult176_g1963;
+			float3 appendResult149_g1969 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+			float dotResult120_g1969 = dot( appendResult149_g1969 , Normal_Map318_g1969 );
+			float4 Input_FetchOffsets197_g1964 = temp_output_1_34_g1961;
+			float2 Input_FetchWeights200_g1964 = temp_output_1_54_g1961;
+			float2 break187_g1964 = Input_FetchWeights200_g1964;
+			float4 lerpResult181_g1964 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g1964).yw ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g1964).xw ) , break187_g1964.x);
+			float4 lerpResult182_g1964 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g1964).yz ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g1964).xz ) , break187_g1964.x);
+			float4 lerpResult176_g1964 = lerp( lerpResult181_g1964 , lerpResult182_g1964 , break187_g1964.y);
+			float4 Output_Fetch2D202_g1964 = lerpResult176_g1964;
+			float4 temp_output_898_0_g1954 = ( ( ( saturate( dotResult121_g1969 ) * ( Output_Fetch2D202_g1965 * 0.8 ) ) + ( saturate( dotResult122_g1969 ) * ( Output_Fetch2D202_g1963 * 0.8 ) ) ) + ( saturate( dotResult120_g1969 ) * ( Output_Fetch2D202_g1964 * 0.8 ) ) );
 			float Lightmap_GUI886_g1954 = ( _CATEGORYLIGHTMAPPING + _CATEGORYSPACELIGHTMAPPING );
 			float4 temp_cast_3 = (Lightmap_GUI886_g1954).xxxx;
-			float4 lerpResult882_g1954 = lerp( temp_output_838_0_g1954 , temp_cast_3 , float4( 0,0,0,0 ));
+			float4 lerpResult882_g1954 = lerp( temp_output_898_0_g1954 , temp_cast_3 , float4( 0,0,0,0 ));
 			float4 Lightmap46_g1954 = lerpResult882_g1954;
 			float4 temp_output_614_0_g1954 = ( float4( Albedo6_g1954 , 0.0 ) * ( ( 1.0 - Metallic_Value893_g1954 ) * Lightmap46_g1954 ) );
 			o.Emission = ( float4( Emission86_g1954 , 0.0 ) + temp_output_614_0_g1954 ).rgb;
@@ -282,4 +288,4 @@ WireConnection;343;5;838;95
 WireConnection;343;10;838;427
 WireConnection;343;11;838;860
 ASEEND*/
-//CHKSM=D8622D1B4709545E31DE638E4A223796D3964B32
+//CHKSM=44B0F8739EC96D24E414D073D3434975CC9F2853

@@ -23,6 +23,7 @@ Shader "Meenphie/Standard/Transparent"
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
@@ -41,6 +42,7 @@ Shader "Meenphie/Standard/Transparent"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -83,9 +85,13 @@ Shader "Meenphie/Standard/Transparent"
 			o.Normal = Normal_Map700_g2555;
 			float2 uv_MainTex259_g2555 = i.uv_texcoord;
 			float4 tex2DNode259_g2555 = tex2D( _MainTex, uv_MainTex259_g2555 );
-			float3 temp_output_5_0_g2555 = ( _Color.rgb * tex2DNode259_g2555.rgb );
-			o.Albedo = temp_output_5_0_g2555;
-			float3 Albedo6_g2555 = temp_output_5_0_g2555;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g2555 = tex2DNode259_g2555.rgb;
+			#else
+				float3 staticSwitch899_g2555 = _Color.rgb;
+			#endif
+			float3 Albedo6_g2555 = staticSwitch899_g2555;
+			o.Albedo = Albedo6_g2555;
 			float Metallic_Value893_g2555 = _Metallic;
 			float White38_g2555 = 1.0;
 			float Lightmap46_g2555 = White38_g2555;
@@ -127,7 +133,12 @@ Shader "Meenphie/Standard/Transparent"
 			#endif
 			o.Smoothness = staticSwitch824_g2555;
 			o.Occlusion = White38_g2555;
-			o.Alpha = ( tex2DNode259_g2555.a * _Color.a );
+			#ifdef _MAINTEX
+				float staticSwitch900_g2555 = tex2DNode259_g2555.a;
+			#else
+				float staticSwitch900_g2555 = _Color.a;
+			#endif
+			o.Alpha = staticSwitch900_g2555;
 		}
 
 		ENDCG
@@ -147,4 +158,4 @@ WireConnection;1092;4;2644;97
 WireConnection;1092;5;2644;95
 WireConnection;1092;9;2644;156
 ASEEND*/
-//CHKSM=28017CB125F5514BCF991489FA94053A57575E37
+//CHKSM=73A897FF7B4606DEA960AA554B25578E69EADCE1

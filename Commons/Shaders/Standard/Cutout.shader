@@ -22,9 +22,10 @@ Shader "Meenphie/Standard/Cutout"
 		[NoScaleOffset][Meenphie_DrawerTextureSingleLine] _EmissionMap( "Emission Map", 2D ) = "black" {}
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
-		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
+		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Forward Rendering Options)]
@@ -42,6 +43,7 @@ Shader "Meenphie/Standard/Cutout"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -85,9 +87,13 @@ Shader "Meenphie/Standard/Cutout"
 			o.Normal = Normal_Map700_g1954;
 			float2 uv_MainTex259_g1954 = i.uv_texcoord;
 			float4 tex2DNode259_g1954 = tex2D( _MainTex, uv_MainTex259_g1954 );
-			float3 temp_output_5_0_g1954 = ( _Color.rgb * tex2DNode259_g1954.rgb );
-			o.Albedo = temp_output_5_0_g1954;
-			float3 Albedo6_g1954 = temp_output_5_0_g1954;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g1954 = tex2DNode259_g1954.rgb;
+			#else
+				float3 staticSwitch899_g1954 = _Color.rgb;
+			#endif
+			float3 Albedo6_g1954 = staticSwitch899_g1954;
+			o.Albedo = Albedo6_g1954;
 			float Metallic_Value893_g1954 = _Metallic;
 			float White38_g1954 = 1.0;
 			float Lightmap46_g1954 = White38_g1954;
@@ -150,4 +156,4 @@ WireConnection;343;4;838;97
 WireConnection;343;5;838;95
 WireConnection;343;10;838;427
 ASEEND*/
-//CHKSM=E583293A16B6047F800C90E9FA84C4B80D335DF0
+//CHKSM=A9E6B40EC2E27BBEECB905E20574E69E6163C0D2

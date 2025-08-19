@@ -28,8 +28,9 @@ Shader "Meenphie/Lightmapped/Simple/Cutout"
 		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
+		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
@@ -48,6 +49,7 @@ Shader "Meenphie/Lightmapped/Simple/Cutout"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -99,8 +101,13 @@ Shader "Meenphie/Lightmapped/Simple/Cutout"
 			o.Normal = Normal_Map700_g1954;
 			float2 uv_MainTex259_g1954 = i.uv_texcoord;
 			float4 tex2DNode259_g1954 = tex2D( _MainTex, uv_MainTex259_g1954 );
-			float3 temp_output_5_0_g1954 = ( _Color.rgb * tex2DNode259_g1954.rgb );
-			o.Albedo = temp_output_5_0_g1954;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g1954 = tex2DNode259_g1954.rgb;
+			#else
+				float3 staticSwitch899_g1954 = _Color.rgb;
+			#endif
+			float3 Albedo6_g1954 = staticSwitch899_g1954;
+			o.Albedo = Albedo6_g1954;
 			float3 temp_cast_0 = 0;
 			float2 uv_EmissionMap81_g1954 = i.uv_texcoord;
 			#ifdef _EMISSION_ON
@@ -109,24 +116,23 @@ Shader "Meenphie/Lightmapped/Simple/Cutout"
 				float3 staticSwitch851_g1954 = temp_cast_0;
 			#endif
 			float3 Emission86_g1954 = staticSwitch851_g1954;
-			float3 Albedo6_g1954 = temp_output_5_0_g1954;
 			float Metallic_Value893_g1954 = _Metallic;
-			float localBicubicPrepare2_g1969 = ( 0.0 );
+			float localBicubicPrepare2_g1967 = ( 0.0 );
 			float2 uv3_Lightmap = i.uv3_texcoord3 * _Lightmap_ST.xy + _Lightmap_ST.zw;
-			float2 Input_UV100_g1969 = uv3_Lightmap;
-			float2 UV2_g1969 = Input_UV100_g1969;
-			float4 TexelSize2_g1969 = _Lightmap_TexelSize;
-			float2 UV02_g1969 = float2( 0,0 );
-			float2 UV12_g1969 = float2( 0,0 );
-			float2 UV22_g1969 = float2( 0,0 );
-			float2 UV32_g1969 = float2( 0,0 );
-			float W02_g1969 = 0;
-			float W12_g1969 = 0;
+			float2 Input_UV100_g1967 = uv3_Lightmap;
+			float2 UV2_g1967 = Input_UV100_g1967;
+			float4 TexelSize2_g1967 = _Lightmap_TexelSize;
+			float2 UV02_g1967 = float2( 0,0 );
+			float2 UV12_g1967 = float2( 0,0 );
+			float2 UV22_g1967 = float2( 0,0 );
+			float2 UV32_g1967 = float2( 0,0 );
+			float W02_g1967 = 0;
+			float W12_g1967 = 0;
 			{
 			{
-			 UV2_g1969 = UV2_g1969 * TexelSize2_g1969.zw - 0.5;
-			    float2 f = frac( UV2_g1969 );
-			    UV2_g1969 -= f;
+			 UV2_g1967 = UV2_g1967 * TexelSize2_g1967.zw - 0.5;
+			    float2 f = frac( UV2_g1967 );
+			    UV2_g1967 -= f;
 			    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 			    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 			    float4 xs = xn * xn * xn;
@@ -135,24 +141,24 @@ Shader "Meenphie/Lightmapped/Simple/Cutout"
 			    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 			    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 			 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			    float4 c = float4( UV2_g1969.x - 0.5, UV2_g1969.x + 1.5, UV2_g1969.y - 0.5, UV2_g1969.y + 1.5 );
+			    float4 c = float4( UV2_g1967.x - 0.5, UV2_g1967.x + 1.5, UV2_g1967.y - 0.5, UV2_g1967.y + 1.5 );
 			    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1969.xyxy;
-			    UV02_g1969 = off.xz;
-			    UV12_g1969 = off.yz;
-			    UV22_g1969 = off.xw;
-			    UV32_g1969 = off.yw;
-			    W02_g1969 = s.x / ( s.x + s.y );
-			 W12_g1969 = s.z / ( s.z + s.w );
+			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1967.xyxy;
+			    UV02_g1967 = off.xz;
+			    UV12_g1967 = off.yz;
+			    UV22_g1967 = off.xw;
+			    UV32_g1967 = off.yw;
+			    W02_g1967 = s.x / ( s.x + s.y );
+			 W12_g1967 = s.z / ( s.z + s.w );
 			}
 			}
-			float4 lerpResult46_g1969 = lerp( tex2D( _Lightmap, UV32_g1969 ) , tex2D( _Lightmap, UV22_g1969 ) , W02_g1969);
-			float4 lerpResult45_g1969 = lerp( tex2D( _Lightmap, UV12_g1969 ) , tex2D( _Lightmap, UV02_g1969 ) , W02_g1969);
-			float4 lerpResult44_g1969 = lerp( lerpResult46_g1969 , lerpResult45_g1969 , W12_g1969);
-			float4 Output_2D131_g1969 = lerpResult44_g1969;
+			float4 lerpResult46_g1967 = lerp( tex2D( _Lightmap, UV32_g1967 ) , tex2D( _Lightmap, UV22_g1967 ) , W02_g1967);
+			float4 lerpResult45_g1967 = lerp( tex2D( _Lightmap, UV12_g1967 ) , tex2D( _Lightmap, UV02_g1967 ) , W02_g1967);
+			float4 lerpResult44_g1967 = lerp( lerpResult46_g1967 , lerpResult45_g1967 , W12_g1967);
+			float4 Output_2D131_g1967 = lerpResult44_g1967;
 			float Lightmap_GUI886_g1954 = ( _CATEGORYLIGHTMAPPING + _CATEGORYSPACELIGHTMAPPING );
 			float4 temp_cast_3 = (Lightmap_GUI886_g1954).xxxx;
-			float4 lerpResult882_g1954 = lerp( Output_2D131_g1969 , temp_cast_3 , float4( 0,0,0,0 ));
+			float4 lerpResult882_g1954 = lerp( Output_2D131_g1967 , temp_cast_3 , float4( 0,0,0,0 ));
 			float4 Lightmap46_g1954 = lerpResult882_g1954;
 			float4 temp_output_614_0_g1954 = ( float4( Albedo6_g1954 , 0.0 ) * ( ( 1.0 - Metallic_Value893_g1954 ) * Lightmap46_g1954 ) );
 			o.Emission = ( float4( Emission86_g1954 , 0.0 ) + temp_output_614_0_g1954 ).rgb;
@@ -213,4 +219,4 @@ WireConnection;343;4;838;97
 WireConnection;343;5;838;95
 WireConnection;343;10;838;427
 ASEEND*/
-//CHKSM=E10069D4651B2C25F8860A14D5928C9C9F799129
+//CHKSM=72F9F65B9B828EECD44132B6B1609AEBF716368E

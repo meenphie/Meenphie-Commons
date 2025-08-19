@@ -31,9 +31,10 @@ Shader "Meenphie/Lightmapped/Simple/Opaque (Outline)"
 		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.005
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE( "CATEGORY SPACE OUTLINE", Float ) = 0
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
-		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
+		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Forward Rendering Options)]
@@ -81,6 +82,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque (Outline)"
 		#pragma shader_feature _SPECULARHIGHLIGHTS_OFF
 		#pragma shader_feature _GLOSSYREFLECTIONS_OFF
 		#pragma shader_feature_local_fragment _BUMPMAP
+		#pragma shader_feature_local_fragment _MAINTEX
 		#pragma shader_feature_local_fragment _EMISSION_ON
 		#pragma shader_feature_local_fragment _METALLICMAP
 		#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
@@ -143,8 +145,13 @@ Shader "Meenphie/Lightmapped/Simple/Opaque (Outline)"
 			o.Normal = Normal_Map700_g1496;
 			float2 uv_MainTex259_g1496 = i.uv_texcoord;
 			float4 tex2DNode259_g1496 = tex2D( _MainTex, uv_MainTex259_g1496 );
-			float3 temp_output_5_0_g1496 = ( _Color.rgb * tex2DNode259_g1496.rgb );
-			o.Albedo = temp_output_5_0_g1496;
+			#ifdef _MAINTEX
+				float3 staticSwitch899_g1496 = tex2DNode259_g1496.rgb;
+			#else
+				float3 staticSwitch899_g1496 = _Color.rgb;
+			#endif
+			float3 Albedo6_g1496 = staticSwitch899_g1496;
+			o.Albedo = Albedo6_g1496;
 			float3 temp_cast_0 = 0;
 			float2 uv_EmissionMap81_g1496 = i.uv_texcoord;
 			#ifdef _EMISSION_ON
@@ -153,24 +160,23 @@ Shader "Meenphie/Lightmapped/Simple/Opaque (Outline)"
 				float3 staticSwitch851_g1496 = temp_cast_0;
 			#endif
 			float3 Emission86_g1496 = staticSwitch851_g1496;
-			float3 Albedo6_g1496 = temp_output_5_0_g1496;
 			float Metallic_Value893_g1496 = _Metallic;
-			float localBicubicPrepare2_g1511 = ( 0.0 );
+			float localBicubicPrepare2_g1509 = ( 0.0 );
 			float2 uv3_Lightmap = i.uv3_texcoord3 * _Lightmap_ST.xy + _Lightmap_ST.zw;
-			float2 Input_UV100_g1511 = uv3_Lightmap;
-			float2 UV2_g1511 = Input_UV100_g1511;
-			float4 TexelSize2_g1511 = _Lightmap_TexelSize;
-			float2 UV02_g1511 = float2( 0,0 );
-			float2 UV12_g1511 = float2( 0,0 );
-			float2 UV22_g1511 = float2( 0,0 );
-			float2 UV32_g1511 = float2( 0,0 );
-			float W02_g1511 = 0;
-			float W12_g1511 = 0;
+			float2 Input_UV100_g1509 = uv3_Lightmap;
+			float2 UV2_g1509 = Input_UV100_g1509;
+			float4 TexelSize2_g1509 = _Lightmap_TexelSize;
+			float2 UV02_g1509 = float2( 0,0 );
+			float2 UV12_g1509 = float2( 0,0 );
+			float2 UV22_g1509 = float2( 0,0 );
+			float2 UV32_g1509 = float2( 0,0 );
+			float W02_g1509 = 0;
+			float W12_g1509 = 0;
 			{
 			{
-			 UV2_g1511 = UV2_g1511 * TexelSize2_g1511.zw - 0.5;
-			    float2 f = frac( UV2_g1511 );
-			    UV2_g1511 -= f;
+			 UV2_g1509 = UV2_g1509 * TexelSize2_g1509.zw - 0.5;
+			    float2 f = frac( UV2_g1509 );
+			    UV2_g1509 -= f;
 			    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 			    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 			    float4 xs = xn * xn * xn;
@@ -179,24 +185,24 @@ Shader "Meenphie/Lightmapped/Simple/Opaque (Outline)"
 			    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 			    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 			 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			    float4 c = float4( UV2_g1511.x - 0.5, UV2_g1511.x + 1.5, UV2_g1511.y - 0.5, UV2_g1511.y + 1.5 );
+			    float4 c = float4( UV2_g1509.x - 0.5, UV2_g1509.x + 1.5, UV2_g1509.y - 0.5, UV2_g1509.y + 1.5 );
 			    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1511.xyxy;
-			    UV02_g1511 = off.xz;
-			    UV12_g1511 = off.yz;
-			    UV22_g1511 = off.xw;
-			    UV32_g1511 = off.yw;
-			    W02_g1511 = s.x / ( s.x + s.y );
-			 W12_g1511 = s.z / ( s.z + s.w );
+			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1509.xyxy;
+			    UV02_g1509 = off.xz;
+			    UV12_g1509 = off.yz;
+			    UV22_g1509 = off.xw;
+			    UV32_g1509 = off.yw;
+			    W02_g1509 = s.x / ( s.x + s.y );
+			 W12_g1509 = s.z / ( s.z + s.w );
 			}
 			}
-			float4 lerpResult46_g1511 = lerp( tex2D( _Lightmap, UV32_g1511 ) , tex2D( _Lightmap, UV22_g1511 ) , W02_g1511);
-			float4 lerpResult45_g1511 = lerp( tex2D( _Lightmap, UV12_g1511 ) , tex2D( _Lightmap, UV02_g1511 ) , W02_g1511);
-			float4 lerpResult44_g1511 = lerp( lerpResult46_g1511 , lerpResult45_g1511 , W12_g1511);
-			float4 Output_2D131_g1511 = lerpResult44_g1511;
+			float4 lerpResult46_g1509 = lerp( tex2D( _Lightmap, UV32_g1509 ) , tex2D( _Lightmap, UV22_g1509 ) , W02_g1509);
+			float4 lerpResult45_g1509 = lerp( tex2D( _Lightmap, UV12_g1509 ) , tex2D( _Lightmap, UV02_g1509 ) , W02_g1509);
+			float4 lerpResult44_g1509 = lerp( lerpResult46_g1509 , lerpResult45_g1509 , W12_g1509);
+			float4 Output_2D131_g1509 = lerpResult44_g1509;
 			float Lightmap_GUI886_g1496 = ( _CATEGORYLIGHTMAPPING + _CATEGORYSPACELIGHTMAPPING );
 			float4 temp_cast_3 = (Lightmap_GUI886_g1496).xxxx;
-			float4 lerpResult882_g1496 = lerp( Output_2D131_g1511 , temp_cast_3 , float4( 0,0,0,0 ));
+			float4 lerpResult882_g1496 = lerp( Output_2D131_g1509 , temp_cast_3 , float4( 0,0,0,0 ));
 			float4 Lightmap46_g1496 = lerpResult882_g1496;
 			float4 temp_output_614_0_g1496 = ( float4( Albedo6_g1496 , 0.0 ) * ( ( 1.0 - Metallic_Value893_g1496 ) * Lightmap46_g1496 ) );
 			o.Emission = ( float4( Emission86_g1496 , 0.0 ) + temp_output_614_0_g1496 ).rgb;
@@ -256,4 +262,4 @@ WireConnection;1092;4;2867;97
 WireConnection;1092;5;2867;95
 WireConnection;1092;11;2867;860
 ASEEND*/
-//CHKSM=4DC019BB1BF922960F5814D80825F4F73B99B98D
+//CHKSM=D4D08B3212BADB406DDC4D8BDEB346DD5526AE21
