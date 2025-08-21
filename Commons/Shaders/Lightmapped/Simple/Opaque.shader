@@ -6,31 +6,29 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 	{
 		[Meenphie_DrawerCategory(SURFACE OPTIONS,true,0,0)] _CATEGORY_SURFACEOPTIONS( "CATEGORY_SURFACEOPTIONS", Float ) = 1
 		_Color( "DIffuse Color", Color ) = ( 0.9058824, 0.9058824, 0.9058824, 1 )
-		[NoScaleOffset][Meenphie_DrawerTextureSingleLine] _MainTex( "Diffuse Map", 2D ) = "white" {}
-		[NoScaleOffset][Meenphie_DrawerTextureSingleLine] _BumpMap( "Normal Map", 2D ) = "bump" {}
-		[Meenphie_DrawerTextureSingleLine] _MetallicMap( "Metallic Map", 2D ) = "white" {}
-		[NoScaleOffset][Meenphie_DrawerTextureSingleLine] _GlossinessMap( "Roughness Map", 2D ) = "black" {}
+		[NoScaleOffset][SingleLineTexture] _MainTex( "Diffuse Map", 2D ) = "white" {}
+		[NoScaleOffset][SingleLineTexture] _BumpMap( "Normal Map", 2D ) = "white" {}
 		_NormalScale( "Normal Scale", Float ) = 1
+		[NoScaleOffset][SingleLineTexture] _MetallicMap( "Metallic Map", 2D ) = "white" {}
+		[NoScaleOffset][SingleLineTexture] _GlossinessMap( "Roughness Map", 2D ) = "white" {}
 		_Metallic( "Metallic", Range( 0, 1 ) ) = 0
 		_Glossiness( "Smoothness", Range( 0, 1 ) ) = 0.5
 		[Toggle( _USEGEOMETRICANTIALIASING_ON )] _UseGeometricAntiAliasing( "Use Geometric Anti Aliasing", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
 		[Toggle( _EMISSION_ON )] _EMISSION( "Emission Enabled", Float ) = 0
-		[HDR][Gamma] _EmissionColor( "Emission Color", Color ) = ( 0, 0, 0 )
-		[NoScaleOffset][Meenphie_DrawerTextureSingleLine] _EmissionMap( "Emission Map", 2D ) = "black" {}
+		[HDR][Gamma] _EmissionColor( "Emission Color", Color ) = ( 0, 0, 0, 0 )
+		[NoScaleOffset][SingleLineTexture] _EmissionMap( "Emission Map", 2D ) = "black" {}
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[Meenphie_DrawerCategory(LIGHTMAPPING,true,0,0)] _CATEGORYLIGHTMAPPING( "CATEGORY LIGHTMAPPING", Float ) = 0
-		[Meenphie_DrawerTextureSingleLine] _Lightmap( "Lightmap", 2D ) = "black" {}
+		[NoScaleOffset][SingleLineTexture] _Lightmap( "Lightmap", 2D ) = "black" {}
 		[Toggle( _LIGHTMAPOCCLUSION_ON )] _LightmapOcclusion( "Lightmap Occlusion", Float ) = 1
 		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
 		[HideInInspector] _texcoord3( "", 2D ) = "white" {}
-		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
-		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 		[HideInInspector] __dirty( "", Int ) = 1
 		[Header(Forward Rendering Options)]
@@ -66,14 +64,14 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 
 		uniform float _CATEGORY_SURFACEOPTIONS;
 		uniform float _CATEGORYSPACESURFACEOPTIONS;
+		uniform float _EmissionFlags;
 		uniform float _CATEGORYEMISSION;
 		uniform float _CATEGORYSPACEEMISSION;
-		uniform float _EmissionFlags;
 		uniform sampler2D _BumpMap;
 		uniform float _NormalScale;
 		uniform float4 _Color;
 		uniform sampler2D _MainTex;
-		uniform float3 _EmissionColor;
+		uniform float4 _EmissionColor;
 		uniform sampler2D _EmissionMap;
 		uniform float _Metallic;
 		uniform sampler2D _Lightmap;
@@ -82,7 +80,6 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 		uniform float _CATEGORYLIGHTMAPPING;
 		uniform float _CATEGORYSPACELIGHTMAPPING;
 		uniform sampler2D _MetallicMap;
-		uniform float4 _MetallicMap_ST;
 		uniform float _Glossiness;
 		uniform sampler2D _GlossinessMap;
 		uniform float _OcclusionPower;
@@ -97,40 +94,39 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 			#endif
 			float3 Normal_Map700_g1368 = staticSwitch844_g1368;
 			o.Normal = Normal_Map700_g1368;
-			float2 uv_MainTex259_g1368 = i.uv_texcoord;
-			float4 tex2DNode259_g1368 = tex2D( _MainTex, uv_MainTex259_g1368 );
+			float2 uv_MainTex907_g1368 = i.uv_texcoord;
 			#ifdef _MAINTEX
-				float3 staticSwitch899_g1368 = tex2DNode259_g1368.rgb;
+				float4 staticSwitch899_g1368 = tex2D( _MainTex, uv_MainTex907_g1368 );
 			#else
-				float3 staticSwitch899_g1368 = _Color.rgb;
+				float4 staticSwitch899_g1368 = _Color;
 			#endif
-			float3 Albedo6_g1368 = staticSwitch899_g1368;
-			o.Albedo = Albedo6_g1368;
-			float3 temp_cast_0 = 0;
+			float4 Albedo6_g1368 = staticSwitch899_g1368;
+			o.Albedo = Albedo6_g1368.rgb;
+			float4 temp_cast_1 = 0;
 			float2 uv_EmissionMap81_g1368 = i.uv_texcoord;
 			#ifdef _EMISSION_ON
-				float3 staticSwitch851_g1368 = ( _EmissionColor + tex2D( _EmissionMap, uv_EmissionMap81_g1368 ).rgb );
+				float4 staticSwitch851_g1368 = ( _EmissionColor + tex2D( _EmissionMap, uv_EmissionMap81_g1368 ) );
 			#else
-				float3 staticSwitch851_g1368 = temp_cast_0;
+				float4 staticSwitch851_g1368 = temp_cast_1;
 			#endif
-			float3 Emission86_g1368 = staticSwitch851_g1368;
+			float4 Emission86_g1368 = staticSwitch851_g1368;
 			float Metallic_Value893_g1368 = _Metallic;
-			float localBicubicPrepare2_g1381 = ( 0.0 );
+			float localBicubicPrepare2_g1371 = ( 0.0 );
 			float2 uv3_Lightmap = i.uv3_texcoord3 * _Lightmap_ST.xy + _Lightmap_ST.zw;
-			float2 Input_UV100_g1381 = uv3_Lightmap;
-			float2 UV2_g1381 = Input_UV100_g1381;
-			float4 TexelSize2_g1381 = _Lightmap_TexelSize;
-			float2 UV02_g1381 = float2( 0,0 );
-			float2 UV12_g1381 = float2( 0,0 );
-			float2 UV22_g1381 = float2( 0,0 );
-			float2 UV32_g1381 = float2( 0,0 );
-			float W02_g1381 = 0;
-			float W12_g1381 = 0;
+			float2 Input_UV100_g1371 = uv3_Lightmap;
+			float2 UV2_g1371 = Input_UV100_g1371;
+			float4 TexelSize2_g1371 = _Lightmap_TexelSize;
+			float2 UV02_g1371 = float2( 0,0 );
+			float2 UV12_g1371 = float2( 0,0 );
+			float2 UV22_g1371 = float2( 0,0 );
+			float2 UV32_g1371 = float2( 0,0 );
+			float W02_g1371 = 0;
+			float W12_g1371 = 0;
 			{
 			{
-			 UV2_g1381 = UV2_g1381 * TexelSize2_g1381.zw - 0.5;
-			    float2 f = frac( UV2_g1381 );
-			    UV2_g1381 -= f;
+			 UV2_g1371 = UV2_g1371 * TexelSize2_g1371.zw - 0.5;
+			    float2 f = frac( UV2_g1371 );
+			    UV2_g1371 -= f;
 			    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 			    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 			    float4 xs = xn * xn * xn;
@@ -139,29 +135,30 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 			    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 			    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 			 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			    float4 c = float4( UV2_g1381.x - 0.5, UV2_g1381.x + 1.5, UV2_g1381.y - 0.5, UV2_g1381.y + 1.5 );
+			    float4 c = float4( UV2_g1371.x - 0.5, UV2_g1371.x + 1.5, UV2_g1371.y - 0.5, UV2_g1371.y + 1.5 );
 			    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1381.xyxy;
-			    UV02_g1381 = off.xz;
-			    UV12_g1381 = off.yz;
-			    UV22_g1381 = off.xw;
-			    UV32_g1381 = off.yw;
-			    W02_g1381 = s.x / ( s.x + s.y );
-			 W12_g1381 = s.z / ( s.z + s.w );
+			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1371.xyxy;
+			    UV02_g1371 = off.xz;
+			    UV12_g1371 = off.yz;
+			    UV22_g1371 = off.xw;
+			    UV32_g1371 = off.yw;
+			    W02_g1371 = s.x / ( s.x + s.y );
+			 W12_g1371 = s.z / ( s.z + s.w );
 			}
 			}
-			float4 lerpResult46_g1381 = lerp( tex2D( _Lightmap, UV32_g1381 ) , tex2D( _Lightmap, UV22_g1381 ) , W02_g1381);
-			float4 lerpResult45_g1381 = lerp( tex2D( _Lightmap, UV12_g1381 ) , tex2D( _Lightmap, UV02_g1381 ) , W02_g1381);
-			float4 lerpResult44_g1381 = lerp( lerpResult46_g1381 , lerpResult45_g1381 , W12_g1381);
-			float4 Output_2D131_g1381 = lerpResult44_g1381;
+			float4 lerpResult46_g1371 = lerp( tex2D( _Lightmap, UV32_g1371 ) , tex2D( _Lightmap, UV22_g1371 ) , W02_g1371);
+			float4 lerpResult45_g1371 = lerp( tex2D( _Lightmap, UV12_g1371 ) , tex2D( _Lightmap, UV02_g1371 ) , W02_g1371);
+			float4 lerpResult44_g1371 = lerp( lerpResult46_g1371 , lerpResult45_g1371 , W12_g1371);
+			float4 Output_2D131_g1371 = lerpResult44_g1371;
+			float4 Lightmap_0925_g1368 = Output_2D131_g1371;
 			float Lightmap_GUI886_g1368 = ( _CATEGORYLIGHTMAPPING + _CATEGORYSPACELIGHTMAPPING );
-			float4 temp_cast_3 = (Lightmap_GUI886_g1368).xxxx;
-			float4 lerpResult882_g1368 = lerp( Output_2D131_g1381 , temp_cast_3 , float4( 0,0,0,0 ));
+			float4 temp_cast_2 = (Lightmap_GUI886_g1368).xxxx;
+			float4 lerpResult882_g1368 = lerp( Lightmap_0925_g1368 , temp_cast_2 , float4( 0,0,0,0 ));
 			float4 Lightmap46_g1368 = lerpResult882_g1368;
-			float4 temp_output_614_0_g1368 = ( float4( Albedo6_g1368 , 0.0 ) * ( ( 1.0 - Metallic_Value893_g1368 ) * Lightmap46_g1368 ) );
-			o.Emission = ( float4( Emission86_g1368 , 0.0 ) + temp_output_614_0_g1368 ).rgb;
-			float2 uv_MetallicMap = i.uv_texcoord * _MetallicMap_ST.xy + _MetallicMap_ST.zw;
-			float saferPower803_g1368 = abs( tex2D( _MetallicMap, uv_MetallicMap ).a );
+			float4 temp_output_614_0_g1368 = ( Albedo6_g1368 * ( ( 1.0 - Metallic_Value893_g1368 ) * Lightmap46_g1368 ) );
+			o.Emission = ( Emission86_g1368 + temp_output_614_0_g1368 ).rgb;
+			float2 uv_MetallicMap48_g1368 = i.uv_texcoord;
+			float saferPower803_g1368 = abs( tex2D( _MetallicMap, uv_MetallicMap48_g1368 ).a );
 			#ifdef _METALLICMAP
 				float staticSwitch846_g1368 = pow( saferPower803_g1368 , 3.0 );
 			#else
@@ -206,7 +203,7 @@ Shader "Meenphie/Lightmapped/Simple/Opaque"
 }
 /*ASEBEGIN
 Version=19904
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2859;192,-1200;Inherit;False;Meenphie;0;;1368;b3ba55a08dd6b49c7be16c6f35cf2033;5,869,1,872,1,871,1,847,0,867,0;0;9;FLOAT3;625;FLOAT3;238;COLOR;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2859;192,-1200;Inherit;False;Meenphie;0;;1368;b3ba55a08dd6b49c7be16c6f35cf2033;10,871,1,872,1,869,1,847,0,867,0,947,0,912,0,944,0,938,0,905,0;0;9;COLOR;625;FLOAT3;238;COLOR;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
 Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;0;Standard;Meenphie/Lightmapped/Simple/Opaque;False;False;False;False;False;False;False;True;True;False;False;False;False;False;False;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Opaque;0.5;True;False;0;False;Opaque;;Geometry;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;0;0;False;;0;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
 WireConnection;1092;0;2859;625
 WireConnection;1092;1;2859;238
@@ -215,4 +212,4 @@ WireConnection;1092;3;2859;96
 WireConnection;1092;4;2859;97
 WireConnection;1092;5;2859;95
 ASEEND*/
-//CHKSM=BC7E9870F577C03AE4E637AB08C81D64794DBB90
+//CHKSM=015BC1F7486687C023071C10A76B99DB918845C7
