@@ -1,6 +1,6 @@
 // Made with Amplify Shader Editor v1.9.9.4
 // Available at the Unity Asset Store - http://u3d.as/y3X 
-Shader "Meenphie/Lightmapped/RNM/Opaque (Outline)"
+Shader "Meenphie/Lightmapped/Simple/Outline/Opaque"
 {
 	Properties
 	{
@@ -22,9 +22,7 @@ Shader "Meenphie/Lightmapped/RNM/Opaque (Outline)"
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[Meenphie_DrawerCategory(LIGHTMAPPING,true,0,0)] _CATEGORYLIGHTMAPPING( "CATEGORY LIGHTMAPPING", Float ) = 0
-		[Meenphie_DrawerTextureSingleLine] _RNMX0( "RNMX 0", 2D ) = "black" {}
-		[Meenphie_DrawerTextureSingleLine] _RNMY0( "RNMY 0", 2D ) = "black" {}
-		[Meenphie_DrawerTextureSingleLine] _RNMZ0( "RNMZ 0", 2D ) = "black" {}
+		[NoScaleOffset][SingleLineTexture] _Lightmap( "Lightmap", 2D ) = "black" {}
 		[Toggle] _LightmapOcclusionEnabled( "Lightmap Occlusion Enabled", Float ) = 1
 		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
@@ -109,11 +107,9 @@ Shader "Meenphie/Lightmapped/RNM/Opaque (Outline)"
 		uniform sampler2D _EmissionMap;
 		uniform float _EmissionEnabled;
 		uniform float _Metallic;
-		uniform sampler2D _RNMX0;
-		uniform float4 _RNMX0_ST;
-		float4 _RNMX0_TexelSize;
-		uniform sampler2D _RNMY0;
-		uniform sampler2D _RNMZ0;
+		uniform sampler2D _Lightmap;
+		uniform float4 _Lightmap_ST;
+		float4 _Lightmap_TexelSize;
 		uniform float _CATEGORYLIGHTMAPPING;
 		uniform float _CATEGORYSPACELIGHTMAPPING;
 		uniform sampler2D _MetallicMap;
@@ -150,66 +146,49 @@ Shader "Meenphie/Lightmapped/RNM/Opaque (Outline)"
 			float4 lerpResult974_g1402 = lerp( temp_cast_1 , ( _EmissionColor + tex2D( _EmissionMap, uv_EmissionMap81_g1402 ) ) , _EmissionEnabled);
 			float4 Emission86_g1402 = lerpResult974_g1402;
 			float Metallic_Value893_g1402 = _Metallic;
-			float3 appendResult139_g1417 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
-			float3 normalizeResult326_g1417 = normalize( Normal_Map700_g1402 );
-			float3 Normal_Map318_g1417 = normalizeResult326_g1417;
-			float dotResult121_g1417 = dot( appendResult139_g1417 , Normal_Map318_g1417 );
-			float localStochasticTiling2_g1413 = ( 0.0 );
-			float2 uv3_RNMX0 = i.uv3_texcoord3 * _RNMX0_ST.xy + _RNMX0_ST.zw;
-			float2 UV2_g1413 = uv3_RNMX0;
-			float4 TexelSize2_g1413 = _RNMX0_TexelSize;
-			float4 Offsets2_g1413 = float4( 0,0,0,0 );
-			float2 Weights2_g1413 = float2( 0,0 );
+			float localBicubicPrepare2_g1404 = ( 0.0 );
+			float2 uv3_Lightmap = i.uv3_texcoord3 * _Lightmap_ST.xy + _Lightmap_ST.zw;
+			float2 Input_UV100_g1404 = uv3_Lightmap;
+			float2 UV2_g1404 = Input_UV100_g1404;
+			float4 TexelSize2_g1404 = _Lightmap_TexelSize;
+			float2 UV02_g1404 = float2( 0,0 );
+			float2 UV12_g1404 = float2( 0,0 );
+			float2 UV22_g1404 = float2( 0,0 );
+			float2 UV32_g1404 = float2( 0,0 );
+			float W02_g1404 = 0;
+			float W12_g1404 = 0;
 			{
-			UV2_g1413 = UV2_g1413 * TexelSize2_g1413.zw - 0.5;
-			float2 f = frac( UV2_g1413 );
-			UV2_g1413 -= f;
-			float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
-			float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
-			float4 xs = xn * xn * xn;
-			float4 ys = yn * yn * yn;
-			float3 xv = float3( xs.x, xs.y - 4.0 * xs.x, xs.z - 4.0 * xs.y + 6.0 * xs.x );
-			float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
-			float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
-			float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-			float4 c = float4( UV2_g1413.x - 0.5, UV2_g1413.x + 1.5, UV2_g1413.y - 0.5, UV2_g1413.y + 1.5 );
-			float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-			float w0 = s.x / ( s.x + s.y );
-			float w1 = s.z / ( s.z + s.w );
-			Offsets2_g1413 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1413.xyxy;
-			Weights2_g1413 = float2( w0, w1 );
+			{
+			 UV2_g1404 = UV2_g1404 * TexelSize2_g1404.zw - 0.5;
+			    float2 f = frac( UV2_g1404 );
+			    UV2_g1404 -= f;
+			    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
+			    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
+			    float4 xs = xn * xn * xn;
+			    float4 ys = yn * yn * yn;
+			    float3 xv = float3( xs.x, xs.y - 4.0 * xs.x, xs.z - 4.0 * xs.y + 6.0 * xs.x );
+			    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
+			    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
+			 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
+			    float4 c = float4( UV2_g1404.x - 0.5, UV2_g1404.x + 1.5, UV2_g1404.y - 0.5, UV2_g1404.y + 1.5 );
+			    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
+			    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g1404.xyxy;
+			    UV02_g1404 = off.xz;
+			    UV12_g1404 = off.yz;
+			    UV22_g1404 = off.xw;
+			    UV32_g1404 = off.yw;
+			    W02_g1404 = s.x / ( s.x + s.y );
+			 W12_g1404 = s.z / ( s.z + s.w );
 			}
-			float4 temp_output_1_34_g1412 = Offsets2_g1413;
-			float4 Input_FetchOffsets197_g1416 = temp_output_1_34_g1412;
-			float2 temp_output_1_54_g1412 = Weights2_g1413;
-			float2 Input_FetchWeights200_g1416 = temp_output_1_54_g1412;
-			float2 break187_g1416 = Input_FetchWeights200_g1416;
-			float4 lerpResult181_g1416 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g1416).yw ) , tex2D( _RNMX0, (Input_FetchOffsets197_g1416).xw ) , break187_g1416.x);
-			float4 lerpResult182_g1416 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g1416).yz ) , tex2D( _RNMX0, (Input_FetchOffsets197_g1416).xz ) , break187_g1416.x);
-			float4 lerpResult176_g1416 = lerp( lerpResult181_g1416 , lerpResult182_g1416 , break187_g1416.y);
-			float4 Output_Fetch2D202_g1416 = lerpResult176_g1416;
-			float3 appendResult146_g1417 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-			float dotResult122_g1417 = dot( appendResult146_g1417 , Normal_Map318_g1417 );
-			float4 Input_FetchOffsets197_g1414 = temp_output_1_34_g1412;
-			float2 Input_FetchWeights200_g1414 = temp_output_1_54_g1412;
-			float2 break187_g1414 = Input_FetchWeights200_g1414;
-			float4 lerpResult181_g1414 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g1414).yw ) , tex2D( _RNMY0, (Input_FetchOffsets197_g1414).xw ) , break187_g1414.x);
-			float4 lerpResult182_g1414 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g1414).yz ) , tex2D( _RNMY0, (Input_FetchOffsets197_g1414).xz ) , break187_g1414.x);
-			float4 lerpResult176_g1414 = lerp( lerpResult181_g1414 , lerpResult182_g1414 , break187_g1414.y);
-			float4 Output_Fetch2D202_g1414 = lerpResult176_g1414;
-			float3 appendResult149_g1417 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-			float dotResult120_g1417 = dot( appendResult149_g1417 , Normal_Map318_g1417 );
-			float4 Input_FetchOffsets197_g1415 = temp_output_1_34_g1412;
-			float2 Input_FetchWeights200_g1415 = temp_output_1_54_g1412;
-			float2 break187_g1415 = Input_FetchWeights200_g1415;
-			float4 lerpResult181_g1415 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g1415).yw ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g1415).xw ) , break187_g1415.x);
-			float4 lerpResult182_g1415 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g1415).yz ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g1415).xz ) , break187_g1415.x);
-			float4 lerpResult176_g1415 = lerp( lerpResult181_g1415 , lerpResult182_g1415 , break187_g1415.y);
-			float4 Output_Fetch2D202_g1415 = lerpResult176_g1415;
-			float4 RNM_0926_g1402 = ( ( ( saturate( dotResult121_g1417 ) * ( Output_Fetch2D202_g1416 * 0.8 ) ) + ( saturate( dotResult122_g1417 ) * ( Output_Fetch2D202_g1414 * 0.8 ) ) ) + ( saturate( dotResult120_g1417 ) * ( Output_Fetch2D202_g1415 * 0.8 ) ) );
+			}
+			float4 lerpResult46_g1404 = lerp( tex2D( _Lightmap, UV32_g1404 ) , tex2D( _Lightmap, UV22_g1404 ) , W02_g1404);
+			float4 lerpResult45_g1404 = lerp( tex2D( _Lightmap, UV12_g1404 ) , tex2D( _Lightmap, UV02_g1404 ) , W02_g1404);
+			float4 lerpResult44_g1404 = lerp( lerpResult46_g1404 , lerpResult45_g1404 , W12_g1404);
+			float4 Output_2D131_g1404 = lerpResult44_g1404;
+			float4 Lightmap_0925_g1402 = Output_2D131_g1404;
 			float Lightmap_GUI886_g1402 = ( _CATEGORYLIGHTMAPPING + _CATEGORYSPACELIGHTMAPPING );
 			float4 temp_cast_2 = (Lightmap_GUI886_g1402).xxxx;
-			float4 lerpResult882_g1402 = lerp( RNM_0926_g1402 , temp_cast_2 , float4( 0,0,0,0 ));
+			float4 lerpResult882_g1402 = lerp( Lightmap_0925_g1402 , temp_cast_2 , float4( 0,0,0,0 ));
 			float4 Lightmap46_g1402 = lerpResult882_g1402;
 			float4 temp_output_614_0_g1402 = ( Albedo6_g1402 * ( ( 1.0 - Metallic_Value893_g1402 ) * Lightmap46_g1402 ) );
 			o.Emission = ( Emission86_g1402 + temp_output_614_0_g1402 ).rgb;
@@ -255,8 +234,8 @@ Shader "Meenphie/Lightmapped/RNM/Opaque (Outline)"
 }
 /*ASEBEGIN
 Version=19904
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2859;192,-1200;Inherit;False;Meenphie;0;;1402;b3ba55a08dd6b49c7be16c6f35cf2033;10,871,1,869,1,872,1,847,2,867,1,944,0,947,0,905,0,938,0,912,0;0;9;COLOR;625;FLOAT3;238;COLOR;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
-Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;0;Standard;Meenphie/Lightmapped/RNM/Opaque (Outline);False;False;False;False;False;False;False;True;True;False;False;False;False;False;False;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Opaque;0.5;True;False;0;False;Opaque;;Geometry;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;0;0;False;;0;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2859;192,-1200;Inherit;False;Meenphie;0;;1402;b3ba55a08dd6b49c7be16c6f35cf2033;10,871,1,869,1,872,1,847,0,867,1,944,0,947,0,905,0,938,0,912,0;0;9;COLOR;625;FLOAT3;238;COLOR;624;FLOAT;96;FLOAT;97;FLOAT;95;FLOAT;156;FLOAT;427;FLOAT3;860
+Node;AmplifyShaderEditor.StandardSurfaceOutputNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1092;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;0;Standard;Meenphie/Lightmapped/Simple/Outline/Opaque;False;False;False;False;False;False;False;True;True;False;False;False;False;False;False;True;False;False;True;True;False;Back;0;False;;0;False;;False;0;False;;0;False;;False;0;Opaque;0.5;True;False;0;False;Opaque;;Geometry;ForwardOnly;12;all;True;True;True;True;0;False;;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;2;15;10;25;False;0.5;True;0;0;False;;0;False;;0;0;False;;0;False;;0;False;;0;False;;0;False;0.0001;0,0,0,0;VertexOffset;False;False;Cylindrical;False;True;Relative;0;;-1;-1;-1;-1;0;False;0;0;False;;-1;0;False;;0;0;0;False;0.1;False;;0;False;;False;17;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT;0;False;9;FLOAT;0;False;10;FLOAT;0;False;13;FLOAT3;0,0,0;False;11;FLOAT3;0,0,0;False;12;FLOAT3;0,0,0;False;16;FLOAT4;0,0,0,0;False;14;FLOAT4;0,0,0,0;False;15;FLOAT3;0,0,0;False;0
 WireConnection;1092;0;2859;625
 WireConnection;1092;1;2859;238
 WireConnection;1092;2;2859;624
@@ -265,4 +244,4 @@ WireConnection;1092;4;2859;97
 WireConnection;1092;5;2859;95
 WireConnection;1092;11;2859;860
 ASEEND*/
-//CHKSM=72087DA7353C57CD8EB91921F6A42F2F5F56B949
+//CHKSM=0BD42CC65A4631E4EBB43F3091F665A9AD13E13D
