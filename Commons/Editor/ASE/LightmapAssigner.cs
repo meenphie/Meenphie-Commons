@@ -72,7 +72,10 @@ public static class LightmapAssigner
                 {
                     string groupName = kvp.Key;
 
-                    if (mat.name.IndexOf(groupName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    // Strip "GI " prefix from the groupName so we only match "Wood 3"
+                    string cleanGroupName = groupName.Replace("GI ", "").Trim();
+
+                    if (mat.name.IndexOf(cleanGroupName, System.StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         Texture[] texSet = kvp.Value;
 
