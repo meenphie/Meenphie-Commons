@@ -1503,7 +1503,8 @@ Shader "Meenphie/Standard/Cutout"
 					float4 lerpResult176_g2288 = lerp( lerpResult181_g2288 , lerpResult182_g2288 , break187_g2288.y);
 					float4 Output_Fetch2D202_g2288 = lerpResult176_g2288;
 					float4 RNM_1927_g2280 = ( ( ( saturate( dotResult121_g2296 ) * ( Output_Fetch2D202_g2289 * 0.8 ) ) + ( saturate( dotResult122_g2296 ) * ( Output_Fetch2D202_g2287 * 0.8 ) ) ) + ( saturate( dotResult120_g2296 ) * ( Output_Fetch2D202_g2288 * 0.8 ) ) );
-					float4 lerpResult953_g2280 = lerp( RNM_0926_g2280 , RNM_1927_g2280 , Metallic699_g2280);
+					float Lightmap_Lerp_Value969_g2280 = _LightmapLerp;
+					float4 lerpResult953_g2280 = lerp( RNM_0926_g2280 , RNM_1927_g2280 , Lightmap_Lerp_Value969_g2280);
 					float4 RNM_Lerp950_g2280 = lerpResult953_g2280;
 					#if defined( _LIGHTMAPMODE_DISABLED )
 					float4 staticSwitch1014_g2280 = temp_cast_1;
@@ -1540,8 +1541,7 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch1016_g2280 = White38_g2280;
 					#endif
 					
-					float Metallic_Value893_g2280 = _Metallic;
-					float4 temp_output_614_0_g2280 = ( Albedo6_g2280 * ( ( 1.0 - Metallic_Value893_g2280 ) * Lightmap46_g2280 ) );
+					float4 temp_output_614_0_g2280 = ( Albedo6_g2280 * Lightmap46_g2280 );
 					float4 temp_cast_3 = 0;
 					float2 uv_EmissionMap81_g2280 = IN.ase_texcoord6.xy;
 					float2 uv_EmissionMap = IN.ase_texcoord6.xy * _EmissionMap_ST.xy + _EmissionMap_ST.zw;
@@ -2699,7 +2699,8 @@ Shader "Meenphie/Standard/Cutout"
 					float4 lerpResult176_g2288 = lerp( lerpResult181_g2288 , lerpResult182_g2288 , break187_g2288.y);
 					float4 Output_Fetch2D202_g2288 = lerpResult176_g2288;
 					float4 RNM_1927_g2280 = ( ( ( saturate( dotResult121_g2296 ) * ( Output_Fetch2D202_g2289 * 0.8 ) ) + ( saturate( dotResult122_g2296 ) * ( Output_Fetch2D202_g2287 * 0.8 ) ) ) + ( saturate( dotResult120_g2296 ) * ( Output_Fetch2D202_g2288 * 0.8 ) ) );
-					float4 lerpResult953_g2280 = lerp( RNM_0926_g2280 , RNM_1927_g2280 , Metallic699_g2280);
+					float Lightmap_Lerp_Value969_g2280 = _LightmapLerp;
+					float4 lerpResult953_g2280 = lerp( RNM_0926_g2280 , RNM_1927_g2280 , Lightmap_Lerp_Value969_g2280);
 					float4 RNM_Lerp950_g2280 = lerpResult953_g2280;
 					#if defined( _LIGHTMAPMODE_DISABLED )
 					float4 staticSwitch1014_g2280 = temp_cast_1;
@@ -2736,8 +2737,7 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch1016_g2280 = White38_g2280;
 					#endif
 					
-					float Metallic_Value893_g2280 = _Metallic;
-					float4 temp_output_614_0_g2280 = ( Albedo6_g2280 * ( ( 1.0 - Metallic_Value893_g2280 ) * Lightmap46_g2280 ) );
+					float4 temp_output_614_0_g2280 = ( Albedo6_g2280 * Lightmap46_g2280 );
 					float4 temp_cast_3 = 0;
 					float2 uv_EmissionMap81_g2280 = IN.ase_texcoord5.xy;
 					float2 uv_EmissionMap = IN.ase_texcoord5.xy * _EmissionMap_ST.xy + _EmissionMap_ST.zw;
@@ -3017,7 +3017,6 @@ Shader "Meenphie/Standard/Cutout"
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 				#pragma shader_feature_local _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
 				#pragma shader_feature_local_fragment _BUMPMAP
-				#pragma shader_feature_local_fragment _METALLICMAP
 				#pragma shader_feature_local _EMISSIONENABLED_ON
 
 
@@ -3066,7 +3065,6 @@ Shader "Meenphie/Standard/Cutout"
 				uniform float4 _Color;
 				uniform sampler2D _MainTex;
 				uniform float4 _MainTex_ST;
-				uniform float _Metallic;
 				uniform sampler2D _Lightmap0;
 				uniform float4 _Lightmap0_ST;
 				float4 _Lightmap0_TexelSize;
@@ -3087,8 +3085,6 @@ Shader "Meenphie/Standard/Cutout"
 				float4 _RNMX1_TexelSize;
 				uniform sampler2D _RNMY1;
 				uniform sampler2D _RNMZ1;
-				uniform sampler2D _MetallicMap;
-				uniform float4 _MetallicMap_ST;
 				uniform float4 _EmissionColor;
 				uniform sampler2D _EmissionMap;
 				uniform float4 _EmissionMap_ST;
@@ -3321,7 +3317,6 @@ Shader "Meenphie/Standard/Cutout"
 					float4 temp_output_976_0_g2280 = ( _Color * staticSwitch1001_g2280 );
 					float4 Albedo6_g2280 = temp_output_976_0_g2280;
 					
-					float Metallic_Value893_g2280 = _Metallic;
 					float White38_g2280 = 1.0;
 					float4 temp_cast_1 = (White38_g2280).xxxx;
 					float localBicubicPrepare2_g2282 = ( 0.0 );
@@ -3601,89 +3596,8 @@ Shader "Meenphie/Standard/Cutout"
 					float4 lerpResult176_g2288 = lerp( lerpResult181_g2288 , lerpResult182_g2288 , break187_g2288.y);
 					float4 Output_Fetch2D202_g2288 = lerpResult176_g2288;
 					float4 RNM_1927_g2280 = ( ( ( saturate( dotResult121_g2296 ) * ( Output_Fetch2D202_g2289 * 0.8 ) ) + ( saturate( dotResult122_g2296 ) * ( Output_Fetch2D202_g2287 * 0.8 ) ) ) + ( saturate( dotResult120_g2296 ) * ( Output_Fetch2D202_g2288 * 0.8 ) ) );
-					float2 uv_MetallicMap48_g2280 = IN.ase_texcoord2.xy;
-					float2 uv_MetallicMap = IN.ase_texcoord2.xy * _MetallicMap_ST.xy + _MetallicMap_ST.zw;
-					float2 temp_output_5_0_g2302 = uv_MetallicMap;
-					float2 UV633_g2302 = temp_output_5_0_g2302;
-					float2 UV100_g2303 = UV633_g2302;
-					float2 temp_output_51_0_g2303 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g2303 * float2( 3.464,3.464 ) ) );
-					float2 break55_g2303 = frac( temp_output_51_0_g2303 );
-					float temp_output_56_0_g2303 = ( ( 1.0 - break55_g2303.x ) - break55_g2303.y );
-					float2 temp_output_52_0_g2303 = floor( temp_output_51_0_g2303 );
-					float2 temp_output_125_0_g2303 = ( temp_output_52_0_g2303 + float2( 1,1 ) );
-					float2 ifLocalVar87_g2303 = 0;
-					if( temp_output_56_0_g2303 > 0.0 )
-					ifLocalVar87_g2303 = temp_output_52_0_g2303;
-					else if( temp_output_56_0_g2303 == 0.0 )
-					ifLocalVar87_g2303 = temp_output_125_0_g2303;
-					else if( temp_output_56_0_g2303 < 0.0 )
-					ifLocalVar87_g2303 = temp_output_125_0_g2303;
-					float3 temp_output_7_0_g2304 = frac( ( (ifLocalVar87_g2303).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g2304 = dot( temp_output_7_0_g2304 , ( (temp_output_7_0_g2304).yzx + 33.33 ) );
-					float3 temp_output_12_0_g2304 = ( temp_output_7_0_g2304 + dotResult8_g2304 );
-					float2 temp_output_597_0_g2302 = ( UV100_g2303 + frac( ( ( (temp_output_12_0_g2304).xx + (temp_output_12_0_g2304).yz ) * (temp_output_12_0_g2304).zy ) ) );
-					float2 DDX631_g2302 = ddx( temp_output_5_0_g2302 );
-					float2 DDY632_g2302 = ddy( temp_output_5_0_g2302 );
-					float temp_output_65_0_g2303 = ( 0.0 - temp_output_56_0_g2303 );
-					float ifLocalVar59_g2303 = 0;
-					if( temp_output_56_0_g2303 <= 0.0 )
-					ifLocalVar59_g2303 = temp_output_65_0_g2303;
-					else
-					ifLocalVar59_g2303 = temp_output_56_0_g2303;
-					float temp_output_597_30_g2302 = ifLocalVar59_g2303;
-					float2 temp_output_90_0_g2303 = ( temp_output_52_0_g2303 + float2( 0,1 ) );
-					float2 temp_output_123_0_g2303 = ( temp_output_52_0_g2303 + float2( 1,0 ) );
-					float2 ifLocalVar88_g2303 = 0;
-					if( temp_output_56_0_g2303 > 0.0 )
-					ifLocalVar88_g2303 = temp_output_90_0_g2303;
-					else if( temp_output_56_0_g2303 == 0.0 )
-					ifLocalVar88_g2303 = temp_output_123_0_g2303;
-					else if( temp_output_56_0_g2303 < 0.0 )
-					ifLocalVar88_g2303 = temp_output_123_0_g2303;
-					float3 temp_output_7_0_g2305 = frac( ( (ifLocalVar88_g2303).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g2305 = dot( temp_output_7_0_g2305 , ( (temp_output_7_0_g2305).yzx + 33.33 ) );
-					float3 temp_output_12_0_g2305 = ( temp_output_7_0_g2305 + dotResult8_g2305 );
-					float2 temp_output_597_26_g2302 = ( UV100_g2303 + frac( ( ( (temp_output_12_0_g2305).xx + (temp_output_12_0_g2305).yz ) * (temp_output_12_0_g2305).zy ) ) );
-					float temp_output_66_0_g2303 = ( 1.0 - break55_g2303.y );
-					float ifLocalVar60_g2303 = 0;
-					if( temp_output_56_0_g2303 <= 0.0 )
-					ifLocalVar60_g2303 = temp_output_66_0_g2303;
-					else
-					ifLocalVar60_g2303 = break55_g2303.y;
-					float temp_output_597_28_g2302 = ifLocalVar60_g2303;
-					float2 ifLocalVar89_g2303 = 0;
-					if( temp_output_56_0_g2303 > 0.0 )
-					ifLocalVar89_g2303 = temp_output_123_0_g2303;
-					else if( temp_output_56_0_g2303 == 0.0 )
-					ifLocalVar89_g2303 = temp_output_90_0_g2303;
-					else if( temp_output_56_0_g2303 < 0.0 )
-					ifLocalVar89_g2303 = temp_output_90_0_g2303;
-					float3 temp_output_7_0_g2306 = frac( ( (ifLocalVar89_g2303).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g2306 = dot( temp_output_7_0_g2306 , ( (temp_output_7_0_g2306).yzx + 33.33 ) );
-					float3 temp_output_12_0_g2306 = ( temp_output_7_0_g2306 + dotResult8_g2306 );
-					float2 temp_output_597_27_g2302 = ( UV100_g2303 + frac( ( ( (temp_output_12_0_g2306).xx + (temp_output_12_0_g2306).yz ) * (temp_output_12_0_g2306).zy ) ) );
-					float temp_output_67_0_g2303 = ( 1.0 - break55_g2303.x );
-					float ifLocalVar61_g2303 = 0;
-					if( temp_output_56_0_g2303 <= 0.0 )
-					ifLocalVar61_g2303 = temp_output_67_0_g2303;
-					else
-					ifLocalVar61_g2303 = break55_g2303.x;
-					float temp_output_597_29_g2302 = ifLocalVar61_g2303;
-					float4 Output_2D293_g2302 = ( ( tex2D( _MetallicMap, temp_output_597_0_g2302, DDX631_g2302, DDY632_g2302 ) * temp_output_597_30_g2302 ) + ( tex2D( _MetallicMap, temp_output_597_26_g2302, DDX631_g2302, DDY632_g2302 ) * temp_output_597_28_g2302 ) + ( tex2D( _MetallicMap, temp_output_597_27_g2302, DDX631_g2302, DDY632_g2302 ) * temp_output_597_29_g2302 ) );
-					float4 break31_g2302 = Output_2D293_g2302;
-					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1005_g2280 = break31_g2302.a;
-					#else
-					float staticSwitch1005_g2280 = tex2D( _MetallicMap, uv_MetallicMap48_g2280 ).a;
-					#endif
-					float saferPower803_g2280 = abs( staticSwitch1005_g2280 );
-					#ifdef _METALLICMAP
-					float staticSwitch846_g2280 = pow( saferPower803_g2280 , 3.0 );
-					#else
-					float staticSwitch846_g2280 = _Metallic;
-					#endif
-					float Metallic699_g2280 = staticSwitch846_g2280;
-					float4 lerpResult953_g2280 = lerp( RNM_0926_g2280 , RNM_1927_g2280 , Metallic699_g2280);
+					float Lightmap_Lerp_Value969_g2280 = _LightmapLerp;
+					float4 lerpResult953_g2280 = lerp( RNM_0926_g2280 , RNM_1927_g2280 , Lightmap_Lerp_Value969_g2280);
 					float4 RNM_Lerp950_g2280 = lerpResult953_g2280;
 					#if defined( _LIGHTMAPMODE_DISABLED )
 					float4 staticSwitch1014_g2280 = temp_cast_1;
@@ -3699,7 +3613,7 @@ Shader "Meenphie/Standard/Cutout"
 					float4 staticSwitch1014_g2280 = temp_cast_1;
 					#endif
 					float4 Lightmap46_g2280 = staticSwitch1014_g2280;
-					float4 temp_output_614_0_g2280 = ( Albedo6_g2280 * ( ( 1.0 - Metallic_Value893_g2280 ) * Lightmap46_g2280 ) );
+					float4 temp_output_614_0_g2280 = ( Albedo6_g2280 * Lightmap46_g2280 );
 					float4 temp_cast_2 = 0;
 					float2 uv_EmissionMap81_g2280 = IN.ase_texcoord2.xy;
 					float2 uv_EmissionMap = IN.ase_texcoord2.xy * _EmissionMap_ST.xy + _EmissionMap_ST.zw;
@@ -3852,4 +3766,4 @@ WireConnection;2887;0;2943;17
 WireConnection;2887;1;2950;156
 WireConnection;2887;3;2943;0
 ASEEND*/
-//CHKSM=48C29DD923ED20933D440203EAC52202EFDC4C23
+//CHKSM=71023455C7E7E42F973998E32FF7B59103C9CD1E
