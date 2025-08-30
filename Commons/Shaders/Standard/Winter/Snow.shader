@@ -1695,7 +1695,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1006_g5296 = tex2D( _EmissionMap, uv_EmissionMap81_g5296 );
 					#endif
 					#ifdef _EMISSIONENABLED_ON
-					float4 staticSwitch1017_g5296 = ( _EmissionColor + staticSwitch1006_g5296 );
+					float4 staticSwitch1017_g5296 = ( _EmissionColor * staticSwitch1006_g5296 );
 					#else
 					float4 staticSwitch1017_g5296 = temp_cast_5;
 					#endif
@@ -3086,7 +3086,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1006_g5296 = tex2D( _EmissionMap, uv_EmissionMap81_g5296 );
 					#endif
 					#ifdef _EMISSIONENABLED_ON
-					float4 staticSwitch1017_g5296 = ( _EmissionColor + staticSwitch1006_g5296 );
+					float4 staticSwitch1017_g5296 = ( _EmissionColor * staticSwitch1006_g5296 );
 					#else
 					float4 staticSwitch1017_g5296 = temp_cast_5;
 					#endif
@@ -4150,7 +4150,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1006_g5296 = tex2D( _EmissionMap, uv_EmissionMap81_g5296 );
 					#endif
 					#ifdef _EMISSIONENABLED_ON
-					float4 staticSwitch1017_g5296 = ( _EmissionColor + staticSwitch1006_g5296 );
+					float4 staticSwitch1017_g5296 = ( _EmissionColor * staticSwitch1006_g5296 );
 					#else
 					float4 staticSwitch1017_g5296 = temp_cast_2;
 					#endif
@@ -4272,4 +4272,4 @@ WireConnection;2888;5;3034;97
 WireConnection;2888;6;3034;1042
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=D63BF75D9FCC839C4E33F5CF14BC7A6F48CC6B68
+//CHKSM=079C1998C80BED13FA19258B9C42FAF134614815
