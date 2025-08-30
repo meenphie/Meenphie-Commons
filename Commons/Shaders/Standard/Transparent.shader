@@ -40,7 +40,7 @@ Shader "Meenphie/Standard/Transparent"
 		[Toggle( _STOCHASTICENABLED_ON )] _StochasticEnabled( "Stochastic Enabled", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESTOCHASTIC( "CATEGORY SPACE STOCHASTIC", Float ) = 0
 		[Meenphie_DrawerCategory(COLOR GRADING,true,0,0)] _CATEGORYCOLORGRADING( "CATEGORY COLOR GRADING", Float ) = 0
-		[KeywordEnum( 2D,3D )] _LUTMode( "LUT Mode", Float ) = 0
+		[KeywordEnum( 2D,3D )] _LUTMode( "LUT Mode", Float ) = 1
 		_LUTSize( "LUT Size", Float ) = 32
 		[NoScaleOffset][SingleLineTexture] _2DLut( "2D Lut", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _3DLut( "3D Lut", 3D ) = "black" {}
@@ -334,9 +334,9 @@ Shader "Meenphie/Standard/Transparent"
 				uniform float _CATEGORYSPACESTOCHASTIC;
 				uniform float _CATEGORYSPACECOLORGRADING;
 				uniform float _CATEGORYCOLORGRADING;
-				uniform sampler3D _3DLut;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
+				uniform sampler3D _3DLut;
 				uniform float4 _Color;
 				uniform sampler2D _MainTex;
 				uniform float4 _MainTex_ST;
@@ -1299,7 +1299,7 @@ Shader "Meenphie/Standard/Transparent"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch273_g58952 = temp_output_35_0_g58952;
 					#else
-					float3 staticSwitch273_g58952 = saturate( temp_output_35_0_g58952 );
+					float3 staticSwitch273_g58952 = temp_output_35_0_g58952;
 					#endif
 					float3 Color_Saturate49_g58952 = staticSwitch273_g58952;
 					float Lut_Height213_g58952 = _LUTSize;
@@ -1335,7 +1335,7 @@ Shader "Meenphie/Standard/Transparent"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch42_g58952 = ThreeD_LUT51_g58952;
 					#else
-					float3 staticSwitch42_g58952 = TwoD_LUT346_g58952;
+					float3 staticSwitch42_g58952 = ThreeD_LUT51_g58952;
 					#endif
 					#ifdef SHADER_API_MOBILE
 					float3 staticSwitch41_g58952 = staticSwitch42_g58952;
@@ -1654,9 +1654,9 @@ Shader "Meenphie/Standard/Transparent"
 				uniform float _CATEGORYSPACESTOCHASTIC;
 				uniform float _CATEGORYSPACECOLORGRADING;
 				uniform float _CATEGORYCOLORGRADING;
-				uniform sampler3D _3DLut;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
+				uniform sampler3D _3DLut;
 				uniform float4 _Color;
 				uniform sampler2D _MainTex;
 				uniform float4 _MainTex_ST;
@@ -2602,7 +2602,7 @@ Shader "Meenphie/Standard/Transparent"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch273_g58952 = temp_output_35_0_g58952;
 					#else
-					float3 staticSwitch273_g58952 = saturate( temp_output_35_0_g58952 );
+					float3 staticSwitch273_g58952 = temp_output_35_0_g58952;
 					#endif
 					float3 Color_Saturate49_g58952 = staticSwitch273_g58952;
 					float Lut_Height213_g58952 = _LUTSize;
@@ -2638,7 +2638,7 @@ Shader "Meenphie/Standard/Transparent"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch42_g58952 = ThreeD_LUT51_g58952;
 					#else
-					float3 staticSwitch42_g58952 = TwoD_LUT346_g58952;
+					float3 staticSwitch42_g58952 = ThreeD_LUT51_g58952;
 					#endif
 					#ifdef SHADER_API_MOBILE
 					float3 staticSwitch41_g58952 = staticSwitch42_g58952;
@@ -2879,9 +2879,9 @@ Shader "Meenphie/Standard/Transparent"
 				uniform float _CATEGORYSPACESTOCHASTIC;
 				uniform float _CATEGORYSPACECOLORGRADING;
 				uniform float _CATEGORYCOLORGRADING;
-				uniform sampler3D _3DLut;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
+				uniform sampler3D _3DLut;
 				uniform float4 _Color;
 				uniform sampler2D _MainTex;
 				uniform float4 _MainTex_ST;
@@ -3664,7 +3664,7 @@ Shader "Meenphie/Standard/Transparent"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch273_g58952 = temp_output_35_0_g58952;
 					#else
-					float3 staticSwitch273_g58952 = saturate( temp_output_35_0_g58952 );
+					float3 staticSwitch273_g58952 = temp_output_35_0_g58952;
 					#endif
 					float3 Color_Saturate49_g58952 = staticSwitch273_g58952;
 					float Lut_Height213_g58952 = _LUTSize;
@@ -3700,7 +3700,7 @@ Shader "Meenphie/Standard/Transparent"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch42_g58952 = ThreeD_LUT51_g58952;
 					#else
-					float3 staticSwitch42_g58952 = TwoD_LUT346_g58952;
+					float3 staticSwitch42_g58952 = ThreeD_LUT51_g58952;
 					#endif
 					#ifdef SHADER_API_MOBILE
 					float3 staticSwitch41_g58952 = staticSwitch42_g58952;
@@ -3757,4 +3757,4 @@ WireConnection;2888;2;2973;624
 WireConnection;2888;7;2973;156
 WireConnection;2888;15;2973;1024
 ASEEND*/
-//CHKSM=A50D30AAE99C4FD408E998C6A96292C1CE6D5133
+//CHKSM=AF2CF91354F53EBB2651D6396511E5CA585943F4

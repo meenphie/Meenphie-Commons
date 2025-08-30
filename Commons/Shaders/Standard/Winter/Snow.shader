@@ -40,7 +40,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 		[Toggle( _STOCHASTICENABLED_ON )] _StochasticEnabled( "Stochastic Enabled", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESTOCHASTIC( "CATEGORY SPACE STOCHASTIC", Float ) = 0
 		[Meenphie_DrawerCategory(COLOR GRADING,true,0,0)] _CATEGORYCOLORGRADING( "CATEGORY COLOR GRADING", Float ) = 0
-		[KeywordEnum( 2D,3D )] _LUTMode( "LUT Mode", Float ) = 0
+		[KeywordEnum( 2D,3D )] _LUTMode( "LUT Mode", Float ) = 1
 		_LUTSize( "LUT Size", Float ) = 32
 		[NoScaleOffset][SingleLineTexture] _2DLut( "2D Lut", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _3DLut( "3D Lut", 3D ) = "black" {}
@@ -315,9 +315,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYSPACESTOCHASTIC;
 				uniform float _CATEGORYSPACECOLORGRADING;
 				uniform float _CATEGORYCOLORGRADING;
-				uniform sampler3D _3DLut;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
+				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float _OutlineWidth;
@@ -668,9 +668,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYSPACESTOCHASTIC;
 				uniform float _CATEGORYSPACECOLORGRADING;
 				uniform float _CATEGORYCOLORGRADING;
-				uniform sampler3D _3DLut;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
+				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _Color;
@@ -1721,7 +1721,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
 					#else
-					float3 staticSwitch273_g58801 = saturate( temp_output_35_0_g58801 );
+					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
 					#endif
 					float3 Color_Saturate49_g58801 = staticSwitch273_g58801;
 					float Lut_Height213_g58801 = _LUTSize;
@@ -1757,7 +1757,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
 					#else
-					float3 staticSwitch42_g58801 = TwoD_LUT346_g58801;
+					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
 					#endif
 					#ifdef SHADER_API_MOBILE
 					float3 staticSwitch41_g58801 = staticSwitch42_g58801;
@@ -2076,9 +2076,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYSPACESTOCHASTIC;
 				uniform float _CATEGORYSPACECOLORGRADING;
 				uniform float _CATEGORYCOLORGRADING;
-				uniform sampler3D _3DLut;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
+				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _Color;
@@ -3112,7 +3112,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
 					#else
-					float3 staticSwitch273_g58801 = saturate( temp_output_35_0_g58801 );
+					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
 					#endif
 					float3 Color_Saturate49_g58801 = staticSwitch273_g58801;
 					float Lut_Height213_g58801 = _LUTSize;
@@ -3148,7 +3148,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
 					#else
-					float3 staticSwitch42_g58801 = TwoD_LUT346_g58801;
+					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
 					#endif
 					#ifdef SHADER_API_MOBILE
 					float3 staticSwitch41_g58801 = staticSwitch42_g58801;
@@ -3389,9 +3389,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYSPACESTOCHASTIC;
 				uniform float _CATEGORYSPACECOLORGRADING;
 				uniform float _CATEGORYCOLORGRADING;
-				uniform sampler3D _3DLut;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
+				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _Color;
@@ -4176,7 +4176,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
 					#else
-					float3 staticSwitch273_g58801 = saturate( temp_output_35_0_g58801 );
+					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
 					#endif
 					float3 Color_Saturate49_g58801 = staticSwitch273_g58801;
 					float Lut_Height213_g58801 = _LUTSize;
@@ -4212,7 +4212,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LUTMODE_3D )
 					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
 					#else
-					float3 staticSwitch42_g58801 = TwoD_LUT346_g58801;
+					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
 					#endif
 					#ifdef SHADER_API_MOBILE
 					float3 staticSwitch41_g58801 = staticSwitch42_g58801;
@@ -4272,4 +4272,4 @@ WireConnection;2888;5;3034;97
 WireConnection;2888;6;3034;1042
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=D826B075AB12D54F380181E61390BA736A10DA55
+//CHKSM=D63BF75D9FCC839C4E33F5CF14BC7A6F48CC6B68
