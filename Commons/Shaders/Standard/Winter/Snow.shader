@@ -48,7 +48,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 		[Meenphie_DrawerCategory(OUTLINE,true,0,0)] _CATEGORYOUTLINE1( "CATEGORY OUTLINE", Float ) = 0
 		[Toggle( _OUTLINEENABLED_ON )] _OutlineEnabled( "Outline Enabled", Float ) = 1
 		_OutlineColor( "Outline Color", Color ) = ( 0.02, 0.02, 0.02 )
-		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.005
+		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.0025
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE1( "CATEGORY SPACE OUTLINE", Float ) = 0
 		[Meenphie_DrawerCategory(SNOW,true,0,0)] _CATEGORYSNOW( "CATEGORY SNOW", Float ) = 0
 		_Intensity( "Intensity", Float ) = 100
@@ -4535,4 +4535,4 @@ WireConnection;2888;5;3034;97
 WireConnection;2888;6;3034;1042
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=0DFA674D126BC94E0B95D6F41360FE3C5A4A60E3
+//CHKSM=58E501DE400B2F0B862EF299EECBAF7A4413DF0A
