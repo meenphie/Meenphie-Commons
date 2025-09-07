@@ -11,42 +11,51 @@ public static class LODTools
 
         foreach (var lodGroup in lodGroups)
         {
-            Undo.RecordObject(lodGroup, "Set LODs");
-
             var lods = lodGroup.GetLODs();
             if (lods.Length == 0)
                 continue;
 
+            bool changed = false;
             var lodArray = new LOD[lods.Length];
 
             for (int i = 0; i < lods.Length; i++)
             {
                 lodArray[i] = lods[i];
+                float targetHeight = lodArray[i].screenRelativeTransitionHeight;
 
                 if (i == lods.Length - 1)
                 {
-                    // Always last LOD = culled at 5%
-                    lodArray[i].screenRelativeTransitionHeight = 0.05f;
+                    targetHeight = 0.05f; // Last LOD
                 }
                 else if (i == 0)
                 {
-                    // First LOD = 100%
-                    lodArray[i].screenRelativeTransitionHeight = 1f;
+                    targetHeight = 0.5f; // First LOD
                 }
                 else if (i == 1)
                 {
-                    // Second LOD = 50%
-                    lodArray[i].screenRelativeTransitionHeight = 0.5f;
+                    targetHeight = 0.25f; // Second LOD
                 }
-                // Any intermediate LODs (if >3) keep their current value
+
+                if (!Mathf.Approximately(lodArray[i].screenRelativeTransitionHeight, targetHeight))
+                {
+                    lodArray[i].screenRelativeTransitionHeight = targetHeight;
+                    changed = true;
+                }
             }
 
-            lodGroup.SetLODs(lodArray);
-            lodGroup.RecalculateBounds();
-            EditorUtility.SetDirty(lodGroup);
-            count++;
+            if (changed)
+            {
+                Undo.RecordObject(lodGroup, "Set LODs");
+                lodGroup.SetLODs(lodArray);
+                lodGroup.RecalculateBounds();
+                EditorUtility.SetDirty(lodGroup);
+                count++;
+            }
         }
 
-        Debug.Log($"[<color=purple>Meenphie</color>] Updated LODs for {count} LODGroup(s).");
+        if (count > 0)
+            Debug.Log($"[<color=purple>Meenphie</color>] Updated LODs for {count} LODGroup(s).");
+        else
+            Debug.Log("[<color=purple>Meenphie</color>] No LODs needed updating.");
     }
 }
