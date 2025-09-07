@@ -62,7 +62,8 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
-        Debug.Log($"Lightmap assignment complete. Total assignments made: {assignCount}");
+        
+        Debug.Log($"[<color=purple>Meenphie</color>] {assignCount} Lightmaps assigned");
     }
 
     [MenuItem("Meenphie/Unassign Lightmaps")]
@@ -103,7 +104,8 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
-        Debug.Log($"Lightmap unassignment complete. Total unassignments made: {unassignCount}");
+
+        Debug.Log($"[<color=purple>Meenphie</color>] {unassignCount} Lightmaps unassigned");
     }
 
     // --- Helpers ---
