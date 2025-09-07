@@ -23,22 +23,22 @@ public static class LODTools
             {
                 lodArray[i] = lods[i];
 
-                if (i == 0)
+                if (i == lods.Length - 1)
                 {
-                    // Premier LOD = 100%
+                    // Always last LOD = culled at 5%
+                    lodArray[i].screenRelativeTransitionHeight = 0.05f;
+                }
+                else if (i == 0)
+                {
+                    // First LOD = 100%
                     lodArray[i].screenRelativeTransitionHeight = 1f;
                 }
                 else if (i == 1)
                 {
-                    // Deuxième LOD = 50%
+                    // Second LOD = 50%
                     lodArray[i].screenRelativeTransitionHeight = 0.5f;
                 }
-                else if (i == lods.Length - 1)
-                {
-                    // Toujours dernier LOD = culled à 5%
-                    lodArray[i].screenRelativeTransitionHeight = 0.05f;
-                }
-                // Les autres (s'il y en a entre LOD1 et le dernier) gardent leur valeur actuelle
+                // Any intermediate LODs (if >3) keep their current value
             }
 
             lodGroup.SetLODs(lodArray);
