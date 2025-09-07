@@ -18,8 +18,9 @@ Shader "Meenphie/Standard/Cutout"
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
 		[Toggle( _EMISSIONENABLED_ON )] _EmissionEnabled( "Emission Enabled", Float ) = 0
-		[HDR][Gamma] _EmissionColor( "Emission Color", Color ) = ( 0, 0, 0, 0 )
-		[NoScaleOffset][SingleLineTexture] _EmissionMap( "Emission Map", 2D ) = "black" {}
+		[Gamma] _EmissionColor( "Emission Color", Color ) = ( 0, 0, 0 )
+		[NoScaleOffset][SingleLineTexture] _EmissionMap( "Emission Map", 2D ) = "white" {}
+		_EmissionIntensity( "Emission Intensity", Float ) = 0
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[Meenphie_DrawerCategory(LIGHTMAPPING,true,0,0)] _CATEGORYLIGHTMAPPING( "CATEGORY LIGHTMAPPING", Float ) = 0
@@ -49,10 +50,11 @@ Shader "Meenphie/Standard/Cutout"
 		_OutlineColor( "Outline Color", Color ) = ( 0.02, 0.02, 0.02 )
 		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.0025
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE1( "CATEGORY SPACE OUTLINE", Float ) = 0
+		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
+		[HideInInspector] GenKey__EmissionMap( "Assign keyword _EMISSIONMAP", Float ) = 1.0
+		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__2DLut( "Assign keyword _2DLUT", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
-		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
-		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 
@@ -263,6 +265,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_VERT_NORMAL
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
+				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local _OUTLINEENABLED_ON
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 
@@ -340,6 +343,12 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch13_g1978 = temp_cast_0;
 					#endif
+					float4 temp_cast_3 = (asfloat( -1 )).xxxx;
+					#ifdef _LIGHTMAPDEBUG
+					float4 staticSwitch19_g1978 = temp_cast_3;
+					#else
+					float4 staticSwitch19_g1978 = staticSwitch13_g1978;
+					#endif
 					
 					o.ase_texcoord5.xy = v.ase_texcoord.xy;
 					
@@ -351,7 +360,7 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 						float3 defaultVertexValue = float3(0, 0, 0);
 					#endif
-					float3 vertexValue = staticSwitch13_g1978.rgb;
+					float3 vertexValue = staticSwitch19_g1978.rgb;
 					#ifdef ASE_ABSOLUTE_VERTEX_POS
 						v.vertex.xyz = vertexValue;
 					#else
@@ -512,12 +521,6 @@ Shader "Meenphie/Standard/Cutout"
 					half3 LightAtten = atten;
 					float FogCoord = IN.positionWS.w;
 
-					#ifdef _OUTLINEENABLED_ON
-					float3 staticSwitch18_g1978 = _OutlineColor;
-					#else
-					float3 staticSwitch18_g1978 = float3( 0,0,0 );
-					#endif
-					
 					float2 uv_MainTex907_g2323 = IN.ase_texcoord5.xy;
 					float2 uv_MainTex = IN.ase_texcoord5.xy * _MainTex_ST.xy + _MainTex_ST.zw;
 					float2 temp_output_5_0_g2344 = uv_MainTex;
@@ -596,7 +599,7 @@ Shader "Meenphie/Standard/Cutout"
 					float temp_output_2951_156 = temp_output_976_0_g2323.a;
 					
 
-					half3 Color = staticSwitch18_g1978;
+					half3 Color = _OutlineColor;
 					half Alpha = temp_output_2951_156;
 					half AlphaClipThreshold = 0.5;
 
@@ -677,6 +680,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_TEXTURE_COORDINATES2
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES2
+				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _BUMPMAP
 				#pragma shader_feature_local_fragment _METALLICMAP
@@ -685,6 +689,7 @@ Shader "Meenphie/Standard/Cutout"
 				#pragma shader_feature_local _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
 				#pragma shader_feature_local _USEBICUBICFILTERING_ON
 				#pragma shader_feature_local _EMISSIONENABLED_ON
+				#pragma shader_feature_local_fragment _EMISSIONMAP
 				#pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
 				#pragma shader_feature_local _2DLUT
 				#pragma shader_feature_local _3DLUT
@@ -778,9 +783,10 @@ Shader "Meenphie/Standard/Cutout"
 				float4 _RNMX1_TexelSize;
 				uniform sampler2D _RNMY1;
 				uniform sampler2D _RNMZ1;
-				uniform float4 _EmissionColor;
+				uniform float3 _EmissionColor;
 				uniform sampler2D _EmissionMap;
 				uniform float4 _EmissionMap_ST;
+				uniform float _EmissionIntensity;
 				uniform float _MaskClipValue;
 
 
@@ -1065,6 +1071,13 @@ Shader "Meenphie/Standard/Cutout"
 					#endif
 					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
 					float4 Albedo6_g2323 = temp_output_976_0_g2323;
+					float White38_g2323 = 1.0;
+					float4 temp_cast_0 = (White38_g2323).xxxx;
+					#ifdef _LIGHTMAPDEBUG
+					float4 staticSwitch1180_g2323 = temp_cast_0;
+					#else
+					float4 staticSwitch1180_g2323 = Albedo6_g2323;
+					#endif
 					
 					float2 uv_BumpMap830_g2323 = IN.ase_texcoord6.xy;
 					float2 uv_BumpMap = IN.ase_texcoord6.xy * _BumpMap_ST.xy + _BumpMap_ST.zw;
@@ -1230,6 +1243,12 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch846_g2323 = _Metallic;
 					#endif
 					float Metallic699_g2323 = staticSwitch846_g2323;
+					float Black1185_g2323 = 0.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1188_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1188_g2323 = Metallic699_g2323;
+					#endif
 					
 					float2 uv_GlossinessMap64_g2323 = IN.ase_texcoord6.xy;
 					float2 uv_GlossinessMap = IN.ase_texcoord6.xy * _GlossinessMap_ST.xy + _GlossinessMap_ST.zw;
@@ -1312,18 +1331,22 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float staticSwitch845_g2323 = _Glossiness;
 					#endif
-					float3 temp_output_3_0_g58808 = ddx( NormalWS );
-					float dotResult5_g58808 = dot( temp_output_3_0_g58808 , temp_output_3_0_g58808 );
-					float3 temp_output_4_0_g58808 = ddy( NormalWS );
-					float dotResult6_g58808 = dot( temp_output_4_0_g58808 , temp_output_4_0_g58808 );
+					float3 temp_output_3_0_g58823 = ddx( NormalWS );
+					float dotResult5_g58823 = dot( temp_output_3_0_g58823 , temp_output_3_0_g58823 );
+					float3 temp_output_4_0_g58823 = ddy( NormalWS );
+					float dotResult6_g58823 = dot( temp_output_4_0_g58823 , temp_output_4_0_g58823 );
 					#ifdef _USEGEOMETRICANTIALIASING_ON
-					float staticSwitch824_g2323 = min( staticSwitch845_g2323 , ( 1.0 - pow( saturate( max( dotResult5_g58808 , dotResult6_g58808 ) ) , 0.333 ) ) );
+					float staticSwitch824_g2323 = min( staticSwitch845_g2323 , ( 1.0 - pow( saturate( max( dotResult5_g58823 , dotResult6_g58823 ) ) , 0.333 ) ) );
 					#else
 					float staticSwitch824_g2323 = staticSwitch845_g2323;
 					#endif
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1183_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1183_g2323 = staticSwitch824_g2323;
+					#endif
 					
-					float White38_g2323 = 1.0;
-					float4 temp_cast_1 = (White38_g2323).xxxx;
+					float4 temp_cast_2 = (White38_g2323).xxxx;
 					float2 texCoord1093_g2323 = IN.ase_texcoord6.zw * float2( 1,1 ) + float2( 0,0 );
 					float localBicubicPrepare2_g58766 = ( 0.0 );
 					float2 uv3_Lightmap0 = IN.ase_texcoord6.zw * _Lightmap0_ST.xy + _Lightmap0_ST.zw;
@@ -1568,7 +1591,7 @@ Shader "Meenphie/Standard/Cutout"
 					float4 lerpResult953_g2323 = lerp( RNM_0926_g2323 , RNM_11081_g2323 , Lightmap_Lerp_Value969_g2323);
 					float4 RNM_Lerp950_g2323 = lerpResult953_g2323;
 					#if defined( _LIGHTMAPMODE_DISABLED )
-					float4 staticSwitch1014_g2323 = temp_cast_1;
+					float4 staticSwitch1014_g2323 = temp_cast_2;
 					#elif defined( _LIGHTMAPMODE_SIMPLE )
 					float4 staticSwitch1014_g2323 = Lightmap_0925_g2323;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
@@ -1578,11 +1601,11 @@ Shader "Meenphie/Standard/Cutout"
 					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g2323 = RNM_Lerp950_g2323;
 					#else
-					float4 staticSwitch1014_g2323 = temp_cast_1;
+					float4 staticSwitch1014_g2323 = temp_cast_2;
 					#endif
 					float4 Lightmap46_g2323 = staticSwitch1014_g2323;
 					float4 temp_output_614_0_g2323 = ( Albedo6_g2323 * ( ( 1.0 - Metallic699_g2323 ) * Lightmap46_g2323 ) );
-					float4 temp_cast_2 = 0;
+					float4 temp_cast_3 = 0;
 					float2 uv_EmissionMap81_g2323 = IN.ase_texcoord6.xy;
 					float2 uv_EmissionMap = IN.ase_texcoord6.xy * _EmissionMap_ST.xy + _EmissionMap_ST.zw;
 					float2 temp_output_5_0_g2324 = uv_EmissionMap;
@@ -1657,10 +1680,15 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1006_g2323 = tex2D( _EmissionMap, uv_EmissionMap81_g2323 );
 					#endif
-					#ifdef _EMISSIONENABLED_ON
-					float4 staticSwitch1017_g2323 = ( _EmissionColor * staticSwitch1006_g2323 );
+					#ifdef _EMISSIONMAP
+					float4 staticSwitch1175_g2323 = ( staticSwitch1006_g2323 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g2323 = temp_cast_2;
+					float4 staticSwitch1175_g2323 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g2323 * _EmissionIntensity );
+					#endif
+					#ifdef _EMISSIONENABLED_ON
+					float4 staticSwitch1017_g2323 = staticSwitch1175_g2323;
+					#else
+					float4 staticSwitch1017_g2323 = temp_cast_3;
 					#endif
 					float4 Emission86_g2323 = staticSwitch1017_g2323;
 					float4 temp_output_690_0_g2323 = ( Emission86_g2323 + temp_output_614_0_g2323 );
@@ -1677,66 +1705,71 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1019_g2323 = ( temp_output_614_0_g2323 * Emission86_g2323 );
 					#endif
-					float3 temp_output_35_0_g58801 = staticSwitch1019_g2323.rgb;
-					float3 Color353_g58801 = temp_output_35_0_g58801;
-					#if defined( _LUTMODE_2D )
-					float3 staticSwitch273_g58801 = saturate( temp_output_35_0_g58801 );
-					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
+					#ifdef _LIGHTMAPDEBUG
+					float4 staticSwitch1181_g2323 = Lightmap46_g2323;
 					#else
-					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
+					float4 staticSwitch1181_g2323 = staticSwitch1019_g2323;
 					#endif
-					float3 Color_Saturate49_g58801 = staticSwitch273_g58801;
-					float Lut_Height213_g58801 = _LUTSize;
-					float Lut_Width216_g58801 = ( _LUTSize * Lut_Height213_g58801 );
-					float3 appendResult214_g58801 = (float3(( 1.0 / Lut_Width216_g58801 ) , ( 1.0 / Lut_Height213_g58801 ) , ( Lut_Height213_g58801 - 1.0 )));
-					float3 Scale_Offset208_g58801 = appendResult214_g58801;
-					float2 Scale_Factor292_g58801 = ( (Scale_Offset208_g58801).xy * (Scale_Offset208_g58801).z );
-					float2 Offset299_g58801 = ( (Scale_Offset208_g58801).xy * 0.5 );
-					float2 Adjusted_UV305_g58801 = ( ( (Color_Saturate49_g58801).xy * Scale_Factor292_g58801 ) + Offset299_g58801 );
-					float Scaled_Blue280_g58801 = ( (Color_Saturate49_g58801).z * (Scale_Offset208_g58801).z );
-					float Shift288_g58801 = floor( Scaled_Blue280_g58801 );
-					float Final_X313_g58801 = ( (Adjusted_UV305_g58801).x + ( Shift288_g58801 * (Scale_Offset208_g58801).y ) );
-					float2 appendResult326_g58801 = (float2(Final_X313_g58801 , (Adjusted_UV305_g58801).y));
-					float2 Final_UV325_g58801 = appendResult326_g58801;
-					float2 appendResult338_g58801 = (float2((Scale_Offset208_g58801).y , 0.0));
-					float2 Offset_UV336_g58801 = ( Final_UV325_g58801 + appendResult338_g58801 );
-					float3 lerpResult333_g58801 = lerp( tex2D( _2DLut, Final_UV325_g58801 ).rgb , tex2D( _2DLut, Offset_UV336_g58801 ).rgb , ( Scaled_Blue280_g58801 - Shift288_g58801 ));
+					float4 temp_output_35_0_g58821 = staticSwitch1181_g2323;
+					float4 Color353_g58821 = temp_output_35_0_g58821;
+					#if defined( _LUTMODE_2D )
+					float4 staticSwitch273_g58821 = saturate( temp_output_35_0_g58821 );
+					#elif defined( _LUTMODE_3D )
+					float4 staticSwitch273_g58821 = temp_output_35_0_g58821;
+					#else
+					float4 staticSwitch273_g58821 = temp_output_35_0_g58821;
+					#endif
+					float4 Color_Saturate49_g58821 = staticSwitch273_g58821;
+					float Lut_Height213_g58821 = _LUTSize;
+					float Lut_Width216_g58821 = ( _LUTSize * Lut_Height213_g58821 );
+					float3 appendResult214_g58821 = (float3(( 1.0 / Lut_Width216_g58821 ) , ( 1.0 / Lut_Height213_g58821 ) , ( Lut_Height213_g58821 - 1.0 )));
+					float3 Scale_Offset208_g58821 = appendResult214_g58821;
+					float2 Scale_Factor292_g58821 = ( (Scale_Offset208_g58821).xy * (Scale_Offset208_g58821).z );
+					float2 Offset299_g58821 = ( (Scale_Offset208_g58821).xy * 0.5 );
+					float3 Adjusted_UV305_g58821 = ( ( (Color_Saturate49_g58821).xyw * float3( Scale_Factor292_g58821 ,  0.0 ) ) + float3( Offset299_g58821 ,  0.0 ) );
+					float2 Scaled_Blue280_g58821 = ( (Color_Saturate49_g58821).zw * (Scale_Offset208_g58821).z );
+					float2 Shift288_g58821 = floor( Scaled_Blue280_g58821 );
+					float2 Final_X313_g58821 = ( (Adjusted_UV305_g58821).xz + ( Shift288_g58821 * (Scale_Offset208_g58821).y ) );
+					float2 appendResult326_g58821 = (float2(Final_X313_g58821.x , (Adjusted_UV305_g58821).yz.x));
+					float2 Final_UV325_g58821 = appendResult326_g58821;
+					float2 appendResult338_g58821 = (float2((Scale_Offset208_g58821).y , 0.0));
+					float2 Offset_UV336_g58821 = ( Final_UV325_g58821 + appendResult338_g58821 );
+					float3 lerpResult333_g58821 = lerp( tex2D( _2DLut, Final_UV325_g58821 ).rgb , tex2D( _2DLut, Offset_UV336_g58821 ).rgb , float3( ( Scaled_Blue280_g58821 - Shift288_g58821 ) ,  0.0 ));
 					#ifdef _2DLUT
-					float3 staticSwitch347_g58801 = lerpResult333_g58801;
+					float4 staticSwitch347_g58821 = float4( lerpResult333_g58821 , 0.0 );
 					#else
-					float3 staticSwitch347_g58801 = Color_Saturate49_g58801;
+					float4 staticSwitch347_g58821 = Color_Saturate49_g58821;
 					#endif
-					float3 TwoD_LUT346_g58801 = staticSwitch347_g58801;
-					float3 RGB16_g58802 = ( ( log10( ( ( Color_Saturate49_g58801 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 TwoD_LUT346_g58821 = staticSwitch347_g58821;
+					float3 RGB16_g58822 = ( ( log10( ( ( Color_Saturate49_g58821.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float3 staticSwitch194_g58801 = tex3D( _3DLut, RGB16_g58802 ).rgb;
+					float4 staticSwitch194_g58821 = tex3D( _3DLut, RGB16_g58822 );
 					#else
-					float3 staticSwitch194_g58801 = Color_Saturate49_g58801;
+					float4 staticSwitch194_g58821 = Color_Saturate49_g58821;
 					#endif
-					float3 ThreeD_LUT51_g58801 = staticSwitch194_g58801;
+					float4 ThreeD_LUT51_g58821 = staticSwitch194_g58821;
 					#if defined( _LUTMODE_2D )
-					float3 staticSwitch42_g58801 = TwoD_LUT346_g58801;
+					float4 staticSwitch42_g58821 = TwoD_LUT346_g58821;
 					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
+					float4 staticSwitch42_g58821 = ThreeD_LUT51_g58821;
 					#else
-					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
+					float4 staticSwitch42_g58821 = ThreeD_LUT51_g58821;
 					#endif
 					#ifdef SHADER_API_MOBILE
-					float3 staticSwitch41_g58801 = staticSwitch42_g58801;
+					float4 staticSwitch41_g58821 = staticSwitch42_g58821;
 					#else
-					float3 staticSwitch41_g58801 = Color353_g58801;
+					float4 staticSwitch41_g58821 = Color353_g58821;
 					#endif
 					
 					float temp_output_2951_156 = temp_output_976_0_g2323.a;
 					
 
-					o.Albedo = Albedo6_g2323.rgb;
+					o.Albedo = staticSwitch1180_g2323.rgb;
 					o.Normal = Normal_Map700_g2323;
 
 					half3 Specular = half3( 0, 0, 0 );
-					half Metallic = Metallic699_g2323;
-					half Smoothness = staticSwitch824_g2323;
+					half Metallic = staticSwitch1188_g2323;
+					half Smoothness = staticSwitch1183_g2323;
 					half Occlusion = 1;
 
 					#if defined(ASE_LIGHTING_SIMPLE)
@@ -1752,7 +1785,7 @@ Shader "Meenphie/Standard/Cutout"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch41_g58801;
+					o.Emission = staticSwitch41_g58821.xyz;
 					o.Alpha = temp_output_2951_156;
 					half AlphaClipThreshold = _MaskClipValue;
 					half AlphaClipThresholdShadow = 0.5;
@@ -1970,6 +2003,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_TEXTURE_COORDINATES2
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES2
+				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _BUMPMAP
 				#pragma shader_feature_local_fragment _METALLICMAP
@@ -1978,6 +2012,7 @@ Shader "Meenphie/Standard/Cutout"
 				#pragma shader_feature_local _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
 				#pragma shader_feature_local _USEBICUBICFILTERING_ON
 				#pragma shader_feature_local _EMISSIONENABLED_ON
+				#pragma shader_feature_local_fragment _EMISSIONMAP
 				#pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
 				#pragma shader_feature_local _2DLUT
 				#pragma shader_feature_local _3DLUT
@@ -2070,9 +2105,10 @@ Shader "Meenphie/Standard/Cutout"
 				float4 _RNMX1_TexelSize;
 				uniform sampler2D _RNMY1;
 				uniform sampler2D _RNMZ1;
-				uniform float4 _EmissionColor;
+				uniform float3 _EmissionColor;
 				uniform sampler2D _EmissionMap;
 				uniform float4 _EmissionMap_ST;
+				uniform float _EmissionIntensity;
 				uniform float _MaskClipValue;
 
 
@@ -2340,6 +2376,13 @@ Shader "Meenphie/Standard/Cutout"
 					#endif
 					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
 					float4 Albedo6_g2323 = temp_output_976_0_g2323;
+					float White38_g2323 = 1.0;
+					float4 temp_cast_0 = (White38_g2323).xxxx;
+					#ifdef _LIGHTMAPDEBUG
+					float4 staticSwitch1180_g2323 = temp_cast_0;
+					#else
+					float4 staticSwitch1180_g2323 = Albedo6_g2323;
+					#endif
 					
 					float2 uv_BumpMap830_g2323 = IN.ase_texcoord5.xy;
 					float2 uv_BumpMap = IN.ase_texcoord5.xy * _BumpMap_ST.xy + _BumpMap_ST.zw;
@@ -2505,6 +2548,12 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch846_g2323 = _Metallic;
 					#endif
 					float Metallic699_g2323 = staticSwitch846_g2323;
+					float Black1185_g2323 = 0.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1188_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1188_g2323 = Metallic699_g2323;
+					#endif
 					
 					float2 uv_GlossinessMap64_g2323 = IN.ase_texcoord5.xy;
 					float2 uv_GlossinessMap = IN.ase_texcoord5.xy * _GlossinessMap_ST.xy + _GlossinessMap_ST.zw;
@@ -2587,18 +2636,22 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float staticSwitch845_g2323 = _Glossiness;
 					#endif
-					float3 temp_output_3_0_g58808 = ddx( NormalWS );
-					float dotResult5_g58808 = dot( temp_output_3_0_g58808 , temp_output_3_0_g58808 );
-					float3 temp_output_4_0_g58808 = ddy( NormalWS );
-					float dotResult6_g58808 = dot( temp_output_4_0_g58808 , temp_output_4_0_g58808 );
+					float3 temp_output_3_0_g58823 = ddx( NormalWS );
+					float dotResult5_g58823 = dot( temp_output_3_0_g58823 , temp_output_3_0_g58823 );
+					float3 temp_output_4_0_g58823 = ddy( NormalWS );
+					float dotResult6_g58823 = dot( temp_output_4_0_g58823 , temp_output_4_0_g58823 );
 					#ifdef _USEGEOMETRICANTIALIASING_ON
-					float staticSwitch824_g2323 = min( staticSwitch845_g2323 , ( 1.0 - pow( saturate( max( dotResult5_g58808 , dotResult6_g58808 ) ) , 0.333 ) ) );
+					float staticSwitch824_g2323 = min( staticSwitch845_g2323 , ( 1.0 - pow( saturate( max( dotResult5_g58823 , dotResult6_g58823 ) ) , 0.333 ) ) );
 					#else
 					float staticSwitch824_g2323 = staticSwitch845_g2323;
 					#endif
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1183_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1183_g2323 = staticSwitch824_g2323;
+					#endif
 					
-					float White38_g2323 = 1.0;
-					float4 temp_cast_1 = (White38_g2323).xxxx;
+					float4 temp_cast_2 = (White38_g2323).xxxx;
 					float2 texCoord1093_g2323 = IN.ase_texcoord5.zw * float2( 1,1 ) + float2( 0,0 );
 					float localBicubicPrepare2_g58766 = ( 0.0 );
 					float2 uv3_Lightmap0 = IN.ase_texcoord5.zw * _Lightmap0_ST.xy + _Lightmap0_ST.zw;
@@ -2843,7 +2896,7 @@ Shader "Meenphie/Standard/Cutout"
 					float4 lerpResult953_g2323 = lerp( RNM_0926_g2323 , RNM_11081_g2323 , Lightmap_Lerp_Value969_g2323);
 					float4 RNM_Lerp950_g2323 = lerpResult953_g2323;
 					#if defined( _LIGHTMAPMODE_DISABLED )
-					float4 staticSwitch1014_g2323 = temp_cast_1;
+					float4 staticSwitch1014_g2323 = temp_cast_2;
 					#elif defined( _LIGHTMAPMODE_SIMPLE )
 					float4 staticSwitch1014_g2323 = Lightmap_0925_g2323;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
@@ -2853,11 +2906,11 @@ Shader "Meenphie/Standard/Cutout"
 					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g2323 = RNM_Lerp950_g2323;
 					#else
-					float4 staticSwitch1014_g2323 = temp_cast_1;
+					float4 staticSwitch1014_g2323 = temp_cast_2;
 					#endif
 					float4 Lightmap46_g2323 = staticSwitch1014_g2323;
 					float4 temp_output_614_0_g2323 = ( Albedo6_g2323 * ( ( 1.0 - Metallic699_g2323 ) * Lightmap46_g2323 ) );
-					float4 temp_cast_2 = 0;
+					float4 temp_cast_3 = 0;
 					float2 uv_EmissionMap81_g2323 = IN.ase_texcoord5.xy;
 					float2 uv_EmissionMap = IN.ase_texcoord5.xy * _EmissionMap_ST.xy + _EmissionMap_ST.zw;
 					float2 temp_output_5_0_g2324 = uv_EmissionMap;
@@ -2932,10 +2985,15 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1006_g2323 = tex2D( _EmissionMap, uv_EmissionMap81_g2323 );
 					#endif
-					#ifdef _EMISSIONENABLED_ON
-					float4 staticSwitch1017_g2323 = ( _EmissionColor * staticSwitch1006_g2323 );
+					#ifdef _EMISSIONMAP
+					float4 staticSwitch1175_g2323 = ( staticSwitch1006_g2323 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g2323 = temp_cast_2;
+					float4 staticSwitch1175_g2323 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g2323 * _EmissionIntensity );
+					#endif
+					#ifdef _EMISSIONENABLED_ON
+					float4 staticSwitch1017_g2323 = staticSwitch1175_g2323;
+					#else
+					float4 staticSwitch1017_g2323 = temp_cast_3;
 					#endif
 					float4 Emission86_g2323 = staticSwitch1017_g2323;
 					float4 temp_output_690_0_g2323 = ( Emission86_g2323 + temp_output_614_0_g2323 );
@@ -2952,66 +3010,71 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1019_g2323 = ( temp_output_614_0_g2323 * Emission86_g2323 );
 					#endif
-					float3 temp_output_35_0_g58801 = staticSwitch1019_g2323.rgb;
-					float3 Color353_g58801 = temp_output_35_0_g58801;
-					#if defined( _LUTMODE_2D )
-					float3 staticSwitch273_g58801 = saturate( temp_output_35_0_g58801 );
-					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
+					#ifdef _LIGHTMAPDEBUG
+					float4 staticSwitch1181_g2323 = Lightmap46_g2323;
 					#else
-					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
+					float4 staticSwitch1181_g2323 = staticSwitch1019_g2323;
 					#endif
-					float3 Color_Saturate49_g58801 = staticSwitch273_g58801;
-					float Lut_Height213_g58801 = _LUTSize;
-					float Lut_Width216_g58801 = ( _LUTSize * Lut_Height213_g58801 );
-					float3 appendResult214_g58801 = (float3(( 1.0 / Lut_Width216_g58801 ) , ( 1.0 / Lut_Height213_g58801 ) , ( Lut_Height213_g58801 - 1.0 )));
-					float3 Scale_Offset208_g58801 = appendResult214_g58801;
-					float2 Scale_Factor292_g58801 = ( (Scale_Offset208_g58801).xy * (Scale_Offset208_g58801).z );
-					float2 Offset299_g58801 = ( (Scale_Offset208_g58801).xy * 0.5 );
-					float2 Adjusted_UV305_g58801 = ( ( (Color_Saturate49_g58801).xy * Scale_Factor292_g58801 ) + Offset299_g58801 );
-					float Scaled_Blue280_g58801 = ( (Color_Saturate49_g58801).z * (Scale_Offset208_g58801).z );
-					float Shift288_g58801 = floor( Scaled_Blue280_g58801 );
-					float Final_X313_g58801 = ( (Adjusted_UV305_g58801).x + ( Shift288_g58801 * (Scale_Offset208_g58801).y ) );
-					float2 appendResult326_g58801 = (float2(Final_X313_g58801 , (Adjusted_UV305_g58801).y));
-					float2 Final_UV325_g58801 = appendResult326_g58801;
-					float2 appendResult338_g58801 = (float2((Scale_Offset208_g58801).y , 0.0));
-					float2 Offset_UV336_g58801 = ( Final_UV325_g58801 + appendResult338_g58801 );
-					float3 lerpResult333_g58801 = lerp( tex2D( _2DLut, Final_UV325_g58801 ).rgb , tex2D( _2DLut, Offset_UV336_g58801 ).rgb , ( Scaled_Blue280_g58801 - Shift288_g58801 ));
+					float4 temp_output_35_0_g58821 = staticSwitch1181_g2323;
+					float4 Color353_g58821 = temp_output_35_0_g58821;
+					#if defined( _LUTMODE_2D )
+					float4 staticSwitch273_g58821 = saturate( temp_output_35_0_g58821 );
+					#elif defined( _LUTMODE_3D )
+					float4 staticSwitch273_g58821 = temp_output_35_0_g58821;
+					#else
+					float4 staticSwitch273_g58821 = temp_output_35_0_g58821;
+					#endif
+					float4 Color_Saturate49_g58821 = staticSwitch273_g58821;
+					float Lut_Height213_g58821 = _LUTSize;
+					float Lut_Width216_g58821 = ( _LUTSize * Lut_Height213_g58821 );
+					float3 appendResult214_g58821 = (float3(( 1.0 / Lut_Width216_g58821 ) , ( 1.0 / Lut_Height213_g58821 ) , ( Lut_Height213_g58821 - 1.0 )));
+					float3 Scale_Offset208_g58821 = appendResult214_g58821;
+					float2 Scale_Factor292_g58821 = ( (Scale_Offset208_g58821).xy * (Scale_Offset208_g58821).z );
+					float2 Offset299_g58821 = ( (Scale_Offset208_g58821).xy * 0.5 );
+					float3 Adjusted_UV305_g58821 = ( ( (Color_Saturate49_g58821).xyw * float3( Scale_Factor292_g58821 ,  0.0 ) ) + float3( Offset299_g58821 ,  0.0 ) );
+					float2 Scaled_Blue280_g58821 = ( (Color_Saturate49_g58821).zw * (Scale_Offset208_g58821).z );
+					float2 Shift288_g58821 = floor( Scaled_Blue280_g58821 );
+					float2 Final_X313_g58821 = ( (Adjusted_UV305_g58821).xz + ( Shift288_g58821 * (Scale_Offset208_g58821).y ) );
+					float2 appendResult326_g58821 = (float2(Final_X313_g58821.x , (Adjusted_UV305_g58821).yz.x));
+					float2 Final_UV325_g58821 = appendResult326_g58821;
+					float2 appendResult338_g58821 = (float2((Scale_Offset208_g58821).y , 0.0));
+					float2 Offset_UV336_g58821 = ( Final_UV325_g58821 + appendResult338_g58821 );
+					float3 lerpResult333_g58821 = lerp( tex2D( _2DLut, Final_UV325_g58821 ).rgb , tex2D( _2DLut, Offset_UV336_g58821 ).rgb , float3( ( Scaled_Blue280_g58821 - Shift288_g58821 ) ,  0.0 ));
 					#ifdef _2DLUT
-					float3 staticSwitch347_g58801 = lerpResult333_g58801;
+					float4 staticSwitch347_g58821 = float4( lerpResult333_g58821 , 0.0 );
 					#else
-					float3 staticSwitch347_g58801 = Color_Saturate49_g58801;
+					float4 staticSwitch347_g58821 = Color_Saturate49_g58821;
 					#endif
-					float3 TwoD_LUT346_g58801 = staticSwitch347_g58801;
-					float3 RGB16_g58802 = ( ( log10( ( ( Color_Saturate49_g58801 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 TwoD_LUT346_g58821 = staticSwitch347_g58821;
+					float3 RGB16_g58822 = ( ( log10( ( ( Color_Saturate49_g58821.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float3 staticSwitch194_g58801 = tex3D( _3DLut, RGB16_g58802 ).rgb;
+					float4 staticSwitch194_g58821 = tex3D( _3DLut, RGB16_g58822 );
 					#else
-					float3 staticSwitch194_g58801 = Color_Saturate49_g58801;
+					float4 staticSwitch194_g58821 = Color_Saturate49_g58821;
 					#endif
-					float3 ThreeD_LUT51_g58801 = staticSwitch194_g58801;
+					float4 ThreeD_LUT51_g58821 = staticSwitch194_g58821;
 					#if defined( _LUTMODE_2D )
-					float3 staticSwitch42_g58801 = TwoD_LUT346_g58801;
+					float4 staticSwitch42_g58821 = TwoD_LUT346_g58821;
 					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
+					float4 staticSwitch42_g58821 = ThreeD_LUT51_g58821;
 					#else
-					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
+					float4 staticSwitch42_g58821 = ThreeD_LUT51_g58821;
 					#endif
 					#ifdef SHADER_API_MOBILE
-					float3 staticSwitch41_g58801 = staticSwitch42_g58801;
+					float4 staticSwitch41_g58821 = staticSwitch42_g58821;
 					#else
-					float3 staticSwitch41_g58801 = Color353_g58801;
+					float4 staticSwitch41_g58821 = Color353_g58821;
 					#endif
 					
 					float temp_output_2951_156 = temp_output_976_0_g2323.a;
 					
 
-					o.Albedo = Albedo6_g2323.rgb;
+					o.Albedo = staticSwitch1180_g2323.rgb;
 					o.Normal = Normal_Map700_g2323;
 
 					half3 Specular = half3( 0, 0, 0 );
-					half Metallic = Metallic699_g2323;
-					half Smoothness = staticSwitch824_g2323;
+					half Metallic = staticSwitch1188_g2323;
+					half Smoothness = staticSwitch1183_g2323;
 					half Occlusion = 1;
 
 					#if defined(ASE_LIGHTING_SIMPLE)
@@ -3027,7 +3090,7 @@ Shader "Meenphie/Standard/Cutout"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch41_g58801;
+					o.Emission = staticSwitch41_g58821.xyz;
 					o.Alpha = temp_output_2951_156;
 					half AlphaClipThreshold = _MaskClipValue;
 					half3 Transmission = 1;
@@ -3182,12 +3245,14 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_TEXTURE_COORDINATES2
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES2
+				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 				#pragma shader_feature_local _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
 				#pragma shader_feature_local_fragment _METALLICMAP
 				#pragma shader_feature_local _USEBICUBICFILTERING_ON
 				#pragma shader_feature_local_fragment _BUMPMAP
 				#pragma shader_feature_local _EMISSIONENABLED_ON
+				#pragma shader_feature_local_fragment _EMISSIONMAP
 				#pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
 				#pragma shader_feature_local _2DLUT
 				#pragma shader_feature_local _3DLUT
@@ -3266,9 +3331,10 @@ Shader "Meenphie/Standard/Cutout"
 				float4 _RNMX1_TexelSize;
 				uniform sampler2D _RNMY1;
 				uniform sampler2D _RNMZ1;
-				uniform float4 _EmissionColor;
+				uniform float3 _EmissionColor;
 				uniform sampler2D _EmissionMap;
 				uniform float4 _EmissionMap_ST;
+				uniform float _EmissionIntensity;
 				uniform float _MaskClipValue;
 
 
@@ -3497,6 +3563,13 @@ Shader "Meenphie/Standard/Cutout"
 					#endif
 					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
 					float4 Albedo6_g2323 = temp_output_976_0_g2323;
+					float White38_g2323 = 1.0;
+					float4 temp_cast_0 = (White38_g2323).xxxx;
+					#ifdef _LIGHTMAPDEBUG
+					float4 staticSwitch1180_g2323 = temp_cast_0;
+					#else
+					float4 staticSwitch1180_g2323 = Albedo6_g2323;
+					#endif
 					
 					float2 uv_MetallicMap48_g2323 = IN.ase_texcoord2.xy;
 					float2 uv_MetallicMap = IN.ase_texcoord2.xy * _MetallicMap_ST.xy + _MetallicMap_ST.zw;
@@ -3580,8 +3653,7 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch846_g2323 = _Metallic;
 					#endif
 					float Metallic699_g2323 = staticSwitch846_g2323;
-					float White38_g2323 = 1.0;
-					float4 temp_cast_1 = (White38_g2323).xxxx;
+					float4 temp_cast_2 = (White38_g2323).xxxx;
 					float2 texCoord1093_g2323 = IN.ase_texcoord2.zw * float2( 1,1 ) + float2( 0,0 );
 					float localBicubicPrepare2_g58766 = ( 0.0 );
 					float2 uv3_Lightmap0 = IN.ase_texcoord2.zw * _Lightmap0_ST.xy + _Lightmap0_ST.zw;
@@ -3907,7 +3979,7 @@ Shader "Meenphie/Standard/Cutout"
 					float4 lerpResult953_g2323 = lerp( RNM_0926_g2323 , RNM_11081_g2323 , Lightmap_Lerp_Value969_g2323);
 					float4 RNM_Lerp950_g2323 = lerpResult953_g2323;
 					#if defined( _LIGHTMAPMODE_DISABLED )
-					float4 staticSwitch1014_g2323 = temp_cast_1;
+					float4 staticSwitch1014_g2323 = temp_cast_2;
 					#elif defined( _LIGHTMAPMODE_SIMPLE )
 					float4 staticSwitch1014_g2323 = Lightmap_0925_g2323;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
@@ -3917,11 +3989,11 @@ Shader "Meenphie/Standard/Cutout"
 					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g2323 = RNM_Lerp950_g2323;
 					#else
-					float4 staticSwitch1014_g2323 = temp_cast_1;
+					float4 staticSwitch1014_g2323 = temp_cast_2;
 					#endif
 					float4 Lightmap46_g2323 = staticSwitch1014_g2323;
 					float4 temp_output_614_0_g2323 = ( Albedo6_g2323 * ( ( 1.0 - Metallic699_g2323 ) * Lightmap46_g2323 ) );
-					float4 temp_cast_2 = 0;
+					float4 temp_cast_3 = 0;
 					float2 uv_EmissionMap81_g2323 = IN.ase_texcoord2.xy;
 					float2 uv_EmissionMap = IN.ase_texcoord2.xy * _EmissionMap_ST.xy + _EmissionMap_ST.zw;
 					float2 temp_output_5_0_g2324 = uv_EmissionMap;
@@ -3996,10 +4068,15 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1006_g2323 = tex2D( _EmissionMap, uv_EmissionMap81_g2323 );
 					#endif
-					#ifdef _EMISSIONENABLED_ON
-					float4 staticSwitch1017_g2323 = ( _EmissionColor * staticSwitch1006_g2323 );
+					#ifdef _EMISSIONMAP
+					float4 staticSwitch1175_g2323 = ( staticSwitch1006_g2323 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g2323 = temp_cast_2;
+					float4 staticSwitch1175_g2323 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g2323 * _EmissionIntensity );
+					#endif
+					#ifdef _EMISSIONENABLED_ON
+					float4 staticSwitch1017_g2323 = staticSwitch1175_g2323;
+					#else
+					float4 staticSwitch1017_g2323 = temp_cast_3;
 					#endif
 					float4 Emission86_g2323 = staticSwitch1017_g2323;
 					float4 temp_output_690_0_g2323 = ( Emission86_g2323 + temp_output_614_0_g2323 );
@@ -4016,63 +4093,68 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1019_g2323 = ( temp_output_614_0_g2323 * Emission86_g2323 );
 					#endif
-					float3 temp_output_35_0_g58801 = staticSwitch1019_g2323.rgb;
-					float3 Color353_g58801 = temp_output_35_0_g58801;
-					#if defined( _LUTMODE_2D )
-					float3 staticSwitch273_g58801 = saturate( temp_output_35_0_g58801 );
-					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
+					#ifdef _LIGHTMAPDEBUG
+					float4 staticSwitch1181_g2323 = Lightmap46_g2323;
 					#else
-					float3 staticSwitch273_g58801 = temp_output_35_0_g58801;
+					float4 staticSwitch1181_g2323 = staticSwitch1019_g2323;
 					#endif
-					float3 Color_Saturate49_g58801 = staticSwitch273_g58801;
-					float Lut_Height213_g58801 = _LUTSize;
-					float Lut_Width216_g58801 = ( _LUTSize * Lut_Height213_g58801 );
-					float3 appendResult214_g58801 = (float3(( 1.0 / Lut_Width216_g58801 ) , ( 1.0 / Lut_Height213_g58801 ) , ( Lut_Height213_g58801 - 1.0 )));
-					float3 Scale_Offset208_g58801 = appendResult214_g58801;
-					float2 Scale_Factor292_g58801 = ( (Scale_Offset208_g58801).xy * (Scale_Offset208_g58801).z );
-					float2 Offset299_g58801 = ( (Scale_Offset208_g58801).xy * 0.5 );
-					float2 Adjusted_UV305_g58801 = ( ( (Color_Saturate49_g58801).xy * Scale_Factor292_g58801 ) + Offset299_g58801 );
-					float Scaled_Blue280_g58801 = ( (Color_Saturate49_g58801).z * (Scale_Offset208_g58801).z );
-					float Shift288_g58801 = floor( Scaled_Blue280_g58801 );
-					float Final_X313_g58801 = ( (Adjusted_UV305_g58801).x + ( Shift288_g58801 * (Scale_Offset208_g58801).y ) );
-					float2 appendResult326_g58801 = (float2(Final_X313_g58801 , (Adjusted_UV305_g58801).y));
-					float2 Final_UV325_g58801 = appendResult326_g58801;
-					float2 appendResult338_g58801 = (float2((Scale_Offset208_g58801).y , 0.0));
-					float2 Offset_UV336_g58801 = ( Final_UV325_g58801 + appendResult338_g58801 );
-					float3 lerpResult333_g58801 = lerp( tex2D( _2DLut, Final_UV325_g58801 ).rgb , tex2D( _2DLut, Offset_UV336_g58801 ).rgb , ( Scaled_Blue280_g58801 - Shift288_g58801 ));
+					float4 temp_output_35_0_g58821 = staticSwitch1181_g2323;
+					float4 Color353_g58821 = temp_output_35_0_g58821;
+					#if defined( _LUTMODE_2D )
+					float4 staticSwitch273_g58821 = saturate( temp_output_35_0_g58821 );
+					#elif defined( _LUTMODE_3D )
+					float4 staticSwitch273_g58821 = temp_output_35_0_g58821;
+					#else
+					float4 staticSwitch273_g58821 = temp_output_35_0_g58821;
+					#endif
+					float4 Color_Saturate49_g58821 = staticSwitch273_g58821;
+					float Lut_Height213_g58821 = _LUTSize;
+					float Lut_Width216_g58821 = ( _LUTSize * Lut_Height213_g58821 );
+					float3 appendResult214_g58821 = (float3(( 1.0 / Lut_Width216_g58821 ) , ( 1.0 / Lut_Height213_g58821 ) , ( Lut_Height213_g58821 - 1.0 )));
+					float3 Scale_Offset208_g58821 = appendResult214_g58821;
+					float2 Scale_Factor292_g58821 = ( (Scale_Offset208_g58821).xy * (Scale_Offset208_g58821).z );
+					float2 Offset299_g58821 = ( (Scale_Offset208_g58821).xy * 0.5 );
+					float3 Adjusted_UV305_g58821 = ( ( (Color_Saturate49_g58821).xyw * float3( Scale_Factor292_g58821 ,  0.0 ) ) + float3( Offset299_g58821 ,  0.0 ) );
+					float2 Scaled_Blue280_g58821 = ( (Color_Saturate49_g58821).zw * (Scale_Offset208_g58821).z );
+					float2 Shift288_g58821 = floor( Scaled_Blue280_g58821 );
+					float2 Final_X313_g58821 = ( (Adjusted_UV305_g58821).xz + ( Shift288_g58821 * (Scale_Offset208_g58821).y ) );
+					float2 appendResult326_g58821 = (float2(Final_X313_g58821.x , (Adjusted_UV305_g58821).yz.x));
+					float2 Final_UV325_g58821 = appendResult326_g58821;
+					float2 appendResult338_g58821 = (float2((Scale_Offset208_g58821).y , 0.0));
+					float2 Offset_UV336_g58821 = ( Final_UV325_g58821 + appendResult338_g58821 );
+					float3 lerpResult333_g58821 = lerp( tex2D( _2DLut, Final_UV325_g58821 ).rgb , tex2D( _2DLut, Offset_UV336_g58821 ).rgb , float3( ( Scaled_Blue280_g58821 - Shift288_g58821 ) ,  0.0 ));
 					#ifdef _2DLUT
-					float3 staticSwitch347_g58801 = lerpResult333_g58801;
+					float4 staticSwitch347_g58821 = float4( lerpResult333_g58821 , 0.0 );
 					#else
-					float3 staticSwitch347_g58801 = Color_Saturate49_g58801;
+					float4 staticSwitch347_g58821 = Color_Saturate49_g58821;
 					#endif
-					float3 TwoD_LUT346_g58801 = staticSwitch347_g58801;
-					float3 RGB16_g58802 = ( ( log10( ( ( Color_Saturate49_g58801 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 TwoD_LUT346_g58821 = staticSwitch347_g58821;
+					float3 RGB16_g58822 = ( ( log10( ( ( Color_Saturate49_g58821.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float3 staticSwitch194_g58801 = tex3D( _3DLut, RGB16_g58802 ).rgb;
+					float4 staticSwitch194_g58821 = tex3D( _3DLut, RGB16_g58822 );
 					#else
-					float3 staticSwitch194_g58801 = Color_Saturate49_g58801;
+					float4 staticSwitch194_g58821 = Color_Saturate49_g58821;
 					#endif
-					float3 ThreeD_LUT51_g58801 = staticSwitch194_g58801;
+					float4 ThreeD_LUT51_g58821 = staticSwitch194_g58821;
 					#if defined( _LUTMODE_2D )
-					float3 staticSwitch42_g58801 = TwoD_LUT346_g58801;
+					float4 staticSwitch42_g58821 = TwoD_LUT346_g58821;
 					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
+					float4 staticSwitch42_g58821 = ThreeD_LUT51_g58821;
 					#else
-					float3 staticSwitch42_g58801 = ThreeD_LUT51_g58801;
+					float4 staticSwitch42_g58821 = ThreeD_LUT51_g58821;
 					#endif
 					#ifdef SHADER_API_MOBILE
-					float3 staticSwitch41_g58801 = staticSwitch42_g58801;
+					float4 staticSwitch41_g58821 = staticSwitch42_g58821;
 					#else
-					float3 staticSwitch41_g58801 = Color353_g58801;
+					float4 staticSwitch41_g58821 = Color353_g58821;
 					#endif
 					
 					float temp_output_2951_156 = temp_output_976_0_g2323.a;
 					
 
-					o.Albedo = Albedo6_g2323.rgb;
+					o.Albedo = staticSwitch1180_g2323.rgb;
 					o.Normal = half3( 0, 0, 1 );
-					o.Emission = staticSwitch41_g58801;
+					o.Emission = staticSwitch41_g58821.xyz;
 					o.Alpha = temp_output_2951_156;
 					half AlphaClipThreshold = _MaskClipValue;
 
@@ -4465,8 +4547,8 @@ Shader "Meenphie/Standard/Cutout"
 }
 /*ASEBEGIN
 Version=19904
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2943;160,-1408;Inherit;False;Meenphie Outline;44;;1978;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;COLOR;0
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2951;192,-1200;Inherit;False;Meenphie;0;;2323;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,1;0;9;COLOR;625;FLOAT3;238;FLOAT;96;FLOAT;97;FLOAT;1042;FLOAT3;624;FLOAT;156;FLOAT;427;FLOAT3;1024
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2943;160,-1408;Inherit;False;Meenphie Outline;45;;1978;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;COLOR;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2951;192,-1200;Inherit;False;Meenphie;0;;2323;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,1;0;9;COLOR;625;FLOAT3;238;FLOAT;96;FLOAT;97;FLOAT;1042;FLOAT4;624;FLOAT;156;FLOAT;427;FLOAT3;1024
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2889;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2890;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2891;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Meta;0;4;Meta;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
@@ -4486,4 +4568,4 @@ WireConnection;2887;0;2943;17
 WireConnection;2887;1;2951;156
 WireConnection;2887;3;2943;0
 ASEEND*/
-//CHKSM=2FF37E991DC0FBC498C0FF31B4DB4266BD5537FF
+//CHKSM=5C29DFD6D3649194075EFD99BA0DA0AFD17A9C0D
