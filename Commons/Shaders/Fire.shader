@@ -4,10 +4,10 @@ Shader "Meenphie/Fire"
 {
 	Properties
 	{
-		[HDR] _Color( "Color", Color ) = ( 1, 1, 1 )
+		[HDR] _Color( "Color", Color ) = ( 2.118547, 2.118547, 2.118547 )
 		[NoScaleOffset][SingleLineTexture] _FireTexture( "Fire Texture", 2D ) = "white" {}
 		[NoScaleOffset][SingleLineTexture] _NoiseTexture( "Noise Texture", 2D ) = "white" {}
-		_Speed( "Speed", Float ) = 0
+		_Speed( "Speed", Float ) = 5
 
 	}
 
@@ -15,7 +15,7 @@ Shader "Meenphie/Fire"
 	{
 		
 
-		Tags { "RenderType"="Opaque" "Queue"="Geometry+1" }
+		Tags { "RenderType"="Opaque" "Queue"="Transparent+1" }
 
 	LOD 0
 
@@ -101,11 +101,11 @@ Shader "Meenphie/Fire"
 					float4x4 rotationCamMatrix = float4x4( rightCamVec, 0, upCamVec, 0, forwardCamVec, 0, 0, 0, 0, 1 );
 					v.ase_normal = normalize( mul( float4( v.ase_normal , 0 ), rotationCamMatrix )).xyz;
 					v.ase_tangent.xyz = normalize( mul( float4( v.ase_tangent.xyz , 0 ), rotationCamMatrix )).xyz;
-					//This unfortunately must be made to take non-uniform scaling into account;
-					//Transform to world coords, apply rotation and transform back to local;
-					v.vertex = mul( v.vertex , unity_ObjectToWorld );
-					v.vertex = mul( v.vertex , rotationCamMatrix );
-					v.vertex = mul( v.vertex , unity_WorldToObject );
+					v.vertex.x *= length( unity_ObjectToWorld._m00_m10_m20 );
+					v.vertex.y *= length( unity_ObjectToWorld._m01_m11_m21 );
+					v.vertex.z *= length( unity_ObjectToWorld._m02_m12_m22 );
+					v.vertex.xyz = mul( float4( v.vertex.xyz, 0 ), rotationCamMatrix ).xyz;
+					v.vertex.xyz = mul( unity_WorldToObject, float4( v.vertex.xyz, 0 ) ).xyz;
 					o.ase_texcoord.xy = v.ase_texcoord.xy;
 					
 					//setting value to unused interpolator channels and avoid initialization warnings
@@ -156,7 +156,7 @@ Shader "Meenphie/Fire"
 Version=19904
 Node;AmplifyShaderEditor.TextureCoordinatesNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3;-2624,-176;Inherit;False;0;-1;2;3;2;SAMPLER2D;;False;0;FLOAT2;1,1;False;1;FLOAT2;0,0;False;5;FLOAT2;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
 Node;AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;7;-2560,48;Inherit;False;Constant;_NoiseScale;Noise Scale;3;0;Create;True;0;0;0;False;0;False;1;0.3;0;0;0;1;FLOAT;0
-Node;AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;41;-2464,256;Inherit;False;Property;_Speed;Speed;3;0;Create;True;0;0;0;False;0;False;0;2;0;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;41;-2464,256;Inherit;False;Property;_Speed;Speed;3;0;Create;True;0;0;0;False;0;False;5;0;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;8;-2240,16;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT;0;False;1;FLOAT2;0
 Node;AmplifyShaderEditor.DynamicAppendNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;43;-2208,176;Inherit;False;FLOAT2;4;0;FLOAT;0.1;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT;0;False;1;FLOAT2;0
 Node;AmplifyShaderEditor.PannerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;4;-2000,16;Inherit;False;3;0;FLOAT2;0,0;False;2;FLOAT2;1,1;False;1;FLOAT;-0.1;False;1;FLOAT2;0
@@ -166,10 +166,10 @@ Node;AmplifyShaderEditor.SimpleSubtractOpNode, AmplifyShaderEditor, Version=0.0.
 Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;14;-992,16;Inherit;True;2;2;0;FLOAT2;0.5,0;False;1;FLOAT2;0,0;False;1;FLOAT2;0
 Node;AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-736,-176;Inherit;True;2;2;0;FLOAT2;0,0;False;1;FLOAT2;0,0;False;1;FLOAT2;0
 Node;AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;-464,-176;Inherit;True;Property;_FireTexture;Fire Texture;1;2;[NoScaleOffset];[SingleLineTexture];Create;True;0;0;0;False;0;False;-1;e30b8b8ecc78a1e7c9c40913b4bb8def;e30b8b8ecc78a1e7c9c40913b4bb8def;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;False;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
-Node;AmplifyShaderEditor.ColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;20;-432,-432;Inherit;False;Property;_Color;Color;0;1;[HDR];Create;True;0;0;0;False;0;False;1,1,1,1;11.98431,11.98431,11.98431,1;True;False;0;6;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
+Node;AmplifyShaderEditor.ColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;20;-432,-432;Inherit;False;Property;_Color;Color;0;1;[HDR];Create;True;0;0;0;False;0;False;2.118547,2.118547,2.118547,1;2.118547,2.118547,2.118547,1;True;False;0;6;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
 Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;21;-112,-288;Inherit;True;2;2;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;1;FLOAT3;0
-Node;AmplifyShaderEditor.BillboardNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;40;-96,-48;Inherit;False;Cylindrical;False;True;0;1;FLOAT3;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;39;208,-288;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;5;Meenphie/Fire;0770190933193b94aaa3065e307002fa;True;Unlit;0;0;Unlit;2;True;True;4;1;False;;1;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;True;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;2;False;;True;0;False;;True;False;0;False;;0;False;;True;2;RenderType=Opaque=RenderType;Queue=Geometry=Queue=1;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;0;;0;0;Standard;1;Vertex Position;1;0;0;1;True;False;;False;0
+Node;AmplifyShaderEditor.BillboardNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;40;-96,-48;Inherit;False;Cylindrical;True;True;0;1;FLOAT3;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;39;208,-288;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;5;Meenphie/Fire;0770190933193b94aaa3065e307002fa;True;Unlit;0;0;Unlit;2;True;True;4;1;False;;1;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;True;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;2;False;;True;0;False;;True;False;0;False;;0;False;;True;2;RenderType=Opaque=RenderType;Queue=Transparent=Queue=1;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;0;;0;0;Standard;1;Vertex Position;1;0;0;1;True;False;;False;0
 WireConnection;8;0;3;0
 WireConnection;8;1;7;0
 WireConnection;43;1;41;0
@@ -187,4 +187,4 @@ WireConnection;21;1;1;5
 WireConnection;39;0;21;0
 WireConnection;39;1;40;0
 ASEEND*/
-//CHKSM=2C3D250F892530E0B066CB36625AD7EA236DFDB8
+//CHKSM=BBAB770A371A91A4E6BB6C58B17052F3A33DA1A8
