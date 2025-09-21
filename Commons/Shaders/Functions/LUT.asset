@@ -39,24 +39,24 @@ MonoBehaviour:
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;43;-1680,800;Inherit;True;Property;_TextureSample1;Texture
     Sample 0;1;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture3D;False;8;0;SAMPLER3D;;False;1;FLOAT3;0,0,0;False;2;FLOAT;0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;199;-1424,688;Inherit;False;49;Color
-    Saturate;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionNode,
+    Saturate;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.FunctionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;45;-1984,896;Inherit;False;Alexa
     LogC to Linear;-1;;4;0071ffc216edd9efcb74d760433e99cc;0;1;11;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;50;-2208,896;Inherit;False;49;Color
-    Saturate;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;282;-80,832;Inherit;False;False;False;True;True;1;0;FLOAT3;0,0,0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    Saturate;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;282;-80,832;Inherit;False;False;False;True;True;1;0;FLOAT4;0,0,0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;285;-80,928;Inherit;False;False;False;True;True;1;0;FLOAT3;0,0,0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;286;192,880;Inherit;False;2;2;0;FLOAT;0;False;1;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;286;192,880;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT;0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;281;-336,832;Inherit;False;49;Color
-    Saturate;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
+    Saturate;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;280;448,880;Inherit;False;Scaled
-    Blue;-1;True;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    Blue;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;283;-336,928;Inherit;False;208;Scale
     Offset;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;290;-336,1264;Inherit;False;280;Scaled
-    Blue;1;0;OBJECT;;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FloorOpNode, AmplifyShaderEditor,
-    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;289;-80,1264;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;288;128,1264;Inherit;False;Shift;-1;True;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    Blue;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.FloorOpNode, AmplifyShaderEditor,
+    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;289;-80,1264;Inherit;False;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;288;128,1264;Inherit;False;Shift;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;295;-64,1600;Inherit;False;True;True;False;True;1;0;FLOAT3;0,0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;297;224,1632;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT;0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;292;496,1632;Inherit;False;Scale
@@ -71,35 +71,35 @@ MonoBehaviour:
     0;3;0;Create;True;0;0;0;False;0;False;0.5;0;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;302;224,1984;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT;0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;299;512,1984;Inherit;False;Offset;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SimpleAddOpNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;310;752,2368;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;310;752,2368;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT2;0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;311;544,2464;Inherit;False;299;Offset;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;308;368,2368;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;308;368,2368;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT2;0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;306;-336,2368;Inherit;False;49;Color
-    Saturate;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;307;-80,2368;Inherit;False;True;True;False;True;1;0;FLOAT3;0,0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    Saturate;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;307;-80,2368;Inherit;False;True;True;False;True;1;0;FLOAT4;0,0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;309;144,2464;Inherit;False;292;Scale
     Factor;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;305;944,2368;Inherit;False;Adjusted
-    UV;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;317;144,2864;Inherit;False;2;2;0;FLOAT;0;False;1;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    UV;-1;True;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;317;144,2864;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT;0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;319;-112,2976;Inherit;False;False;True;False;True;1;0;FLOAT3;0,0,0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;318;-336,2976;Inherit;False;208;Scale
     Offset;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;316;-336,2864;Inherit;False;288;Shift;1;0;OBJECT;;False;1;FLOAT;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;315;-96,2752;Inherit;False;True;False;True;True;1;0;FLOAT2;0,0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;316;-336,2864;Inherit;False;288;Shift;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;315;-96,2752;Inherit;False;True;False;True;True;1;0;FLOAT3;0,0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;320;-336,2752;Inherit;False;305;Adjusted
-    UV;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor,
-    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;321;368,2752;Inherit;False;2;2;0;FLOAT;0;False;1;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
+    UV;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor,
+    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;321;368,2752;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;313;624,2752;Inherit;False;Final
-    X;-1;True;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    X;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;327;-304,3280;Inherit;False;313;Final
-    X;1;0;OBJECT;;False;1;FLOAT;0\nNode;AmplifyShaderEditor.ComponentMaskNode, AmplifyShaderEditor,
-    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;329;-64,3408;Inherit;False;False;True;True;True;1;0;FLOAT2;0,0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.DynamicAppendNode,
+    X;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.ComponentMaskNode, AmplifyShaderEditor,
+    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;329;-64,3408;Inherit;False;False;True;True;True;1;0;FLOAT3;0,0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.DynamicAppendNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;326;208,3280;Inherit;False;FLOAT2;4;0;FLOAT;0;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT;0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;325;480,3280;Inherit;False;Final
     UV;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;328;-304,3408;Inherit;False;305;Adjusted
-    UV;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor,
+    UV;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor,
     Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;339;528,3856;Inherit;False;2;2;0;FLOAT2;0,0;False;1;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;337;288,3792;Inherit;False;325;Final
     UV;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.DynamicAppendNode,
@@ -117,21 +117,21 @@ MonoBehaviour:
     UV;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor,
     Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;342;-320,4480;Inherit;False;336;Offset
     UV;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.SimpleSubtractOpNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;344;224,4608;Inherit;False;2;0;FLOAT;0;False;1;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;344;224,4608;Inherit;False;2;0;FLOAT2;0,0;False;1;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;343;0,4608;Inherit;False;280;Scaled
-    Blue;1;0;OBJECT;;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor,
-    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;345;0,4688;Inherit;False;288;Shift;1;0;OBJECT;;False;1;FLOAT;0\nNode;AmplifyShaderEditor.LerpOp,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;333;480,4320;Inherit;False;3;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
+    Blue;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;345;0,4688;Inherit;False;288;Shift;1;0;OBJECT;;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.LerpOp,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;333;480,4320;Inherit;False;3;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;336;720,3856;Inherit;False;Offset
     UV;-1;True;1;0;FLOAT2;0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;51;-896,800;Inherit;False;ThreeD
-    LUT;-1;True;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.StaticSwitch,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;194;-1152,800;Inherit;False;Property;_3DLUT;_3DLUT;0;0;Create;True;0;0;0;False;0;False;0;0;0;False;;Toggle;2;2D;3D;Create;True;True;All;9;1;FLOAT3;0,0,0;False;0;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
+    LUT;-1;True;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.StaticSwitch,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;194;-1152,800;Inherit;False;Property;_3DLUT;_3DLUT;0;0;Create;True;0;0;0;False;0;False;0;0;0;False;;Toggle;2;2D;3D;Create;True;True;All;9;1;FLOAT4;0,0,0,0;False;0;FLOAT4;0,0,0,0;False;2;FLOAT4;0,0,0,0;False;3;FLOAT4;0,0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT4;0,0,0,0;False;6;FLOAT4;0,0,0,0;False;7;FLOAT4;0,0,0,0;False;8;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;346;1024,4288;Inherit;False;TwoD
-    LUT;-1;True;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    LUT;-1;True;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;348;448,4208;Inherit;False;49;Color
-    Saturate;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.StaticSwitch,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;347;768,4288;Inherit;False;Property;_2DLUT;_2DLUT;0;0;Create;True;0;0;0;False;0;False;0;0;0;False;;Toggle;2;2D;3D;Create;True;True;All;9;1;FLOAT3;0,0,0;False;0;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    Saturate;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.StaticSwitch,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;347;768,4288;Inherit;False;Property;_2DLUT;_2DLUT;0;0;Create;True;0;0;0;False;0;False;0;0;0;False;;Toggle;2;2D;3D;Create;True;True;All;9;1;FLOAT4;0,0,0,0;False;0;FLOAT4;0,0,0,0;False;2;FLOAT4;0,0,0,0;False;3;FLOAT4;0,0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT4;0,0,0,0;False;6;FLOAT4;0,0,0,0;False;7;FLOAT4;0,0,0,0;False;8;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;272;-416,128;Inherit;False;213;Lut
     Height;1;0;OBJECT;;False;1;FLOAT;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;211;-128,96;Inherit;False;2;2;0;FLOAT;0;False;1;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
@@ -152,25 +152,25 @@ MonoBehaviour:
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;213;368,16;Inherit;False;Lut
     Height;-1;True;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.RangedFloatNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;209;-384,16;Inherit;False;Property;_LUTSize;LUT
-    Size;1;0;Create;True;0;0;0;True;0;False;32;0;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;35;-2256,-16;Inherit;False;RGB;3;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.SaturateNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;263;-2000,-80;Inherit;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.StaticSwitch,
+    Size;1;0;Create;True;0;0;0;True;0;False;32;0;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.SaturateNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;263;-2000,-80;Inherit;False;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.StaticSwitch,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;273;-1776,-32;Inherit;False;Property;_LUTMode1;LUT
-    Mode;0;0;Create;True;0;0;0;False;0;False;0;0;0;True;;KeywordEnum;2;2D;3D;Reference;42;True;True;All;9;1;FLOAT3;0,0,0;False;0;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    Mode;0;0;Create;True;0;0;0;False;0;False;0;0;0;True;;KeywordEnum;2;2D;3D;Reference;42;True;True;All;9;1;FLOAT4;0,0,0,0;False;0;FLOAT4;0,0,0,0;False;2;FLOAT4;0,0,0,0;False;3;FLOAT4;0,0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT4;0,0,0,0;False;6;FLOAT4;0,0,0,0;False;7;FLOAT4;0,0,0,0;False;8;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;53;-2256,432;Inherit;False;51;ThreeD
-    LUT;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor,
+    LUT;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor,
     Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;63;-2256,336;Inherit;False;346;TwoD
-    LUT;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor,
-    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;41;-1424,352;Inherit;False;Property;UNITY_EDITOR;UNITY_EDITOR;1;0;Create;False;0;0;0;False;0;False;0;0;0;False;SHADER_API_MOBILE;Toggle;2;Key0;Key1;Fetch;False;False;All;9;1;FLOAT3;0,0,0;False;0;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
+    LUT;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor,
+    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;41;-1424,352;Inherit;False;Property;UNITY_EDITOR;UNITY_EDITOR;1;0;Create;False;0;0;0;False;0;False;0;0;0;False;SHADER_API_MOBILE;Toggle;2;Key0;Key1;Fetch;False;False;All;9;1;FLOAT4;0,0,0,0;False;0;FLOAT4;0,0,0,0;False;2;FLOAT4;0,0,0,0;False;3;FLOAT4;0,0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT4;0,0,0,0;False;6;FLOAT4;0,0,0,0;False;7;FLOAT4;0,0,0,0;False;8;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;49;-1248,-32;Inherit;False;Color
-    Saturate;-1;True;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;353;-2016,64;Inherit;False;Color;-1;True;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;349;-1664,304;Inherit;False;353;Color;1;0;OBJECT;;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.StaticSwitch,
+    Saturate;-1;True;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;353;-2016,64;Inherit;False;Color;-1;True;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.GetLocalVarNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;349;-1664,304;Inherit;False;353;Color;1;0;OBJECT;;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.StaticSwitch,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;42;-1936,368;Inherit;False;Property;_LUTMode;LUT
-    Mode;0;0;Create;True;0;0;0;False;0;False;0;1;1;True;;KeywordEnum;2;2D;3D;Create;True;True;All;9;1;FLOAT3;0,0,0;False;0;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;8;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.TexturePropertyNode,
+    Mode;0;0;Create;True;0;0;0;False;0;False;0;1;1;True;;KeywordEnum;2;2D;3D;Create;True;True;All;9;1;FLOAT4;0,0,0,0;False;0;FLOAT4;0,0,0,0;False;2;FLOAT4;0,0,0,0;False;3;FLOAT4;0,0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT4;0,0,0,0;False;6;FLOAT4;0,0,0,0;False;7;FLOAT4;0,0,0,0;False;8;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.TexturePropertyNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;64;-2256,688;Inherit;True;Property;_3DLut;3D
-    Lut;3;2;[NoScaleOffset];[SingleLineTexture];Create;True;0;0;0;True;0;False;badd745f61a987f2b9f88cfbda64467f;None;False;black;LockedToTexture3D;Texture3D;True;-1;0;2;SAMPLER3D;0;SAMPLERSTATE;1\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;-1104,352;Inherit;False;True;-1;Output;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;43;0;64;0\nWireConnection;43;1;45;0\nWireConnection;43;7;64;1\nWireConnection;45;11;50;0\nWireConnection;282;0;281;0\nWireConnection;285;0;283;0\nWireConnection;286;0;282;0\nWireConnection;286;1;285;0\nWireConnection;280;0;286;0\nWireConnection;289;0;290;0\nWireConnection;288;0;289;0\nWireConnection;295;0;294;0\nWireConnection;297;0;295;0\nWireConnection;297;1;296;0\nWireConnection;292;0;297;0\nWireConnection;296;0;294;0\nWireConnection;301;0;300;0\nWireConnection;302;0;301;0\nWireConnection;302;1;303;0\nWireConnection;299;0;302;0\nWireConnection;310;0;308;0\nWireConnection;310;1;311;0\nWireConnection;308;0;307;0\nWireConnection;308;1;309;0\nWireConnection;307;0;306;0\nWireConnection;305;0;310;0\nWireConnection;317;0;316;0\nWireConnection;317;1;319;0\nWireConnection;319;0;318;0\nWireConnection;315;0;320;0\nWireConnection;321;0;315;0\nWireConnection;321;1;317;0\nWireConnection;313;0;321;0\nWireConnection;329;0;328;0\nWireConnection;326;0;327;0\nWireConnection;326;1;329;0\nWireConnection;325;0;326;0\nWireConnection;339;0;337;0\nWireConnection;339;1;338;0\nWireConnection;338;0;341;0\nWireConnection;341;0;340;0\nWireConnection;331;0;330;0\nWireConnection;331;1;334;0\nWireConnection;331;7;330;1\nWireConnection;332;0;330;0\nWireConnection;332;1;342;0\nWireConnection;332;7;330;1\nWireConnection;344;0;343;0\nWireConnection;344;1;345;0\nWireConnection;333;0;331;5\nWireConnection;333;1;332;5\nWireConnection;333;2;344;0\nWireConnection;336;0;339;0\nWireConnection;51;0;194;0\nWireConnection;194;1;199;0\nWireConnection;194;0;43;5\nWireConnection;346;0;347;0\nWireConnection;347;1;348;0\nWireConnection;347;0;333;0\nWireConnection;211;0;209;0\nWireConnection;211;1;272;0\nWireConnection;218;1;268;0\nWireConnection;220;1;269;0\nWireConnection;222;0;270;0\nWireConnection;214;0;218;0\nWireConnection;214;1;220;0\nWireConnection;214;2;222;0\nWireConnection;208;0;214;0\nWireConnection;216;0;211;0\nWireConnection;213;0;209;0\nWireConnection;263;0;35;0\nWireConnection;273;1;263;0\nWireConnection;273;0;35;0\nWireConnection;41;1;349;0\nWireConnection;41;0;42;0\nWireConnection;49;0;273;0\nWireConnection;353;0;35;0\nWireConnection;42;1;63;0\nWireConnection;42;0;53;0\nWireConnection;0;0;41;0\nASEEND*/\n//CHKSM=C453CB46E12E61342C904AA662CF194291F8F79D"
+    Lut;3;2;[NoScaleOffset];[SingleLineTexture];Create;True;0;0;0;True;0;False;badd745f61a987f2b9f88cfbda64467f;badd745f61a987f2b9f88cfbda64467f;False;black;LockedToTexture3D;Texture3D;True;-1;0;2;SAMPLER3D;0;SAMPLERSTATE;1\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;35;-2256,-16;Inherit;False;RGBA;4;0;False;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;-1104,352;Inherit;False;True;-1;RGBA;0;False;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nWireConnection;43;0;64;0\nWireConnection;43;1;45;0\nWireConnection;43;7;64;1\nWireConnection;45;11;50;0\nWireConnection;282;0;281;0\nWireConnection;285;0;283;0\nWireConnection;286;0;282;0\nWireConnection;286;1;285;0\nWireConnection;280;0;286;0\nWireConnection;289;0;290;0\nWireConnection;288;0;289;0\nWireConnection;295;0;294;0\nWireConnection;297;0;295;0\nWireConnection;297;1;296;0\nWireConnection;292;0;297;0\nWireConnection;296;0;294;0\nWireConnection;301;0;300;0\nWireConnection;302;0;301;0\nWireConnection;302;1;303;0\nWireConnection;299;0;302;0\nWireConnection;310;0;308;0\nWireConnection;310;1;311;0\nWireConnection;308;0;307;0\nWireConnection;308;1;309;0\nWireConnection;307;0;306;0\nWireConnection;305;0;310;0\nWireConnection;317;0;316;0\nWireConnection;317;1;319;0\nWireConnection;319;0;318;0\nWireConnection;315;0;320;0\nWireConnection;321;0;315;0\nWireConnection;321;1;317;0\nWireConnection;313;0;321;0\nWireConnection;329;0;328;0\nWireConnection;326;0;327;0\nWireConnection;326;1;329;0\nWireConnection;325;0;326;0\nWireConnection;339;0;337;0\nWireConnection;339;1;338;0\nWireConnection;338;0;341;0\nWireConnection;341;0;340;0\nWireConnection;331;0;330;0\nWireConnection;331;1;334;0\nWireConnection;331;7;330;1\nWireConnection;332;0;330;0\nWireConnection;332;1;342;0\nWireConnection;332;7;330;1\nWireConnection;344;0;343;0\nWireConnection;344;1;345;0\nWireConnection;333;0;331;5\nWireConnection;333;1;332;5\nWireConnection;333;2;344;0\nWireConnection;336;0;339;0\nWireConnection;51;0;194;0\nWireConnection;194;1;199;0\nWireConnection;194;0;43;0\nWireConnection;346;0;347;0\nWireConnection;347;1;348;0\nWireConnection;347;0;333;0\nWireConnection;211;0;209;0\nWireConnection;211;1;272;0\nWireConnection;218;1;268;0\nWireConnection;220;1;269;0\nWireConnection;222;0;270;0\nWireConnection;214;0;218;0\nWireConnection;214;1;220;0\nWireConnection;214;2;222;0\nWireConnection;208;0;214;0\nWireConnection;216;0;211;0\nWireConnection;213;0;209;0\nWireConnection;263;0;35;0\nWireConnection;273;1;263;0\nWireConnection;273;0;35;0\nWireConnection;41;1;349;0\nWireConnection;41;0;42;0\nWireConnection;49;0;273;0\nWireConnection;353;0;35;0\nWireConnection;42;1;63;0\nWireConnection;42;0;53;0\nWireConnection;0;0;41;0\nASEEND*/\n//CHKSM=0BA67E21AB54E3A7A113171E5FD8D5EF88E5D7E2"
   m_functionName: 
   m_description: 
   m_additionalIncludes:
