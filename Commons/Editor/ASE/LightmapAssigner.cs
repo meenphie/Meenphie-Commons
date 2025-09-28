@@ -11,7 +11,11 @@ public static class LightmapAssigner
         // Collect all GI materials in the active scene
         HashSet<Material> sceneMaterials = CollectSceneMaterials();
 
-        string[] shaderProps = { "_RNMX0", "_RNMY0", "_RNMZ0" };
+        // Shader property groups (slot 0 = ON, slot 1 = OFF)
+        string[][] shaderPropGroups = {
+            new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" }, // Slot 0 (OFF)
+            new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }  // Slot 1 (ON)
+        };
 
         // Find all available lightmap groups in the project
         Dictionary<string, Texture[]> lightmapGroups = BuildLightmapGroups();
@@ -29,27 +33,32 @@ public static class LightmapAssigner
 
                 foreach (var kvp in lightmapGroups)
                 {
-                    string groupName = kvp.Key;
+                    string groupName = kvp.Key; // e.g. "Balcony ON" or "Balcony OFF"
                     string cleanGroupName = groupName.Replace("GI ", "").Trim();
 
-                    if (mat.name.IndexOf(cleanGroupName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    // Match without ON/OFF suffix for base detection
+                    string baseName = cleanGroupName.Replace(" ON", "").Replace(" OFF", "").Trim();
+
+                    if (mat.name.IndexOf(baseName, System.StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         Texture[] texSet = kvp.Value;
+                        int slotIndex = groupName.EndsWith("OFF") ? 0 : 1; // decide ON vs OFF
 
                         for (int i = 0; i < 3; i++)
                         {
                             if (texSet[i] == null) continue;
 
-                            Texture currentTex = mat.GetTexture(shaderProps[i]);
+                            string prop = shaderPropGroups[slotIndex][i];
+                            Texture currentTex = mat.GetTexture(prop);
                             if (currentTex != null && currentTex.name == texSet[i].name)
                                 continue;
 
-                            mat.SetTexture(shaderProps[i], texSet[i]);
+                            mat.SetTexture(prop, texSet[i]);
                             EditorUtility.SetDirty(mat);
                             assignCount++;
                         }
 
-                        break; // found matching group, stop searching
+                        // no break; → allow both ON and OFF sets to apply
                     }
                 }
 
@@ -62,7 +71,7 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
-        
+
         Debug.Log($"[<color=purple>Meenphie</color>] {assignCount} Lightmaps assigned");
     }
 
@@ -72,7 +81,11 @@ public static class LightmapAssigner
         // Collect all GI materials in the active scene
         HashSet<Material> sceneMaterials = CollectSceneMaterials();
 
-        string[] shaderProps = { "_RNMX0", "_RNMY0", "_RNMZ0" };
+        // Shader property groups (slot 0 = ON, slot 1 = OFF)
+        string[][] shaderPropGroups = {
+            new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" },
+            new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }
+        };
 
         int unassignCount = 0;
         int matIndex = 0;
@@ -85,13 +98,16 @@ public static class LightmapAssigner
                 float progress = (float)matIndex / totalMats;
                 EditorUtility.DisplayProgressBar("Unassigning Lightmaps", $"Processing {mat.name}...", progress);
 
-                for (int i = 0; i < 3; i++)
+                foreach (var propGroup in shaderPropGroups)
                 {
-                    if (mat.GetTexture(shaderProps[i]) != null)
+                    for (int i = 0; i < 3; i++)
                     {
-                        mat.SetTexture(shaderProps[i], null);
-                        EditorUtility.SetDirty(mat);
-                        unassignCount++;
+                        if (mat.GetTexture(propGroup[i]) != null)
+                        {
+                            mat.SetTexture(propGroup[i], null);
+                            EditorUtility.SetDirty(mat);
+                            unassignCount++;
+                        }
                     }
                 }
 
