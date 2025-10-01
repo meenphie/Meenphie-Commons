@@ -5,89 +5,23 @@ using System.Collections.Generic;
 
 public static class LightmapAssigner
 {
+    private static readonly string[][] ShaderPropGroups = {
+        new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" }, // Slot 0 = OFF
+        new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }  // Slot 1 = ON
+    };
+
     [MenuItem("Meenphie/Assign Lightmaps")]
-    public static void AssignLightmaps()
-    {
-        // Collect all GI materials in the active scene
-        HashSet<Material> sceneMaterials = CollectSceneMaterials();
-
-        // Shader property groups (slot 0 = ON, slot 1 = OFF)
-        string[][] shaderPropGroups = {
-            new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" }, // Slot 0 (OFF)
-            new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }  // Slot 1 (ON)
-        };
-
-        // Find all available lightmap groups in the project
-        Dictionary<string, Texture[]> lightmapGroups = BuildLightmapGroups();
-
-        int assignCount = 0;
-        int matIndex = 0;
-        int totalMats = sceneMaterials.Count;
-
-        try
-        {
-            foreach (Material mat in sceneMaterials)
-            {
-                float progress = (float)matIndex / totalMats;
-                EditorUtility.DisplayProgressBar("Assigning Lightmaps", $"Processing {mat.name}...", progress);
-
-                foreach (var kvp in lightmapGroups)
-                {
-                    string groupName = kvp.Key; // e.g. "Balcony ON" or "Balcony OFF"
-                    string cleanGroupName = groupName.Replace("GI ", "").Trim();
-
-                    // Match without ON/OFF suffix for base detection
-                    string baseName = cleanGroupName.Replace(" ON", "").Replace(" OFF", "").Trim();
-
-                    if (mat.name.IndexOf(baseName, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Texture[] texSet = kvp.Value;
-                        int slotIndex = groupName.EndsWith("OFF") ? 0 : 1; // decide ON vs OFF
-
-                        for (int i = 0; i < 3; i++)
-                        {
-                            if (texSet[i] == null) continue;
-
-                            string prop = shaderPropGroups[slotIndex][i];
-                            Texture currentTex = mat.GetTexture(prop);
-                            if (currentTex != null && currentTex.name == texSet[i].name)
-                                continue;
-
-                            mat.SetTexture(prop, texSet[i]);
-                            EditorUtility.SetDirty(mat);
-                            assignCount++;
-                        }
-
-                        // no break; → allow both ON and OFF sets to apply
-                    }
-                }
-
-                matIndex++;
-            }
-        }
-        finally
-        {
-            EditorUtility.ClearProgressBar();
-        }
-
-        AssetDatabase.SaveAssets();
-
-        Debug.Log($"[<color=purple>Meenphie</color>] {assignCount} Lightmaps assigned");
-    }
+    public static void AssignLightmaps() => ProcessLightmaps(true);
 
     [MenuItem("Meenphie/Unassign Lightmaps")]
-    public static void UnassignLightmaps()
+    public static void UnassignLightmaps() => ProcessLightmaps(false);
+
+    private static void ProcessLightmaps(bool assign)
     {
-        // Collect all GI materials in the active scene
         HashSet<Material> sceneMaterials = CollectSceneMaterials();
+        Dictionary<string, Texture[]> lightmapGroups = assign ? BuildLightmapGroups() : null;
 
-        // Shader property groups (slot 0 = ON, slot 1 = OFF)
-        string[][] shaderPropGroups = {
-            new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" },
-            new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }
-        };
-
-        int unassignCount = 0;
+        HashSet<Texture> touchedTextures = new HashSet<Texture>(); // <-- évite les doublons
         int matIndex = 0;
         int totalMats = sceneMaterials.Count;
 
@@ -95,18 +29,52 @@ public static class LightmapAssigner
         {
             foreach (Material mat in sceneMaterials)
             {
-                float progress = (float)matIndex / totalMats;
-                EditorUtility.DisplayProgressBar("Unassigning Lightmaps", $"Processing {mat.name}...", progress);
+                ShowProgress(assign ? "Assigning Lightmaps" : "Unassigning Lightmaps", mat.name, matIndex, totalMats);
 
-                foreach (var propGroup in shaderPropGroups)
+                if (assign)
                 {
-                    for (int i = 0; i < 3; i++)
+                    foreach (var kvp in lightmapGroups)
                     {
-                        if (mat.GetTexture(propGroup[i]) != null)
+                        string groupName = kvp.Key;
+                        string cleanGroupName = groupName.Replace("GI ", "").Trim();
+                        string baseName = cleanGroupName.Replace(" ON", "").Replace(" OFF", "").Trim();
+
+                        if (mat.name.IndexOf(baseName, System.StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            mat.SetTexture(propGroup[i], null);
-                            EditorUtility.SetDirty(mat);
-                            unassignCount++;
+                            Texture[] textures = kvp.Value;
+                            int slotIndex = groupName.EndsWith("ON") ? 1 : 0;
+
+                            for (int i = 0; i < 3; i++)
+                            {
+                                Texture tex = textures[i];
+                                if (tex == null) continue;
+
+                                string prop = ShaderPropGroups[slotIndex][i];
+                                Texture currentTex = mat.GetTexture(prop);
+
+                                if (currentTex == null || currentTex.name != tex.name)
+                                {
+                                    mat.SetTexture(prop, tex);
+                                    EditorUtility.SetDirty(mat);
+                                    touchedTextures.Add(tex);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var propGroup in ShaderPropGroups)
+                    {
+                        for (int i = 0; i < 3; i++)
+                        {
+                            Texture tex = mat.GetTexture(propGroup[i]);
+                            if (tex != null)
+                            {
+                                mat.SetTexture(propGroup[i], null);
+                                EditorUtility.SetDirty(mat);
+                                touchedTextures.Add(tex);
+                            }
                         }
                     }
                 }
@@ -120,8 +88,7 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
-
-        Debug.Log($"[<color=purple>Meenphie</color>] {unassignCount} Lightmaps unassigned");
+        Debug.Log($"[<color=purple>Meenphie</color>] {touchedTextures.Count} Lightmaps {(assign ? "assigned" : "unassigned")}");
     }
 
     // --- Helpers ---
@@ -130,18 +97,18 @@ public static class LightmapAssigner
         HashSet<Material> sceneMaterials = new HashSet<Material>();
         foreach (GameObject go in SceneManager.GetActiveScene().GetRootGameObjects())
         {
-            Renderer[] renderers = go.GetComponentsInChildren<Renderer>(true);
-            foreach (Renderer rend in renderers)
+            foreach (Renderer rend in go.GetComponentsInChildren<Renderer>(true))
             {
                 foreach (Material mat in rend.sharedMaterials)
                 {
-                    if (mat != null && mat.name.StartsWith("GI"))
+                    if (mat != null && mat.name.Contains("GI"))
                         sceneMaterials.Add(mat);
                 }
             }
         }
         return sceneMaterials;
     }
+
 
     private static Dictionary<string, Texture[]> BuildLightmapGroups()
     {
@@ -158,7 +125,7 @@ public static class LightmapAssigner
             if (!lightmapGroups.ContainsKey(baseName))
                 lightmapGroups[baseName] = new Texture[3];
 
-            lightmapGroups[baseName][0] = texX; // RNMX
+            lightmapGroups[baseName][0] = texX;
 
             string[] yGuids = AssetDatabase.FindAssets(baseName + "_RNMY t:Texture");
             if (yGuids.Length > 0)
@@ -170,5 +137,11 @@ public static class LightmapAssigner
         }
 
         return lightmapGroups;
+    }
+
+    private static void ShowProgress(string title, string matName, int index, int total)
+    {
+        float progress = (float)index / total;
+        EditorUtility.DisplayProgressBar(title, $"Processing {matName}...", progress);
     }
 }
