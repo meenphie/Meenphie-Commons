@@ -7,7 +7,7 @@ public static class LightmapDebugger
 
     private static bool isEnabled = false;
 
-    [MenuItem("Meenphie/Lightmaps Only")]
+    [MenuItem("Meenphie/Lightmaps/Lightmaps Only")]
     public static void Toggle()
     {
         isEnabled = !isEnabled;

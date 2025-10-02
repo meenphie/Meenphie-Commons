@@ -10,10 +10,10 @@ public static class LightmapAssigner
         new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }  // Slot 1 = ON
     };
 
-    [MenuItem("Meenphie/Assign Lightmaps")]
+    [MenuItem("Meenphie/Lightmaps/Assign Lightmaps")]
     public static void AssignLightmaps() => ProcessLightmaps(true);
 
-    [MenuItem("Meenphie/Unassign Lightmaps")]
+    [MenuItem("Meenphie/Lightmaps/Unassign Lightmaps")]
     public static void UnassignLightmaps() => ProcessLightmaps(false);
 
     private static void ProcessLightmaps(bool assign)
