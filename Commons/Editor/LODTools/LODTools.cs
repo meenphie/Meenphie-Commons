@@ -3,9 +3,10 @@ using UnityEditor;
 
 public static class LODTools
 {
-    private const float LOD0_HEIGHT = 0.5f;
-    private const float LOD1_HEIGHT = 0.25f;
-    private const float LAST_LOD_HEIGHT = 0.05f;
+    // Constantes pour éviter les magic numbers
+    private const float LOD0_HEIGHT = 0.5f;   // Premier LOD
+    private const float LOD1_HEIGHT = 0.25f;  // Deuxième LOD
+    private const float LAST_LOD_HEIGHT = 0.05f; // Dernier LOD (culled)
 
     [MenuItem("Meenphie/LOD/Set LODs Distances")]
     private static void SetLods()
@@ -27,17 +28,18 @@ public static class LODTools
                 lodArray[i] = lods[i];
                 float targetHeight = lodArray[i].screenRelativeTransitionHeight;
 
-                if (i == 0)
+                // ⚠️ L'ordre est important (comme ton ancien script)
+                if (i == lods.Length - 1)
+                {
+                    targetHeight = LAST_LOD_HEIGHT;
+                }
+                else if (i == 0)
                 {
                     targetHeight = LOD0_HEIGHT;
                 }
                 else if (i == 1)
                 {
                     targetHeight = LOD1_HEIGHT;
-                }
-                else if (i == lods.Length - 1)
-                {
-                    targetHeight = LAST_LOD_HEIGHT;
                 }
 
                 if (!Mathf.Approximately(lodArray[i].screenRelativeTransitionHeight, targetHeight))
@@ -75,7 +77,7 @@ public static class LODTools
             if (lods.Length <= 1)
                 continue;
 
-            // Skip LOD0, process LOD1+
+            // On saute LOD0 et on traite LOD1+
             for (int i = 1; i < lods.Length; i++)
             {
                 foreach (var renderer in lods[i].renderers)
