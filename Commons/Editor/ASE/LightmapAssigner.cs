@@ -18,16 +18,16 @@ public static class LightmapAssigner
 
     private static void ProcessLightmaps(bool assign)
     {
-        HashSet<Material> sceneMaterials = CollectSceneMaterials();
+        HashSet<Material> materials = assign ? CollectSceneMaterials() : CollectAllProjectMaterials();
         Dictionary<string, Texture[]> lightmapGroups = assign ? BuildLightmapGroups() : null;
 
-        HashSet<Texture> touchedTextures = new HashSet<Texture>(); // <-- évite les doublons
+        HashSet<Texture> touchedTextures = new HashSet<Texture>();
         int matIndex = 0;
-        int totalMats = sceneMaterials.Count;
+        int totalMats = materials.Count;
 
         try
         {
-            foreach (Material mat in sceneMaterials)
+            foreach (Material mat in materials)
             {
                 ShowProgress(assign ? "Assigning Lightmaps" : "Unassigning Lightmaps", mat.name, matIndex, totalMats);
 
@@ -64,16 +64,20 @@ public static class LightmapAssigner
                 }
                 else
                 {
+                    // 🔥 Nouveau comportement : reset RNM pour tous les matériaux du projet
                     foreach (var propGroup in ShaderPropGroups)
                     {
-                        for (int i = 0; i < 3; i++)
+                        foreach (string prop in propGroup)
                         {
-                            Texture tex = mat.GetTexture(propGroup[i]);
-                            if (tex != null)
+                            if (mat.HasProperty(prop))
                             {
-                                mat.SetTexture(propGroup[i], null);
-                                EditorUtility.SetDirty(mat);
-                                touchedTextures.Add(tex);
+                                Texture tex = mat.GetTexture(prop);
+                                if (tex != null)
+                                {
+                                    mat.SetTexture(prop, null);
+                                    EditorUtility.SetDirty(mat);
+                                    touchedTextures.Add(tex);
+                                }
                             }
                         }
                     }
@@ -101,7 +105,7 @@ public static class LightmapAssigner
             {
                 foreach (Material mat in rend.sharedMaterials)
                 {
-                    if (mat != null && mat.name.Contains("GI"))
+                    if (mat != null)
                         sceneMaterials.Add(mat);
                 }
             }
@@ -109,6 +113,21 @@ public static class LightmapAssigner
         return sceneMaterials;
     }
 
+    private static HashSet<Material> CollectAllProjectMaterials()
+    {
+        HashSet<Material> allMaterials = new HashSet<Material>();
+        string[] guids = AssetDatabase.FindAssets("t:Material");
+
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat != null)
+                allMaterials.Add(mat);
+        }
+
+        return allMaterials;
+    }
 
     private static Dictionary<string, Texture[]> BuildLightmapGroups()
     {
@@ -141,7 +160,7 @@ public static class LightmapAssigner
 
     private static void ShowProgress(string title, string matName, int index, int total)
     {
-        float progress = (float)index / total;
+        float progress = total > 0 ? (float)index / total : 0f;
         EditorUtility.DisplayProgressBar(title, $"Processing {matName}...", progress);
     }
 }
