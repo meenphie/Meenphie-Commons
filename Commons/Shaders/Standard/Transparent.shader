@@ -32,7 +32,6 @@ Shader "Meenphie/Standard/Transparent"
 		[Meenphie_DrawerTextureSingleLine] _RNMX1( "RNMX 1", 2D ) = "black" {}
 		[Meenphie_DrawerTextureSingleLine] _RNMY1( "RNMY 1", 2D ) = "black" {}
 		[Meenphie_DrawerTextureSingleLine] _RNMZ1( "RNMZ 1", 2D ) = "black" {}
-		_LightmapLerp( "LightmapLerp", Range( 0, 1 ) ) = 0
 		[Toggle( _USEBICUBICFILTERING_ON )] _UseBicubicFiltering( "Use Bicubic Filtering", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
 		[Meenphie_DrawerCategory(STOCHASTIC,true,0,0)] _CATEGORYSTOCHASTIC( "CATEGORY STOCHASTIC", Float ) = 0
@@ -44,10 +43,10 @@ Shader "Meenphie/Standard/Transparent"
 		[NoScaleOffset][SingleLineTexture] _2DLut( "2D Lut", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _3DLut( "3D Lut", 3D ) = "black" {}
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACECOLORGRADING( "CATEGORY SPACE COLOR GRADING", Float ) = 0
-		[HideInInspector] GenKey__EmissionMap( "Assign keyword _EMISSIONMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__2DLut( "Assign keyword _2DLUT", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__EmissionMap( "Assign keyword _EMISSIONMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
@@ -354,7 +353,7 @@ Shader "Meenphie/Standard/Transparent"
 				uniform sampler2D _Lightmap1;
 				uniform float4 _Lightmap1_ST;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LightmapLerp;
+				uniform float _LIGHTMAPLERP;
 				uniform sampler2D _RNMX0;
 				uniform float4 _RNMX0_ST;
 				float4 _RNMX0_TexelSize;
@@ -1020,7 +1019,7 @@ Shader "Meenphie/Standard/Transparent"
 					float4 staticSwitch1088_g58914 = tex2D( _Lightmap1, texCoord1090_g58914 );
 					#endif
 					float4 Lightmap_1956_g58914 = staticSwitch1088_g58914;
-					float4 lerpResult442_g58914 = lerp( Lightmap_0925_g58914 , Lightmap_1956_g58914 , _LightmapLerp);
+					float4 lerpResult442_g58914 = lerp( Lightmap_0925_g58914 , Lightmap_1956_g58914 , _LIGHTMAPLERP);
 					float4 Lightmap_Lerp932_g58914 = lerpResult442_g58914;
 					float3 appendResult139_g58955 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 					float3 normalizeResult326_g58955 = normalize( Normal_Map700_g58914 );
@@ -1168,7 +1167,7 @@ Shader "Meenphie/Standard/Transparent"
 					float4 staticSwitch1084_g58914 = tex2D( _RNMZ1, texCoord1086_g58914 );
 					#endif
 					float4 RNM_11081_g58914 = ( ( ( saturate( dotResult121_g58954 ) * ( staticSwitch1087_g58914 * 0.33334 ) ) + ( saturate( dotResult122_g58954 ) * ( staticSwitch1083_g58914 * 0.33334 ) ) ) + ( saturate( dotResult120_g58954 ) * ( staticSwitch1084_g58914 * 0.33334 ) ) );
-					float Lightmap_Lerp_Value969_g58914 = _LightmapLerp;
+					float Lightmap_Lerp_Value969_g58914 = _LIGHTMAPLERP;
 					float4 lerpResult953_g58914 = lerp( RNM_0926_g58914 , RNM_11081_g58914 , Lightmap_Lerp_Value969_g58914);
 					float4 RNM_Lerp950_g58914 = lerpResult953_g58914;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -1673,7 +1672,7 @@ Shader "Meenphie/Standard/Transparent"
 				uniform sampler2D _Lightmap1;
 				uniform float4 _Lightmap1_ST;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LightmapLerp;
+				uniform float _LIGHTMAPLERP;
 				uniform sampler2D _RNMX0;
 				uniform float4 _RNMX0_ST;
 				float4 _RNMX0_TexelSize;
@@ -2322,7 +2321,7 @@ Shader "Meenphie/Standard/Transparent"
 					float4 staticSwitch1088_g58914 = tex2D( _Lightmap1, texCoord1090_g58914 );
 					#endif
 					float4 Lightmap_1956_g58914 = staticSwitch1088_g58914;
-					float4 lerpResult442_g58914 = lerp( Lightmap_0925_g58914 , Lightmap_1956_g58914 , _LightmapLerp);
+					float4 lerpResult442_g58914 = lerp( Lightmap_0925_g58914 , Lightmap_1956_g58914 , _LIGHTMAPLERP);
 					float4 Lightmap_Lerp932_g58914 = lerpResult442_g58914;
 					float3 appendResult139_g58955 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 					float3 normalizeResult326_g58955 = normalize( Normal_Map700_g58914 );
@@ -2470,7 +2469,7 @@ Shader "Meenphie/Standard/Transparent"
 					float4 staticSwitch1084_g58914 = tex2D( _RNMZ1, texCoord1086_g58914 );
 					#endif
 					float4 RNM_11081_g58914 = ( ( ( saturate( dotResult121_g58954 ) * ( staticSwitch1087_g58914 * 0.33334 ) ) + ( saturate( dotResult122_g58954 ) * ( staticSwitch1083_g58914 * 0.33334 ) ) ) + ( saturate( dotResult120_g58954 ) * ( staticSwitch1084_g58914 * 0.33334 ) ) );
-					float Lightmap_Lerp_Value969_g58914 = _LightmapLerp;
+					float Lightmap_Lerp_Value969_g58914 = _LIGHTMAPLERP;
 					float4 lerpResult953_g58914 = lerp( RNM_0926_g58914 , RNM_11081_g58914 , Lightmap_Lerp_Value969_g58914);
 					float4 RNM_Lerp950_g58914 = lerpResult953_g58914;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -2893,7 +2892,7 @@ Shader "Meenphie/Standard/Transparent"
 				uniform sampler2D _Lightmap1;
 				uniform float4 _Lightmap1_ST;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LightmapLerp;
+				uniform float _LIGHTMAPLERP;
 				uniform sampler2D _BumpMap;
 				uniform float _NormalScale;
 				uniform float4 _BumpMap_ST;
@@ -3321,7 +3320,7 @@ Shader "Meenphie/Standard/Transparent"
 					float4 staticSwitch1088_g58914 = tex2D( _Lightmap1, texCoord1090_g58914 );
 					#endif
 					float4 Lightmap_1956_g58914 = staticSwitch1088_g58914;
-					float4 lerpResult442_g58914 = lerp( Lightmap_0925_g58914 , Lightmap_1956_g58914 , _LightmapLerp);
+					float4 lerpResult442_g58914 = lerp( Lightmap_0925_g58914 , Lightmap_1956_g58914 , _LIGHTMAPLERP);
 					float4 Lightmap_Lerp932_g58914 = lerpResult442_g58914;
 					float3 appendResult139_g58955 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 					float2 uv_BumpMap830_g58914 = IN.ase_texcoord2.xy;
@@ -3550,7 +3549,7 @@ Shader "Meenphie/Standard/Transparent"
 					float4 staticSwitch1084_g58914 = tex2D( _RNMZ1, texCoord1086_g58914 );
 					#endif
 					float4 RNM_11081_g58914 = ( ( ( saturate( dotResult121_g58954 ) * ( staticSwitch1087_g58914 * 0.33334 ) ) + ( saturate( dotResult122_g58954 ) * ( staticSwitch1083_g58914 * 0.33334 ) ) ) + ( saturate( dotResult120_g58954 ) * ( staticSwitch1084_g58914 * 0.33334 ) ) );
-					float Lightmap_Lerp_Value969_g58914 = _LightmapLerp;
+					float Lightmap_Lerp_Value969_g58914 = _LIGHTMAPLERP;
 					float4 lerpResult953_g58914 = lerp( RNM_0926_g58914 , RNM_11081_g58914 , Lightmap_Lerp_Value969_g58914);
 					float4 RNM_Lerp950_g58914 = lerpResult953_g58914;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -4135,4 +4134,4 @@ WireConnection;2888;2;2973;624
 WireConnection;2888;7;2973;156
 WireConnection;2888;15;2973;1024
 ASEEND*/
-//CHKSM=2771E7B96C957957221DB0666DFD597A39BD076F
+//CHKSM=40DA7177354DE58C13E6CEC6FDA8B38177E7860E

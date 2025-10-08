@@ -32,7 +32,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 		[Meenphie_DrawerTextureSingleLine] _RNMX1( "RNMX 1", 2D ) = "black" {}
 		[Meenphie_DrawerTextureSingleLine] _RNMY1( "RNMY 1", 2D ) = "black" {}
 		[Meenphie_DrawerTextureSingleLine] _RNMZ1( "RNMZ 1", 2D ) = "black" {}
-		_LightmapLerp( "LightmapLerp", Range( 0, 1 ) ) = 0
 		[Toggle( _LIGHTMAPOCCLUSIONENABLED_ON )] _LightmapOcclusionEnabled( "Lightmap Occlusion Enabled", Float ) = 1
 		_OcclusionPower( "Occlusion Power", Float ) = 1
 		[Toggle( _USEBICUBICFILTERING_ON )] _UseBicubicFiltering( "Use Bicubic Filtering", Float ) = 1
@@ -695,7 +694,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _Lightmap1;
 				uniform float4 _Lightmap1_ST;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LightmapLerp;
+				uniform float _LIGHTMAPLERP;
 				uniform sampler2D _RNMX0;
 				uniform float4 _RNMX0_ST;
 				float4 _RNMX0_TexelSize;
@@ -1360,7 +1359,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1088_g5296 = tex2D( _Lightmap1, texCoord1090_g5296 );
 					#endif
 					float4 Lightmap_1956_g5296 = staticSwitch1088_g5296;
-					float4 lerpResult442_g5296 = lerp( Lightmap_0925_g5296 , Lightmap_1956_g5296 , _LightmapLerp);
+					float4 lerpResult442_g5296 = lerp( Lightmap_0925_g5296 , Lightmap_1956_g5296 , _LIGHTMAPLERP);
 					float4 Lightmap_Lerp932_g5296 = lerpResult442_g5296;
 					float3 appendResult139_g58820 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 					float3 normalizeResult326_g58820 = normalize( Normal_Map700_g5296 );
@@ -1508,7 +1507,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1084_g5296 = tex2D( _RNMZ1, texCoord1086_g5296 );
 					#endif
 					float4 RNM_11081_g5296 = ( ( ( saturate( dotResult121_g58819 ) * ( staticSwitch1087_g5296 * 0.33334 ) ) + ( saturate( dotResult122_g58819 ) * ( staticSwitch1083_g5296 * 0.33334 ) ) ) + ( saturate( dotResult120_g58819 ) * ( staticSwitch1084_g5296 * 0.33334 ) ) );
-					float Lightmap_Lerp_Value969_g5296 = _LightmapLerp;
+					float Lightmap_Lerp_Value969_g5296 = _LIGHTMAPLERP;
 					float4 lerpResult953_g5296 = lerp( RNM_0926_g5296 , RNM_11081_g5296 , Lightmap_Lerp_Value969_g5296);
 					float4 RNM_Lerp950_g5296 = lerpResult953_g5296;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -2121,7 +2120,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _Lightmap1;
 				uniform float4 _Lightmap1_ST;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LightmapLerp;
+				uniform float _LIGHTMAPLERP;
 				uniform sampler2D _RNMX0;
 				uniform float4 _RNMX0_ST;
 				float4 _RNMX0_TexelSize;
@@ -2769,7 +2768,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1088_g5296 = tex2D( _Lightmap1, texCoord1090_g5296 );
 					#endif
 					float4 Lightmap_1956_g5296 = staticSwitch1088_g5296;
-					float4 lerpResult442_g5296 = lerp( Lightmap_0925_g5296 , Lightmap_1956_g5296 , _LightmapLerp);
+					float4 lerpResult442_g5296 = lerp( Lightmap_0925_g5296 , Lightmap_1956_g5296 , _LIGHTMAPLERP);
 					float4 Lightmap_Lerp932_g5296 = lerpResult442_g5296;
 					float3 appendResult139_g58820 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 					float3 normalizeResult326_g58820 = normalize( Normal_Map700_g5296 );
@@ -2917,7 +2916,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1084_g5296 = tex2D( _RNMZ1, texCoord1086_g5296 );
 					#endif
 					float4 RNM_11081_g5296 = ( ( ( saturate( dotResult121_g58819 ) * ( staticSwitch1087_g5296 * 0.33334 ) ) + ( saturate( dotResult122_g58819 ) * ( staticSwitch1083_g5296 * 0.33334 ) ) ) + ( saturate( dotResult120_g58819 ) * ( staticSwitch1084_g5296 * 0.33334 ) ) );
-					float Lightmap_Lerp_Value969_g5296 = _LightmapLerp;
+					float Lightmap_Lerp_Value969_g5296 = _LIGHTMAPLERP;
 					float4 lerpResult953_g5296 = lerp( RNM_0926_g5296 , RNM_11081_g5296 , Lightmap_Lerp_Value969_g5296);
 					float4 RNM_Lerp950_g5296 = lerpResult953_g5296;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -3446,7 +3445,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _Lightmap1;
 				uniform float4 _Lightmap1_ST;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LightmapLerp;
+				uniform float _LIGHTMAPLERP;
 				uniform sampler2D _BumpMap;
 				uniform float _NormalScale;
 				uniform float4 _BumpMap_ST;
@@ -3874,7 +3873,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1088_g5296 = tex2D( _Lightmap1, texCoord1090_g5296 );
 					#endif
 					float4 Lightmap_1956_g5296 = staticSwitch1088_g5296;
-					float4 lerpResult442_g5296 = lerp( Lightmap_0925_g5296 , Lightmap_1956_g5296 , _LightmapLerp);
+					float4 lerpResult442_g5296 = lerp( Lightmap_0925_g5296 , Lightmap_1956_g5296 , _LIGHTMAPLERP);
 					float4 Lightmap_Lerp932_g5296 = lerpResult442_g5296;
 					float3 appendResult139_g58820 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
 					float2 uv_BumpMap830_g5296 = IN.ase_texcoord2.xy;
@@ -4103,7 +4102,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1084_g5296 = tex2D( _RNMZ1, texCoord1086_g5296 );
 					#endif
 					float4 RNM_11081_g5296 = ( ( ( saturate( dotResult121_g58819 ) * ( staticSwitch1087_g5296 * 0.33334 ) ) + ( saturate( dotResult122_g58819 ) * ( staticSwitch1083_g5296 * 0.33334 ) ) ) + ( saturate( dotResult120_g58819 ) * ( staticSwitch1084_g5296 * 0.33334 ) ) );
-					float Lightmap_Lerp_Value969_g5296 = _LightmapLerp;
+					float Lightmap_Lerp_Value969_g5296 = _LIGHTMAPLERP;
 					float4 lerpResult953_g5296 = lerp( RNM_0926_g5296 , RNM_11081_g5296 , Lightmap_Lerp_Value969_g5296);
 					float4 RNM_Lerp950_g5296 = lerpResult953_g5296;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -4588,9 +4587,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 }
 /*ASEBEGIN
 Version=19904
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2930;160,-1408;Inherit;False;Meenphie Outline;45;;1551;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;COLOR;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2930;160,-1408;Inherit;False;Meenphie Outline;44;;1551;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;COLOR;0
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3034;192,-1200;Inherit;False;Meenphie;0;;5296;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,0;0;9;COLOR;625;FLOAT3;238;FLOAT;96;FLOAT;97;FLOAT;1042;FLOAT4;624;FLOAT;156;FLOAT;427;FLOAT3;1024
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3035;224,-928;Inherit;False;Snow Particles;51;;58824;5e2d84d094b538e50a87a98a44c75956;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3035;224,-928;Inherit;False;Snow Particles;50;;58824;5e2d84d094b538e50a87a98a44c75956;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2889;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2890;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2891;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Meta;0;4;Meta;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
@@ -4608,4 +4607,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=067261EEC3FFAF3E816889802D4C5A8655A0CCFB
+//CHKSM=259B0806A20EE99F1CF2C50515580BED150BA3FA
