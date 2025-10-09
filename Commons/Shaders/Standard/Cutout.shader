@@ -595,7 +595,13 @@ Shader "Meenphie/Standard/Cutout"
 					float4 staticSwitch1001_g2323 = tex2D( _MainTex, uv_MainTex907_g2323 );
 					#endif
 					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
-					float temp_output_2951_156 = temp_output_976_0_g2323.a;
+					float Black1185_g2323 = 0.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					#endif
+					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
 
 					half3 Color = _OutlineColor;
@@ -1760,7 +1766,12 @@ Shader "Meenphie/Standard/Cutout"
 					float4 staticSwitch41_g58821 = Color353_g58821;
 					#endif
 					
-					float temp_output_2951_156 = temp_output_976_0_g2323.a;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					#endif
+					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
 
 					o.Albedo = staticSwitch1180_g2323.rgb;
@@ -3065,7 +3076,12 @@ Shader "Meenphie/Standard/Cutout"
 					float4 staticSwitch41_g58821 = Color353_g58821;
 					#endif
 					
-					float temp_output_2951_156 = temp_output_976_0_g2323.a;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					#endif
+					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
 
 					o.Albedo = staticSwitch1180_g2323.rgb;
@@ -4148,7 +4164,13 @@ Shader "Meenphie/Standard/Cutout"
 					float4 staticSwitch41_g58821 = Color353_g58821;
 					#endif
 					
-					float temp_output_2951_156 = temp_output_976_0_g2323.a;
+					float Black1185_g2323 = 0.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					#endif
+					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
 
 					o.Albedo = staticSwitch1180_g2323.rgb;
@@ -4219,6 +4241,7 @@ Shader "Meenphie/Standard/Cutout"
 
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
+				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 
 
@@ -4498,7 +4521,13 @@ Shader "Meenphie/Standard/Cutout"
 					float4 staticSwitch1001_g2323 = tex2D( _MainTex, uv_MainTex907_g2323 );
 					#endif
 					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
-					float temp_output_2951_156 = temp_output_976_0_g2323.a;
+					float Black1185_g2323 = 0.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g2323 = Black1185_g2323;
+					#else
+					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					#endif
+					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
 
 					o.Normal = half3( 0, 0, 1 );
@@ -4567,4 +4596,4 @@ WireConnection;2887;0;2943;17
 WireConnection;2887;1;2951;156
 WireConnection;2887;3;2943;0
 ASEEND*/
-//CHKSM=71CA19EC4AAE325DAD72BADB9A636BD45D0617EE
+//CHKSM=456DADF08B11BEFAA5EAAA961C7B59ACD5E4AE33
