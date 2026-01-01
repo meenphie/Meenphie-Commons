@@ -1,4 +1,4 @@
-// Made with Amplify Shader Editor v1.9.9.4
+// Made with Amplify Shader Editor v1.9.9.5
 // Available at the Unity Asset Store - http://u3d.as/y3X 
 Shader "Meenphie/Skybox/Skybox Simple Gradient"
 {
@@ -54,7 +54,7 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 			Name "Unlit"
 
 			CGPROGRAM
-				#define ASE_VERSION 19904
+				#define ASE_VERSION 19905
 
 				#ifndef UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX
 					#define UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input)
@@ -141,61 +141,58 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 					half FOG_MASK359 = lerpResult678;
 					float4 lerpResult317 = lerp( ( unity_AmbientEquator * float4( _FogColor , 0.0 ) ) , float4( color1198 , 0.0 ) , FOG_MASK359);
 					float4 temp_output_35_0_g5 = lerpResult317;
-					float3 temp_output_367_0_g5 = (temp_output_35_0_g5).xyz;
-					float3 Color353_g5 = temp_output_367_0_g5;
+					float4 Color353_g5 = temp_output_35_0_g5;
 					#if defined( _LUTMODE_2D )
-					float3 staticSwitch273_g5 = saturate( temp_output_367_0_g5 );
+					float4 staticSwitch273_g5 = saturate( temp_output_35_0_g5 );
 					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch273_g5 = temp_output_367_0_g5;
+					float4 staticSwitch273_g5 = temp_output_35_0_g5;
 					#else
-					float3 staticSwitch273_g5 = temp_output_367_0_g5;
+					float4 staticSwitch273_g5 = temp_output_35_0_g5;
 					#endif
-					float3 Color_Saturate49_g5 = staticSwitch273_g5;
+					float4 Color_Saturate49_g5 = staticSwitch273_g5;
 					float Lut_Height213_g5 = _LUTSize;
 					float Lut_Width216_g5 = ( _LUTSize * Lut_Height213_g5 );
 					float3 appendResult214_g5 = (float3(( 1.0 / Lut_Width216_g5 ) , ( 1.0 / Lut_Height213_g5 ) , ( Lut_Height213_g5 - 1.0 )));
 					float3 Scale_Offset208_g5 = appendResult214_g5;
 					float2 Scale_Factor292_g5 = ( (Scale_Offset208_g5).xy * (Scale_Offset208_g5).z );
 					float2 Offset299_g5 = ( (Scale_Offset208_g5).xy * 0.5 );
-					float2 Adjusted_UV305_g5 = ( ( (Color_Saturate49_g5).xy * Scale_Factor292_g5 ) + Offset299_g5 );
-					float Scaled_Blue280_g5 = ( (Color_Saturate49_g5).z * (Scale_Offset208_g5).z );
-					float Shift288_g5 = floor( Scaled_Blue280_g5 );
-					float Final_X313_g5 = ( (Adjusted_UV305_g5).x + ( Shift288_g5 * (Scale_Offset208_g5).y ) );
-					float2 appendResult326_g5 = (float2(Final_X313_g5 , (Adjusted_UV305_g5).y));
+					float3 Adjusted_UV305_g5 = ( ( (Color_Saturate49_g5).xyw * float3( Scale_Factor292_g5 ,  0.0 ) ) + float3( Offset299_g5 ,  0.0 ) );
+					float2 Scaled_Blue280_g5 = ( (Color_Saturate49_g5).zw * (Scale_Offset208_g5).z );
+					float2 Shift288_g5 = floor( Scaled_Blue280_g5 );
+					float2 Final_X313_g5 = ( (Adjusted_UV305_g5).xz + ( Shift288_g5 * (Scale_Offset208_g5).y ) );
+					float2 appendResult326_g5 = (float2(Final_X313_g5.x , (Adjusted_UV305_g5).yz.x));
 					float2 Final_UV325_g5 = appendResult326_g5;
 					float2 appendResult338_g5 = (float2((Scale_Offset208_g5).y , 0.0));
 					float2 Offset_UV336_g5 = ( Final_UV325_g5 + appendResult338_g5 );
-					float3 lerpResult333_g5 = lerp( tex2D( _2DLut, Final_UV325_g5 ).rgb , tex2D( _2DLut, Offset_UV336_g5 ).rgb , ( Scaled_Blue280_g5 - Shift288_g5 ));
+					float3 lerpResult333_g5 = lerp( tex2D( _2DLut, Final_UV325_g5 ).rgb , tex2D( _2DLut, Offset_UV336_g5 ).rgb , float3( ( Scaled_Blue280_g5 - Shift288_g5 ) ,  0.0 ));
 					#ifdef _2DLUT
-					float3 staticSwitch347_g5 = lerpResult333_g5;
+					float4 staticSwitch347_g5 = float4( lerpResult333_g5 , 0.0 );
 					#else
-					float3 staticSwitch347_g5 = Color_Saturate49_g5;
+					float4 staticSwitch347_g5 = Color_Saturate49_g5;
 					#endif
-					float3 TwoD_LUT346_g5 = staticSwitch347_g5;
-					float3 RGB16_g10 = ( ( log10( ( ( Color_Saturate49_g5 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 TwoD_LUT346_g5 = staticSwitch347_g5;
+					float3 RGB16_g6 = ( ( log10( ( ( Color_Saturate49_g5.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float3 staticSwitch194_g5 = tex3D( _3DLut, RGB16_g10 ).rgb;
+					float4 staticSwitch194_g5 = tex3D( _3DLut, RGB16_g6 );
 					#else
-					float3 staticSwitch194_g5 = Color_Saturate49_g5;
+					float4 staticSwitch194_g5 = Color_Saturate49_g5;
 					#endif
-					float3 ThreeD_LUT51_g5 = staticSwitch194_g5;
+					float4 ThreeD_LUT51_g5 = staticSwitch194_g5;
 					#if defined( _LUTMODE_2D )
-					float3 staticSwitch42_g5 = TwoD_LUT346_g5;
+					float4 staticSwitch42_g5 = TwoD_LUT346_g5;
 					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch42_g5 = ThreeD_LUT51_g5;
+					float4 staticSwitch42_g5 = ThreeD_LUT51_g5;
 					#else
-					float3 staticSwitch42_g5 = ThreeD_LUT51_g5;
+					float4 staticSwitch42_g5 = ThreeD_LUT51_g5;
 					#endif
 					#ifdef SHADER_API_MOBILE
-					float3 staticSwitch41_g5 = staticSwitch42_g5;
+					float4 staticSwitch41_g5 = staticSwitch42_g5;
 					#else
-					float3 staticSwitch41_g5 = Color353_g5;
+					float4 staticSwitch41_g5 = Color353_g5;
 					#endif
-					float Alpha359_g5 = (temp_output_35_0_g5).w;
-					float4 appendResult360_g5 = (float4(staticSwitch41_g5 , Alpha359_g5));
 					
 
-					finalColor = appendResult360_g5;
+					finalColor = staticSwitch41_g5;
 
 					return finalColor;
 				}
@@ -207,7 +204,7 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 	Fallback Off
 }
 /*ASEBEGIN
-Version=19904
+Version=19905
 Node;AmplifyShaderEditor.CommentaryNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;700;-1632,832;Inherit;False;1898;485;Fog Coords on Screen;15;318;319;320;313;325;314;315;329;677;316;678;679;1108;1109;1110;BUILT-IN FOG;0,0.4980392,0,1;0;0
 Node;AmplifyShaderEditor.WorldPosInputsNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;318;-1584,880;Float;False;0;4;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3
 Node;AmplifyShaderEditor.NormalizeNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;319;-1328,880;Inherit;False;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0
@@ -234,7 +231,7 @@ Node;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, 
 Node;AmplifyShaderEditor.ColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1198;-1488,80;Inherit;False;Constant;_MainColor;Main Color;0;0;Create;True;0;0;0;False;0;False;0,0,0,0;0,0,0,0;True;False;0;6;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
 Node;AmplifyShaderEditor.LerpOp, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;317;-992,16;Inherit;False;3;0;COLOR;0,0,0,0;False;1;COLOR;0,0,0,0;False;2;FLOAT;0;False;1;COLOR;0
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1201;-624,16;Inherit;False;LUT;1;;5;0baaa08160114780391fed4ef3e2d57e;0;1;35;FLOAT4;0,0,0,0;False;1;FLOAT4;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1202;-320,16;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;5;Meenphie/Skybox Simple Gradient;0770190933193b94aaa3065e307002fa;True;Unlit;0;0;Unlit;2;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;True;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;2;False;;True;0;False;;True;False;0;False;;0;False;;True;3;RenderType=Background=RenderType;PreviewType=Skybox;Queue=Background=Queue=0;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;0;;0;0;Standard;1;Vertex Position;1;0;0;1;True;False;;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1202;-320,16;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;5;Meenphie/Skybox/Skybox Simple Gradient;0770190933193b94aaa3065e307002fa;True;Unlit;0;0;Unlit;2;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;True;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;2;False;;True;0;False;;True;False;0;False;;0;False;;True;3;RenderType=Background=RenderType;PreviewType=Skybox;Queue=Background=Queue=0;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;0;;0;0;Standard;1;Vertex Position;1;0;0;1;True;False;;False;0
 WireConnection;319;0;318;0
 WireConnection;320;0;319;0
 WireConnection;314;0;320;1
@@ -259,4 +256,4 @@ WireConnection;317;2;436;0
 WireConnection;1201;35;317;0
 WireConnection;1202;0;1201;0
 ASEEND*/
-//CHKSM=9146DA3A170D88758B0CAEFB47E4CA2A47847335
+//CHKSM=9012F9A152223BA784503AF93D3DA7D9C884D5D1

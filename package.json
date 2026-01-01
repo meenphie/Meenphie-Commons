@@ -1,8 +1,8 @@
 {
   "name": "com.meenphie.commons",
   "displayName": "Meenphie",
-  "version": "0.1.5",
-  "description": "My packages",
+  "version": "0.1.7",
+  "description": "My common stuff",
   "dependencies": {},
   "gitDependencies": {},
   "author": {
