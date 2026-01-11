@@ -18,9 +18,10 @@ Shader "Meenphie/Standard/Cutout"
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
 		[Toggle( _EMISSIONENABLED_ON )] _EmissionEnabled( "Emission Enabled", Float ) = 0
-		[Gamma] _EmissionColor( "Emission Color", Color ) = ( 0, 0, 0 )
+		[Gamma] _EmissionColor( "Emission Color", Color ) = ( 1, 1, 1 )
 		[NoScaleOffset][SingleLineTexture] _EmissionMap( "Emission Map", 2D ) = "white" {}
 		_EmissionIntensity( "Emission Intensity", Float ) = 0
+		[KeywordEnum( Disabled,LED )] _SpecialEffects( "Special Effects", Float ) = 0
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[Meenphie_DrawerCategory(LIGHTMAPPING,true,0,0)] _CATEGORYLIGHTMAPPING( "CATEGORY LIGHTMAPPING", Float ) = 0
@@ -50,12 +51,13 @@ Shader "Meenphie/Standard/Cutout"
 		_OutlineColor( "Outline Color", Color ) = ( 0.1, 0.1, 0.1 )
 		_OutlineWidth( "Outline Width", Range( 0, 0.01 ) ) = 0.00025
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEOUTLINE1( "CATEGORY SPACE OUTLINE", Float ) = 0
-		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
-		[HideInInspector] GenKey__EmissionMap( "Assign keyword _EMISSIONMAP", Float ) = 1.0
-		[HideInInspector] GenKey__2DLut( "Assign keyword _2DLUT", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__EmissionMap( "Assign keyword _EMISSIONMAP", Float ) = 1.0
+		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
+		[HideInInspector] GenKey__2DLut( "Assign keyword _2DLUT", Float ) = 1.0
+		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
 		[HideInInspector] _texcoord( "", 2D ) = "white" {}
 
 
@@ -269,6 +271,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
 				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local _OUTLINEENABLED_ON
+				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 
 
@@ -596,12 +599,16 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1001_g2323 = tex2D( _MainTex, uv_MainTex907_g2323 );
 					#endif
-					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g2323 = staticSwitch1001_g2323;
+					#else
+					float4 staticSwitch1549_g2323 = _Color;
+					#endif
 					float Black1185_g2323 = 0.0;
 					#ifdef _LIGHTMAPDEBUG
 					float staticSwitch1191_g2323 = Black1185_g2323;
 					#else
-					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					float staticSwitch1191_g2323 = staticSwitch1549_g2323.a;
 					#endif
 					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
@@ -696,6 +703,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#pragma shader_feature _LIGHTMAPDEBUG
+				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _METALLICMAP
 				#pragma shader_feature_local _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
@@ -704,6 +712,7 @@ Shader "Meenphie/Standard/Cutout"
 				#pragma shader_feature_local_fragment _USELIGHTMAPSPECULAR_ON
 				#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
 				#pragma shader_feature_local_fragment _GLOSSINESSMAP
+				#pragma shader_feature_local _SPECIALEFFECTS_DISABLED _SPECIALEFFECTS_LED
 				#pragma shader_feature_local _EMISSIONENABLED_ON
 				#pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
 				#pragma shader_feature_local _2DLUT
@@ -1083,8 +1092,12 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1001_g2323 = tex2D( _MainTex, uv_MainTex907_g2323 );
 					#endif
-					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
-					float4 oAlbedo6_g2323 = temp_output_976_0_g2323;
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g2323 = staticSwitch1001_g2323;
+					#else
+					float4 staticSwitch1549_g2323 = _Color;
+					#endif
+					float4 oAlbedo6_g2323 = staticSwitch1549_g2323;
 					float Black1185_g2323 = 0.0;
 					float4 temp_cast_0 = (Black1185_g2323).xxxx;
 					#ifdef _LIGHTMAPDEBUG
@@ -1174,7 +1187,7 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch846_g2323 = _Metallic;
 					#endif
 					float Metallic1239_g2323 = staticSwitch846_g2323;
-					float4 aAlbedo1466_g2323 = ( temp_output_976_0_g2323 * ( 1.0 - Metallic1239_g2323 ) );
+					float4 aAlbedo1466_g2323 = ( staticSwitch1549_g2323 * ( 1.0 - Metallic1239_g2323 ) );
 					float White38_g2323 = 1.0;
 					float4 temp_cast_2 = (White38_g2323).xxxx;
 					float2 texCoord1093_g2323 = IN.ase_texcoord6.zw * float2( 1,1 ) + float2( 0,0 );
@@ -1639,9 +1652,10 @@ Shader "Meenphie/Standard/Cutout"
 					float3 switchResult1501_g2323 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
 					float dotResult1476_g2323 = dot( switchResult1501_g2323 , ViewDirWS );
 					float4 lerpResult1480_g2323 = lerp( lerpResult1473_g2323 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g2323 ) ) , 5.0 ));
-					float4 temp_output_1481_0_g2323 = ( float4( indirectSpecular1392_g2323 , 0.0 ) * lerpResult1480_g2323 );
+					float4 Fresnel1560_g2323 = lerpResult1480_g2323;
+					float4 temp_output_1481_0_g2323 = ( float4( indirectSpecular1392_g2323 , 0.0 ) * Fresnel1560_g2323 );
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g2323 = ( temp_output_1481_0_g2323 * Lightmap46_g2323 );
+					float4 staticSwitch1469_g2323 = ( temp_output_1481_0_g2323 * sqrt( Lightmap46_g2323 ) );
 					#else
 					float4 staticSwitch1469_g2323 = temp_output_1481_0_g2323;
 					#endif
@@ -1726,7 +1740,14 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1017_g2323 = temp_cast_5;
 					#endif
-					float4 Emission86_g2323 = staticSwitch1017_g2323;
+					#if defined( _SPECIALEFFECTS_DISABLED )
+					float4 staticSwitch1578_g2323 = staticSwitch1017_g2323;
+					#elif defined( _SPECIALEFFECTS_LED )
+					float4 staticSwitch1578_g2323 = float4( 0,0,0,0 );
+					#else
+					float4 staticSwitch1578_g2323 = staticSwitch1017_g2323;
+					#endif
+					float4 Emission86_g2323 = staticSwitch1578_g2323;
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g2323 = Lightmap46_g2323;
 					#else
@@ -1786,7 +1807,7 @@ Shader "Meenphie/Standard/Cutout"
 					#ifdef _LIGHTMAPDEBUG
 					float staticSwitch1191_g2323 = Black1185_g2323;
 					#else
-					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					float staticSwitch1191_g2323 = staticSwitch1549_g2323.a;
 					#endif
 					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
@@ -2038,6 +2059,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#pragma shader_feature _LIGHTMAPDEBUG
+				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _METALLICMAP
 				#pragma shader_feature_local _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
@@ -2046,6 +2068,7 @@ Shader "Meenphie/Standard/Cutout"
 				#pragma shader_feature_local_fragment _USELIGHTMAPSPECULAR_ON
 				#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
 				#pragma shader_feature_local_fragment _GLOSSINESSMAP
+				#pragma shader_feature_local _SPECIALEFFECTS_DISABLED _SPECIALEFFECTS_LED
 				#pragma shader_feature_local _EMISSIONENABLED_ON
 				#pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
 				#pragma shader_feature_local _2DLUT
@@ -2407,8 +2430,12 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1001_g2323 = tex2D( _MainTex, uv_MainTex907_g2323 );
 					#endif
-					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
-					float4 oAlbedo6_g2323 = temp_output_976_0_g2323;
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g2323 = staticSwitch1001_g2323;
+					#else
+					float4 staticSwitch1549_g2323 = _Color;
+					#endif
+					float4 oAlbedo6_g2323 = staticSwitch1549_g2323;
 					float Black1185_g2323 = 0.0;
 					float4 temp_cast_0 = (Black1185_g2323).xxxx;
 					#ifdef _LIGHTMAPDEBUG
@@ -2498,7 +2525,7 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch846_g2323 = _Metallic;
 					#endif
 					float Metallic1239_g2323 = staticSwitch846_g2323;
-					float4 aAlbedo1466_g2323 = ( temp_output_976_0_g2323 * ( 1.0 - Metallic1239_g2323 ) );
+					float4 aAlbedo1466_g2323 = ( staticSwitch1549_g2323 * ( 1.0 - Metallic1239_g2323 ) );
 					float White38_g2323 = 1.0;
 					float4 temp_cast_2 = (White38_g2323).xxxx;
 					float2 texCoord1093_g2323 = IN.ase_texcoord5.zw * float2( 1,1 ) + float2( 0,0 );
@@ -2963,9 +2990,10 @@ Shader "Meenphie/Standard/Cutout"
 					float3 switchResult1501_g2323 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
 					float dotResult1476_g2323 = dot( switchResult1501_g2323 , ViewDirWS );
 					float4 lerpResult1480_g2323 = lerp( lerpResult1473_g2323 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g2323 ) ) , 5.0 ));
-					float4 temp_output_1481_0_g2323 = ( float4( indirectSpecular1392_g2323 , 0.0 ) * lerpResult1480_g2323 );
+					float4 Fresnel1560_g2323 = lerpResult1480_g2323;
+					float4 temp_output_1481_0_g2323 = ( float4( indirectSpecular1392_g2323 , 0.0 ) * Fresnel1560_g2323 );
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g2323 = ( temp_output_1481_0_g2323 * Lightmap46_g2323 );
+					float4 staticSwitch1469_g2323 = ( temp_output_1481_0_g2323 * sqrt( Lightmap46_g2323 ) );
 					#else
 					float4 staticSwitch1469_g2323 = temp_output_1481_0_g2323;
 					#endif
@@ -3050,7 +3078,14 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1017_g2323 = temp_cast_5;
 					#endif
-					float4 Emission86_g2323 = staticSwitch1017_g2323;
+					#if defined( _SPECIALEFFECTS_DISABLED )
+					float4 staticSwitch1578_g2323 = staticSwitch1017_g2323;
+					#elif defined( _SPECIALEFFECTS_LED )
+					float4 staticSwitch1578_g2323 = float4( 0,0,0,0 );
+					#else
+					float4 staticSwitch1578_g2323 = staticSwitch1017_g2323;
+					#endif
+					float4 Emission86_g2323 = staticSwitch1578_g2323;
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g2323 = Lightmap46_g2323;
 					#else
@@ -3110,7 +3145,7 @@ Shader "Meenphie/Standard/Cutout"
 					#ifdef _LIGHTMAPDEBUG
 					float staticSwitch1191_g2323 = Black1185_g2323;
 					#else
-					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					float staticSwitch1191_g2323 = staticSwitch1549_g2323.a;
 					#endif
 					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
@@ -3297,6 +3332,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_VERT_TANGENT
 				#define ASE_NEEDS_VERT_NORMAL
 				#pragma shader_feature _LIGHTMAPDEBUG
+				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _METALLICMAP
 				#pragma shader_feature_local _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
@@ -3305,6 +3341,7 @@ Shader "Meenphie/Standard/Cutout"
 				#pragma shader_feature_local_fragment _USELIGHTMAPSPECULAR_ON
 				#pragma shader_feature_local_fragment _USEGEOMETRICANTIALIASING_ON
 				#pragma shader_feature_local_fragment _GLOSSINESSMAP
+				#pragma shader_feature_local _SPECIALEFFECTS_DISABLED _SPECIALEFFECTS_LED
 				#pragma shader_feature_local _EMISSIONENABLED_ON
 				#pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
 				#pragma shader_feature_local _2DLUT
@@ -3640,8 +3677,12 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1001_g2323 = tex2D( _MainTex, uv_MainTex907_g2323 );
 					#endif
-					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
-					float4 oAlbedo6_g2323 = temp_output_976_0_g2323;
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g2323 = staticSwitch1001_g2323;
+					#else
+					float4 staticSwitch1549_g2323 = _Color;
+					#endif
+					float4 oAlbedo6_g2323 = staticSwitch1549_g2323;
 					float Black1185_g2323 = 0.0;
 					float4 temp_cast_0 = (Black1185_g2323).xxxx;
 					#ifdef _LIGHTMAPDEBUG
@@ -3731,7 +3772,7 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch846_g2323 = _Metallic;
 					#endif
 					float Metallic1239_g2323 = staticSwitch846_g2323;
-					float4 aAlbedo1466_g2323 = ( temp_output_976_0_g2323 * ( 1.0 - Metallic1239_g2323 ) );
+					float4 aAlbedo1466_g2323 = ( staticSwitch1549_g2323 * ( 1.0 - Metallic1239_g2323 ) );
 					float White38_g2323 = 1.0;
 					float4 temp_cast_2 = (White38_g2323).xxxx;
 					float2 texCoord1093_g2323 = IN.ase_texcoord2.zw * float2( 1,1 ) + float2( 0,0 );
@@ -4202,9 +4243,10 @@ Shader "Meenphie/Standard/Cutout"
 					float3 switchResult1501_g2323 = (((ase_vface>0)?(ase_normalWS):(-ase_normalWS)));
 					float dotResult1476_g2323 = dot( switchResult1501_g2323 , ase_viewDirWS );
 					float4 lerpResult1480_g2323 = lerp( lerpResult1473_g2323 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g2323 ) ) , 5.0 ));
-					float4 temp_output_1481_0_g2323 = ( float4( indirectSpecular1392_g2323 , 0.0 ) * lerpResult1480_g2323 );
+					float4 Fresnel1560_g2323 = lerpResult1480_g2323;
+					float4 temp_output_1481_0_g2323 = ( float4( indirectSpecular1392_g2323 , 0.0 ) * Fresnel1560_g2323 );
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g2323 = ( temp_output_1481_0_g2323 * Lightmap46_g2323 );
+					float4 staticSwitch1469_g2323 = ( temp_output_1481_0_g2323 * sqrt( Lightmap46_g2323 ) );
 					#else
 					float4 staticSwitch1469_g2323 = temp_output_1481_0_g2323;
 					#endif
@@ -4289,7 +4331,14 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1017_g2323 = temp_cast_5;
 					#endif
-					float4 Emission86_g2323 = staticSwitch1017_g2323;
+					#if defined( _SPECIALEFFECTS_DISABLED )
+					float4 staticSwitch1578_g2323 = staticSwitch1017_g2323;
+					#elif defined( _SPECIALEFFECTS_LED )
+					float4 staticSwitch1578_g2323 = float4( 0,0,0,0 );
+					#else
+					float4 staticSwitch1578_g2323 = staticSwitch1017_g2323;
+					#endif
+					float4 Emission86_g2323 = staticSwitch1578_g2323;
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g2323 = Lightmap46_g2323;
 					#else
@@ -4349,7 +4398,7 @@ Shader "Meenphie/Standard/Cutout"
 					#ifdef _LIGHTMAPDEBUG
 					float staticSwitch1191_g2323 = Black1185_g2323;
 					#else
-					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					float staticSwitch1191_g2323 = staticSwitch1549_g2323.a;
 					#endif
 					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
@@ -4425,6 +4474,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
 				#pragma shader_feature _LIGHTMAPDEBUG
+				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
 
 
@@ -4703,12 +4753,16 @@ Shader "Meenphie/Standard/Cutout"
 					#else
 					float4 staticSwitch1001_g2323 = tex2D( _MainTex, uv_MainTex907_g2323 );
 					#endif
-					float4 temp_output_976_0_g2323 = ( _Color * staticSwitch1001_g2323 );
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g2323 = staticSwitch1001_g2323;
+					#else
+					float4 staticSwitch1549_g2323 = _Color;
+					#endif
 					float Black1185_g2323 = 0.0;
 					#ifdef _LIGHTMAPDEBUG
 					float staticSwitch1191_g2323 = Black1185_g2323;
 					#else
-					float staticSwitch1191_g2323 = temp_output_976_0_g2323.a;
+					float staticSwitch1191_g2323 = staticSwitch1549_g2323.a;
 					#endif
 					float temp_output_2951_156 = staticSwitch1191_g2323;
 					
@@ -4758,7 +4812,7 @@ Shader "Meenphie/Standard/Cutout"
 }
 /*ASEBEGIN
 Version=19905
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2943;160,-1408;Inherit;False;Meenphie Outline;43;;1978;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;FLOAT3;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2943;160,-1408;Inherit;False;Meenphie Outline;44;;1978;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;FLOAT3;0
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2951;192,-1200;Inherit;False;Meenphie;0;;2323;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,1;0;5;COLOR;625;FLOAT4;624;FLOAT;156;FLOAT;427;FLOAT3;1024
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2889;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2890;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
@@ -4776,4 +4830,4 @@ WireConnection;2887;0;2943;17
 WireConnection;2887;1;2951;156
 WireConnection;2887;3;2943;0
 ASEEND*/
-//CHKSM=943423732F3F7B03C4D2BE4FB816176E339AC1C7
+//CHKSM=8785DAC8F4B0F7F2D5156DB34AA7D3F38165DA7A
