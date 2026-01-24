@@ -7,7 +7,7 @@ public class SpecularLightManager : UdonSharpBehaviour
 {
     [Header("Settings")]
     public bool isEnabled = true;
-    public float activationRadius = 40f;
+    public float activationRadius = 50f;
     public int updateIntervalFrames = 5;
 
     private const int MAX_LIGHTS = 32;
@@ -40,18 +40,18 @@ public class SpecularLightManager : UdonSharpBehaviour
     void Start()
     {
         _localPlayer = Networking.LocalPlayer;
-        _posID = VRCShader.PropertyToID("_UdonFakeLightPos");
-        _colID = VRCShader.PropertyToID("_UdonFakeLightCol");
-        _rightID = VRCShader.PropertyToID("_UdonFakeLightRight"); // Nouveau
-        _upID = VRCShader.PropertyToID("_UdonFakeLightUp");       // Nouveau
-        _countID = VRCShader.PropertyToID("_UdonLightCount");
+        _posID = VRCShader.PropertyToID("_UdonSpecularLightPos");
+        _colID = VRCShader.PropertyToID("_UdonSpecularLightCol");
+        _rightID = VRCShader.PropertyToID("_UdonSpecularRight");
+        _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
+        _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
 
         UpdateNearestLights();
     }
 
-    public void ToggleLights()
+    public void ToggleSpecular()
     {
         isEnabled = !isEnabled;
         if (!isEnabled)
@@ -102,7 +102,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         currentActiveCount = finalCount;
 
         for (int i = 0; i < finalCount; i++) _compareBuffer[i] = _indices[i];
-        
+
         for (int i = 0; i < finalCount - 1; i++)
         {
             for (int j = 0; j < finalCount - i - 1; j++)
@@ -162,8 +162,8 @@ public class SpecularLightManager : UdonSharpBehaviour
     {
         VRCShader.SetGlobalVectorArray(_posID, _shaderPosBuffer);
         VRCShader.SetGlobalVectorArray(_colID, _shaderColBuffer);
-        VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer); 
-        VRCShader.SetGlobalVectorArray(_upID, _shaderUpBuffer);       
+        VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer);
+        VRCShader.SetGlobalVectorArray(_upID, _shaderUpBuffer);
         VRCShader.SetGlobalFloat(_countID, (float)count);
     }
 }

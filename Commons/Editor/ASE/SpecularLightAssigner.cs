@@ -4,14 +4,14 @@ using System.Collections.Generic;
 
 public class SpecularLightBaker : EditorWindow
 {
-    [MenuItem("Meenphie/Lights/Bake Final")]
+    [MenuItem("Meenphie/Specular Light/Bake")]
     public static void BakeLights()
     {
         // Récupération du manager
         SpecularLightManager manager = Object.FindObjectOfType<SpecularLightManager>();
         if (manager == null)
         {
-            Debug.LogWarning("Aucun FakeLightManager trouvé dans la scène.");
+            Debug.LogWarning("Aucun SpecularLightManager trouvé dans la scène.");
             return;
         }
 

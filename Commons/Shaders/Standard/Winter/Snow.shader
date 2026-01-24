@@ -1,4 +1,4 @@
-// Made with Amplify Shader Editor v1.9.9.5
+// Made with Amplify Shader Editor v1.9.9.7
 // Available at the Unity Asset Store - http://u3d.as/y3X 
 Shader "Meenphie/Standard/Winter/Snow"
 {
@@ -110,6 +110,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 
 		CGINCLUDE
 			#pragma target 3.5
+			// ensure rendering platforms toggle list is visible
 
 			float4 FixedTess( float tessValue )
 			{
@@ -244,7 +245,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#define _SPECULARHIGHLIGHTS_OFF
 				#pragma multi_compile_instancing
 				#define _SPECULAR_SETUP 1
-				#define ASE_VERSION 19905
+				#define ASE_VERSION 19907
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -323,13 +324,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonLightCount;
+				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
-				uniform float4 _UdonFakeLightPos[32];
-				uniform float4 _UdonFakeLightCol[32];
-				uniform float4 _UdonFakeLightRight[32];
-				uniform float4 _UdonFakeLightUp[32];
+				uniform float4 _UdonSpecularLightUp[32];
+				uniform float4 _UdonSpecularLightRight[32];
+				uniform float4 _UdonSpecularLightCol[32];
+				uniform float4 _UdonSpecularLightPos[32];
 				uniform float _OutlineWidth;
 				uniform float _CATEGORYOUTLINE1;
 				uniform float _CATEGORYSPACEOUTLINE1;
@@ -570,7 +571,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#define _SPECULARHIGHLIGHTS_OFF
 				#pragma multi_compile_instancing
 				#define _SPECULAR_SETUP 1
-				#define ASE_VERSION 19905
+				#define ASE_VERSION 19907
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -692,13 +693,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonLightCount;
+				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
-				uniform float4 _UdonFakeLightPos[32];
-				uniform float4 _UdonFakeLightCol[32];
-				uniform float4 _UdonFakeLightRight[32];
-				uniform float4 _UdonFakeLightUp[32];
+				uniform float4 _UdonSpecularLightUp[32];
+				uniform float4 _UdonSpecularLightRight[32];
+				uniform float4 _UdonSpecularLightCol[32];
+				uniform float4 _UdonSpecularLightPos[32];
 				uniform float4 _Color;
 				uniform sampler2D _MainTex;
 				uniform float4 _MainTex_ST;
@@ -744,7 +745,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
-					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonLightCount == 0) return 0;
+					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -756,13 +757,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// Vecteur de réflexion idéal (R)
 					float3 R = reflect(-vDir, N);
 					// --- 3. BOUCLE ---
-					for (int i = 0; i < (int)_UdonLightCount; i++)
+					for (int i = 0; i < (int)_UdonSpecularLightCount; i++)
 					{
-					    float3 center = _UdonFakeLightPos[i].xyz;
-					    float3 right  = _UdonFakeLightRight[i].xyz;
-					    float3 up     = _UdonFakeLightUp[i].xyz;
-					    float width   = _UdonFakeLightRight[i].w;
-					    float height  = _UdonFakeLightUp[i].w;
+					    float3 center = _UdonSpecularLightPos[i].xyz;
+					    float3 right  = _UdonSpecularLightRight[i].xyz;
+					    float3 up     = _UdonSpecularLightUp[i].xyz;
+					    float width   = _UdonSpecularLightRight[i].w;
+					    float height  = _UdonSpecularLightUp[i].w;
 					    // Projection du reflet sur le plan de la Area Light pour trouver le point le plus proche
 					    float3 L = center - WorldPos;
 					    float distToPlane = dot(L, cross(right, up)); // Optionnel pour plus de précision
@@ -773,7 +774,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    closestPoint += up * clamp(dot(R * dot(L, R) - L, up), -height, height);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
-					    float range = _UdonFakeLightPos[i].w;
+					    float range = _UdonSpecularLightPos[i].w;
 					    
 					    float falloff = saturate(1.0 - (distSq / (range * range)));
 					    falloff *= falloff;
@@ -786,7 +787,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            float spec = pow(nDotH, shininess) * normalization;
 					            
-					            specAccum += _UdonFakeLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonFakeLightCol[i].w);
+					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonSpecularLightCol[i].w);
 					        }
 					    }
 					}
@@ -1208,9 +1209,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult46_g58766 = lerp( tex2D( _Lightmap0, UV32_g58766 ) , tex2D( _Lightmap0, UV22_g58766 ) , W02_g58766);
 					float4 lerpResult45_g58766 = lerp( tex2D( _Lightmap0, UV12_g58766 ) , tex2D( _Lightmap0, UV02_g58766 ) , W02_g58766);
 					float4 lerpResult44_g58766 = lerp( lerpResult46_g58766 , lerpResult45_g58766 , W12_g58766);
-					float4 Output_2D131_g58766 = lerpResult44_g58766;
+					float4 Output_2D_Auto131_g58766 = lerpResult44_g58766;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1092_g5296 = Output_2D131_g58766;
+					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g58766;
 					#else
 					float4 staticSwitch1092_g5296 = tex2D( _Lightmap0, texCoord1093_g5296 );
 					#endif
@@ -1254,9 +1255,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult46_g58764 = lerp( tex2D( _Lightmap1, UV32_g58764 ) , tex2D( _Lightmap1, UV22_g58764 ) , W02_g58764);
 					float4 lerpResult45_g58764 = lerp( tex2D( _Lightmap1, UV12_g58764 ) , tex2D( _Lightmap1, UV02_g58764 ) , W02_g58764);
 					float4 lerpResult44_g58764 = lerp( lerpResult46_g58764 , lerpResult45_g58764 , W12_g58764);
-					float4 Output_2D131_g58764 = lerpResult44_g58764;
+					float4 Output_2D_Auto131_g58764 = lerpResult44_g58764;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1088_g5296 = Output_2D131_g58764;
+					float4 staticSwitch1088_g5296 = Output_2D_Auto131_g58764;
 					#else
 					float4 staticSwitch1088_g5296 = tex2D( _Lightmap1, texCoord1090_g5296 );
 					#endif
@@ -1384,9 +1385,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59348 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g59348).yw ) , tex2D( _RNMX0, (Input_FetchOffsets197_g59348).xw ) , break187_g59348.x);
 					float4 lerpResult182_g59348 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g59348).yz ) , tex2D( _RNMX0, (Input_FetchOffsets197_g59348).xz ) , break187_g59348.x);
 					float4 lerpResult176_g59348 = lerp( lerpResult181_g59348 , lerpResult182_g59348 , break187_g59348.y);
-					float4 Output_Fetch2D202_g59348 = lerpResult176_g59348;
+					float4 Output_Fetch2D_Auto202_g59348 = lerpResult176_g59348;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1061_g5296 = Output_Fetch2D202_g59348;
+					float4 staticSwitch1061_g5296 = Output_Fetch2D_Auto202_g59348;
 					#else
 					float4 staticSwitch1061_g5296 = tex2DNode1068_g5296;
 					#endif
@@ -1400,9 +1401,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59346 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g59346).yw ) , tex2D( _RNMY0, (Input_FetchOffsets197_g59346).xw ) , break187_g59346.x);
 					float4 lerpResult182_g59346 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g59346).yz ) , tex2D( _RNMY0, (Input_FetchOffsets197_g59346).xz ) , break187_g59346.x);
 					float4 lerpResult176_g59346 = lerp( lerpResult181_g59346 , lerpResult182_g59346 , break187_g59346.y);
-					float4 Output_Fetch2D202_g59346 = lerpResult176_g59346;
+					float4 Output_Fetch2D_Auto202_g59346 = lerpResult176_g59346;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1062_g5296 = Output_Fetch2D202_g59346;
+					float4 staticSwitch1062_g5296 = Output_Fetch2D_Auto202_g59346;
 					#else
 					float4 staticSwitch1062_g5296 = tex2DNode1069_g5296;
 					#endif
@@ -1416,9 +1417,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59347 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).yw ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).xw ) , break187_g59347.x);
 					float4 lerpResult182_g59347 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).yz ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).xz ) , break187_g59347.x);
 					float4 lerpResult176_g59347 = lerp( lerpResult181_g59347 , lerpResult182_g59347 , break187_g59347.y);
-					float4 Output_Fetch2D202_g59347 = lerpResult176_g59347;
+					float4 Output_Fetch2D_Auto202_g59347 = lerpResult176_g59347;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1063_g5296 = Output_Fetch2D202_g59347;
+					float4 staticSwitch1063_g5296 = Output_Fetch2D_Auto202_g59347;
 					#else
 					float4 staticSwitch1063_g5296 = tex2DNode1071_g5296;
 					#endif
@@ -1470,9 +1471,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58761 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g58761).yw ) , tex2D( _RNMX1, (Input_FetchOffsets197_g58761).xw ) , break187_g58761.x);
 					float4 lerpResult182_g58761 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g58761).yz ) , tex2D( _RNMX1, (Input_FetchOffsets197_g58761).xz ) , break187_g58761.x);
 					float4 lerpResult176_g58761 = lerp( lerpResult181_g58761 , lerpResult182_g58761 , break187_g58761.y);
-					float4 Output_Fetch2D202_g58761 = lerpResult176_g58761;
+					float4 Output_Fetch2D_Auto202_g58761 = lerpResult176_g58761;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1087_g5296 = Output_Fetch2D202_g58761;
+					float4 staticSwitch1087_g5296 = Output_Fetch2D_Auto202_g58761;
 					#else
 					float4 staticSwitch1087_g5296 = tex2D( _RNMX1, texCoord1086_g5296 );
 					#endif
@@ -1485,9 +1486,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58759 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g58759).yw ) , tex2D( _RNMY1, (Input_FetchOffsets197_g58759).xw ) , break187_g58759.x);
 					float4 lerpResult182_g58759 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g58759).yz ) , tex2D( _RNMY1, (Input_FetchOffsets197_g58759).xz ) , break187_g58759.x);
 					float4 lerpResult176_g58759 = lerp( lerpResult181_g58759 , lerpResult182_g58759 , break187_g58759.y);
-					float4 Output_Fetch2D202_g58759 = lerpResult176_g58759;
+					float4 Output_Fetch2D_Auto202_g58759 = lerpResult176_g58759;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1083_g5296 = Output_Fetch2D202_g58759;
+					float4 staticSwitch1083_g5296 = Output_Fetch2D_Auto202_g58759;
 					#else
 					float4 staticSwitch1083_g5296 = tex2D( _RNMY1, texCoord1086_g5296 );
 					#endif
@@ -1500,9 +1501,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58760 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).yw ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).xw ) , break187_g58760.x);
 					float4 lerpResult182_g58760 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).yz ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).xz ) , break187_g58760.x);
 					float4 lerpResult176_g58760 = lerp( lerpResult181_g58760 , lerpResult182_g58760 , break187_g58760.y);
-					float4 Output_Fetch2D202_g58760 = lerpResult176_g58760;
+					float4 Output_Fetch2D_Auto202_g58760 = lerpResult176_g58760;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1084_g5296 = Output_Fetch2D202_g58760;
+					float4 staticSwitch1084_g5296 = Output_Fetch2D_Auto202_g58760;
 					#else
 					float4 staticSwitch1084_g5296 = tex2D( _RNMZ1, texCoord1086_g5296 );
 					#endif
@@ -1613,7 +1614,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float3 temp_output_4_0_g58836 = ddy( NormalWS );
 					float dotResult6_g58836 = dot( temp_output_4_0_g58836 , temp_output_4_0_g58836 );
 					#ifdef _USEGEOMETRICANTIALIASING_ON
-					float staticSwitch824_g5296 = min( staticSwitch845_g5296 , ( 1.0 - pow( saturate( max( dotResult5_g58836 , dotResult6_g58836 ) ) , 0.333 ) ) );
+					float staticSwitch824_g5296 = min( staticSwitch845_g5296, ( 1.0 - pow( saturate( max( dotResult5_g58836, dotResult6_g58836 ) ) , 0.333 ) ) );
 					#else
 					float staticSwitch824_g5296 = staticSwitch845_g5296;
 					#endif
@@ -2004,7 +2005,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#define _SPECULARHIGHLIGHTS_OFF
 				#pragma multi_compile_instancing
 				#define _SPECULAR_SETUP 1
-				#define ASE_VERSION 19905
+				#define ASE_VERSION 19907
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -2125,13 +2126,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonLightCount;
+				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
-				uniform float4 _UdonFakeLightPos[32];
-				uniform float4 _UdonFakeLightCol[32];
-				uniform float4 _UdonFakeLightRight[32];
-				uniform float4 _UdonFakeLightUp[32];
+				uniform float4 _UdonSpecularLightUp[32];
+				uniform float4 _UdonSpecularLightRight[32];
+				uniform float4 _UdonSpecularLightCol[32];
+				uniform float4 _UdonSpecularLightPos[32];
 				uniform float4 _Color;
 				uniform sampler2D _MainTex;
 				uniform float4 _MainTex_ST;
@@ -2177,7 +2178,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
-					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonLightCount == 0) return 0;
+					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -2189,13 +2190,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// Vecteur de réflexion idéal (R)
 					float3 R = reflect(-vDir, N);
 					// --- 3. BOUCLE ---
-					for (int i = 0; i < (int)_UdonLightCount; i++)
+					for (int i = 0; i < (int)_UdonSpecularLightCount; i++)
 					{
-					    float3 center = _UdonFakeLightPos[i].xyz;
-					    float3 right  = _UdonFakeLightRight[i].xyz;
-					    float3 up     = _UdonFakeLightUp[i].xyz;
-					    float width   = _UdonFakeLightRight[i].w;
-					    float height  = _UdonFakeLightUp[i].w;
+					    float3 center = _UdonSpecularLightPos[i].xyz;
+					    float3 right  = _UdonSpecularLightRight[i].xyz;
+					    float3 up     = _UdonSpecularLightUp[i].xyz;
+					    float width   = _UdonSpecularLightRight[i].w;
+					    float height  = _UdonSpecularLightUp[i].w;
 					    // Projection du reflet sur le plan de la Area Light pour trouver le point le plus proche
 					    float3 L = center - WorldPos;
 					    float distToPlane = dot(L, cross(right, up)); // Optionnel pour plus de précision
@@ -2206,7 +2207,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    closestPoint += up * clamp(dot(R * dot(L, R) - L, up), -height, height);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
-					    float range = _UdonFakeLightPos[i].w;
+					    float range = _UdonSpecularLightPos[i].w;
 					    
 					    float falloff = saturate(1.0 - (distSq / (range * range)));
 					    falloff *= falloff;
@@ -2219,7 +2220,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            float spec = pow(nDotH, shininess) * normalization;
 					            
-					            specAccum += _UdonFakeLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonFakeLightCol[i].w);
+					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonSpecularLightCol[i].w);
 					        }
 					    }
 					}
@@ -2624,9 +2625,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult46_g58766 = lerp( tex2D( _Lightmap0, UV32_g58766 ) , tex2D( _Lightmap0, UV22_g58766 ) , W02_g58766);
 					float4 lerpResult45_g58766 = lerp( tex2D( _Lightmap0, UV12_g58766 ) , tex2D( _Lightmap0, UV02_g58766 ) , W02_g58766);
 					float4 lerpResult44_g58766 = lerp( lerpResult46_g58766 , lerpResult45_g58766 , W12_g58766);
-					float4 Output_2D131_g58766 = lerpResult44_g58766;
+					float4 Output_2D_Auto131_g58766 = lerpResult44_g58766;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1092_g5296 = Output_2D131_g58766;
+					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g58766;
 					#else
 					float4 staticSwitch1092_g5296 = tex2D( _Lightmap0, texCoord1093_g5296 );
 					#endif
@@ -2670,9 +2671,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult46_g58764 = lerp( tex2D( _Lightmap1, UV32_g58764 ) , tex2D( _Lightmap1, UV22_g58764 ) , W02_g58764);
 					float4 lerpResult45_g58764 = lerp( tex2D( _Lightmap1, UV12_g58764 ) , tex2D( _Lightmap1, UV02_g58764 ) , W02_g58764);
 					float4 lerpResult44_g58764 = lerp( lerpResult46_g58764 , lerpResult45_g58764 , W12_g58764);
-					float4 Output_2D131_g58764 = lerpResult44_g58764;
+					float4 Output_2D_Auto131_g58764 = lerpResult44_g58764;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1088_g5296 = Output_2D131_g58764;
+					float4 staticSwitch1088_g5296 = Output_2D_Auto131_g58764;
 					#else
 					float4 staticSwitch1088_g5296 = tex2D( _Lightmap1, texCoord1090_g5296 );
 					#endif
@@ -2800,9 +2801,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59348 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g59348).yw ) , tex2D( _RNMX0, (Input_FetchOffsets197_g59348).xw ) , break187_g59348.x);
 					float4 lerpResult182_g59348 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g59348).yz ) , tex2D( _RNMX0, (Input_FetchOffsets197_g59348).xz ) , break187_g59348.x);
 					float4 lerpResult176_g59348 = lerp( lerpResult181_g59348 , lerpResult182_g59348 , break187_g59348.y);
-					float4 Output_Fetch2D202_g59348 = lerpResult176_g59348;
+					float4 Output_Fetch2D_Auto202_g59348 = lerpResult176_g59348;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1061_g5296 = Output_Fetch2D202_g59348;
+					float4 staticSwitch1061_g5296 = Output_Fetch2D_Auto202_g59348;
 					#else
 					float4 staticSwitch1061_g5296 = tex2DNode1068_g5296;
 					#endif
@@ -2816,9 +2817,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59346 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g59346).yw ) , tex2D( _RNMY0, (Input_FetchOffsets197_g59346).xw ) , break187_g59346.x);
 					float4 lerpResult182_g59346 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g59346).yz ) , tex2D( _RNMY0, (Input_FetchOffsets197_g59346).xz ) , break187_g59346.x);
 					float4 lerpResult176_g59346 = lerp( lerpResult181_g59346 , lerpResult182_g59346 , break187_g59346.y);
-					float4 Output_Fetch2D202_g59346 = lerpResult176_g59346;
+					float4 Output_Fetch2D_Auto202_g59346 = lerpResult176_g59346;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1062_g5296 = Output_Fetch2D202_g59346;
+					float4 staticSwitch1062_g5296 = Output_Fetch2D_Auto202_g59346;
 					#else
 					float4 staticSwitch1062_g5296 = tex2DNode1069_g5296;
 					#endif
@@ -2832,9 +2833,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59347 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).yw ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).xw ) , break187_g59347.x);
 					float4 lerpResult182_g59347 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).yz ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).xz ) , break187_g59347.x);
 					float4 lerpResult176_g59347 = lerp( lerpResult181_g59347 , lerpResult182_g59347 , break187_g59347.y);
-					float4 Output_Fetch2D202_g59347 = lerpResult176_g59347;
+					float4 Output_Fetch2D_Auto202_g59347 = lerpResult176_g59347;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1063_g5296 = Output_Fetch2D202_g59347;
+					float4 staticSwitch1063_g5296 = Output_Fetch2D_Auto202_g59347;
 					#else
 					float4 staticSwitch1063_g5296 = tex2DNode1071_g5296;
 					#endif
@@ -2886,9 +2887,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58761 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g58761).yw ) , tex2D( _RNMX1, (Input_FetchOffsets197_g58761).xw ) , break187_g58761.x);
 					float4 lerpResult182_g58761 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g58761).yz ) , tex2D( _RNMX1, (Input_FetchOffsets197_g58761).xz ) , break187_g58761.x);
 					float4 lerpResult176_g58761 = lerp( lerpResult181_g58761 , lerpResult182_g58761 , break187_g58761.y);
-					float4 Output_Fetch2D202_g58761 = lerpResult176_g58761;
+					float4 Output_Fetch2D_Auto202_g58761 = lerpResult176_g58761;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1087_g5296 = Output_Fetch2D202_g58761;
+					float4 staticSwitch1087_g5296 = Output_Fetch2D_Auto202_g58761;
 					#else
 					float4 staticSwitch1087_g5296 = tex2D( _RNMX1, texCoord1086_g5296 );
 					#endif
@@ -2901,9 +2902,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58759 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g58759).yw ) , tex2D( _RNMY1, (Input_FetchOffsets197_g58759).xw ) , break187_g58759.x);
 					float4 lerpResult182_g58759 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g58759).yz ) , tex2D( _RNMY1, (Input_FetchOffsets197_g58759).xz ) , break187_g58759.x);
 					float4 lerpResult176_g58759 = lerp( lerpResult181_g58759 , lerpResult182_g58759 , break187_g58759.y);
-					float4 Output_Fetch2D202_g58759 = lerpResult176_g58759;
+					float4 Output_Fetch2D_Auto202_g58759 = lerpResult176_g58759;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1083_g5296 = Output_Fetch2D202_g58759;
+					float4 staticSwitch1083_g5296 = Output_Fetch2D_Auto202_g58759;
 					#else
 					float4 staticSwitch1083_g5296 = tex2D( _RNMY1, texCoord1086_g5296 );
 					#endif
@@ -2916,9 +2917,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58760 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).yw ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).xw ) , break187_g58760.x);
 					float4 lerpResult182_g58760 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).yz ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).xz ) , break187_g58760.x);
 					float4 lerpResult176_g58760 = lerp( lerpResult181_g58760 , lerpResult182_g58760 , break187_g58760.y);
-					float4 Output_Fetch2D202_g58760 = lerpResult176_g58760;
+					float4 Output_Fetch2D_Auto202_g58760 = lerpResult176_g58760;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1084_g5296 = Output_Fetch2D202_g58760;
+					float4 staticSwitch1084_g5296 = Output_Fetch2D_Auto202_g58760;
 					#else
 					float4 staticSwitch1084_g5296 = tex2D( _RNMZ1, texCoord1086_g5296 );
 					#endif
@@ -3029,7 +3030,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float3 temp_output_4_0_g58836 = ddy( NormalWS );
 					float dotResult6_g58836 = dot( temp_output_4_0_g58836 , temp_output_4_0_g58836 );
 					#ifdef _USEGEOMETRICANTIALIASING_ON
-					float staticSwitch824_g5296 = min( staticSwitch845_g5296 , ( 1.0 - pow( saturate( max( dotResult5_g58836 , dotResult6_g58836 ) ) , 0.333 ) ) );
+					float staticSwitch824_g5296 = min( staticSwitch845_g5296, ( 1.0 - pow( saturate( max( dotResult5_g58836, dotResult6_g58836 ) ) , 0.333 ) ) );
 					#else
 					float staticSwitch824_g5296 = staticSwitch845_g5296;
 					#endif
@@ -3364,7 +3365,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#define _SPECULARHIGHLIGHTS_OFF
 				#pragma multi_compile_instancing
 				#define _SPECULAR_SETUP 1
-				#define ASE_VERSION 19905
+				#define ASE_VERSION 19907
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -3469,13 +3470,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonLightCount;
+				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
-				uniform float4 _UdonFakeLightPos[32];
-				uniform float4 _UdonFakeLightCol[32];
-				uniform float4 _UdonFakeLightRight[32];
-				uniform float4 _UdonFakeLightUp[32];
+				uniform float4 _UdonSpecularLightUp[32];
+				uniform float4 _UdonSpecularLightRight[32];
+				uniform float4 _UdonSpecularLightCol[32];
+				uniform float4 _UdonSpecularLightPos[32];
 				uniform float4 _Color;
 				uniform sampler2D _MainTex;
 				uniform float4 _MainTex_ST;
@@ -3521,7 +3522,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
-					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonLightCount == 0) return 0;
+					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -3533,13 +3534,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// Vecteur de réflexion idéal (R)
 					float3 R = reflect(-vDir, N);
 					// --- 3. BOUCLE ---
-					for (int i = 0; i < (int)_UdonLightCount; i++)
+					for (int i = 0; i < (int)_UdonSpecularLightCount; i++)
 					{
-					    float3 center = _UdonFakeLightPos[i].xyz;
-					    float3 right  = _UdonFakeLightRight[i].xyz;
-					    float3 up     = _UdonFakeLightUp[i].xyz;
-					    float width   = _UdonFakeLightRight[i].w;
-					    float height  = _UdonFakeLightUp[i].w;
+					    float3 center = _UdonSpecularLightPos[i].xyz;
+					    float3 right  = _UdonSpecularLightRight[i].xyz;
+					    float3 up     = _UdonSpecularLightUp[i].xyz;
+					    float width   = _UdonSpecularLightRight[i].w;
+					    float height  = _UdonSpecularLightUp[i].w;
 					    // Projection du reflet sur le plan de la Area Light pour trouver le point le plus proche
 					    float3 L = center - WorldPos;
 					    float distToPlane = dot(L, cross(right, up)); // Optionnel pour plus de précision
@@ -3550,7 +3551,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    closestPoint += up * clamp(dot(R * dot(L, R) - L, up), -height, height);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
-					    float range = _UdonFakeLightPos[i].w;
+					    float range = _UdonSpecularLightPos[i].w;
 					    
 					    float falloff = saturate(1.0 - (distSq / (range * range)));
 					    falloff *= falloff;
@@ -3563,7 +3564,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            float spec = pow(nDotH, shininess) * normalization;
 					            
-					            specAccum += _UdonFakeLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonFakeLightCol[i].w);
+					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonSpecularLightCol[i].w);
 					        }
 					    }
 					}
@@ -3949,9 +3950,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult46_g58766 = lerp( tex2D( _Lightmap0, UV32_g58766 ) , tex2D( _Lightmap0, UV22_g58766 ) , W02_g58766);
 					float4 lerpResult45_g58766 = lerp( tex2D( _Lightmap0, UV12_g58766 ) , tex2D( _Lightmap0, UV02_g58766 ) , W02_g58766);
 					float4 lerpResult44_g58766 = lerp( lerpResult46_g58766 , lerpResult45_g58766 , W12_g58766);
-					float4 Output_2D131_g58766 = lerpResult44_g58766;
+					float4 Output_2D_Auto131_g58766 = lerpResult44_g58766;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1092_g5296 = Output_2D131_g58766;
+					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g58766;
 					#else
 					float4 staticSwitch1092_g5296 = tex2D( _Lightmap0, texCoord1093_g5296 );
 					#endif
@@ -3995,9 +3996,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult46_g58764 = lerp( tex2D( _Lightmap1, UV32_g58764 ) , tex2D( _Lightmap1, UV22_g58764 ) , W02_g58764);
 					float4 lerpResult45_g58764 = lerp( tex2D( _Lightmap1, UV12_g58764 ) , tex2D( _Lightmap1, UV02_g58764 ) , W02_g58764);
 					float4 lerpResult44_g58764 = lerp( lerpResult46_g58764 , lerpResult45_g58764 , W12_g58764);
-					float4 Output_2D131_g58764 = lerpResult44_g58764;
+					float4 Output_2D_Auto131_g58764 = lerpResult44_g58764;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1088_g5296 = Output_2D131_g58764;
+					float4 staticSwitch1088_g5296 = Output_2D_Auto131_g58764;
 					#else
 					float4 staticSwitch1088_g5296 = tex2D( _Lightmap1, texCoord1090_g5296 );
 					#endif
@@ -4125,9 +4126,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59348 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g59348).yw ) , tex2D( _RNMX0, (Input_FetchOffsets197_g59348).xw ) , break187_g59348.x);
 					float4 lerpResult182_g59348 = lerp( tex2D( _RNMX0, (Input_FetchOffsets197_g59348).yz ) , tex2D( _RNMX0, (Input_FetchOffsets197_g59348).xz ) , break187_g59348.x);
 					float4 lerpResult176_g59348 = lerp( lerpResult181_g59348 , lerpResult182_g59348 , break187_g59348.y);
-					float4 Output_Fetch2D202_g59348 = lerpResult176_g59348;
+					float4 Output_Fetch2D_Auto202_g59348 = lerpResult176_g59348;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1061_g5296 = Output_Fetch2D202_g59348;
+					float4 staticSwitch1061_g5296 = Output_Fetch2D_Auto202_g59348;
 					#else
 					float4 staticSwitch1061_g5296 = tex2DNode1068_g5296;
 					#endif
@@ -4141,9 +4142,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59346 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g59346).yw ) , tex2D( _RNMY0, (Input_FetchOffsets197_g59346).xw ) , break187_g59346.x);
 					float4 lerpResult182_g59346 = lerp( tex2D( _RNMY0, (Input_FetchOffsets197_g59346).yz ) , tex2D( _RNMY0, (Input_FetchOffsets197_g59346).xz ) , break187_g59346.x);
 					float4 lerpResult176_g59346 = lerp( lerpResult181_g59346 , lerpResult182_g59346 , break187_g59346.y);
-					float4 Output_Fetch2D202_g59346 = lerpResult176_g59346;
+					float4 Output_Fetch2D_Auto202_g59346 = lerpResult176_g59346;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1062_g5296 = Output_Fetch2D202_g59346;
+					float4 staticSwitch1062_g5296 = Output_Fetch2D_Auto202_g59346;
 					#else
 					float4 staticSwitch1062_g5296 = tex2DNode1069_g5296;
 					#endif
@@ -4157,9 +4158,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g59347 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).yw ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).xw ) , break187_g59347.x);
 					float4 lerpResult182_g59347 = lerp( tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).yz ) , tex2D( _RNMZ0, (Input_FetchOffsets197_g59347).xz ) , break187_g59347.x);
 					float4 lerpResult176_g59347 = lerp( lerpResult181_g59347 , lerpResult182_g59347 , break187_g59347.y);
-					float4 Output_Fetch2D202_g59347 = lerpResult176_g59347;
+					float4 Output_Fetch2D_Auto202_g59347 = lerpResult176_g59347;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1063_g5296 = Output_Fetch2D202_g59347;
+					float4 staticSwitch1063_g5296 = Output_Fetch2D_Auto202_g59347;
 					#else
 					float4 staticSwitch1063_g5296 = tex2DNode1071_g5296;
 					#endif
@@ -4211,9 +4212,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58761 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g58761).yw ) , tex2D( _RNMX1, (Input_FetchOffsets197_g58761).xw ) , break187_g58761.x);
 					float4 lerpResult182_g58761 = lerp( tex2D( _RNMX1, (Input_FetchOffsets197_g58761).yz ) , tex2D( _RNMX1, (Input_FetchOffsets197_g58761).xz ) , break187_g58761.x);
 					float4 lerpResult176_g58761 = lerp( lerpResult181_g58761 , lerpResult182_g58761 , break187_g58761.y);
-					float4 Output_Fetch2D202_g58761 = lerpResult176_g58761;
+					float4 Output_Fetch2D_Auto202_g58761 = lerpResult176_g58761;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1087_g5296 = Output_Fetch2D202_g58761;
+					float4 staticSwitch1087_g5296 = Output_Fetch2D_Auto202_g58761;
 					#else
 					float4 staticSwitch1087_g5296 = tex2D( _RNMX1, texCoord1086_g5296 );
 					#endif
@@ -4226,9 +4227,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58759 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g58759).yw ) , tex2D( _RNMY1, (Input_FetchOffsets197_g58759).xw ) , break187_g58759.x);
 					float4 lerpResult182_g58759 = lerp( tex2D( _RNMY1, (Input_FetchOffsets197_g58759).yz ) , tex2D( _RNMY1, (Input_FetchOffsets197_g58759).xz ) , break187_g58759.x);
 					float4 lerpResult176_g58759 = lerp( lerpResult181_g58759 , lerpResult182_g58759 , break187_g58759.y);
-					float4 Output_Fetch2D202_g58759 = lerpResult176_g58759;
+					float4 Output_Fetch2D_Auto202_g58759 = lerpResult176_g58759;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1083_g5296 = Output_Fetch2D202_g58759;
+					float4 staticSwitch1083_g5296 = Output_Fetch2D_Auto202_g58759;
 					#else
 					float4 staticSwitch1083_g5296 = tex2D( _RNMY1, texCoord1086_g5296 );
 					#endif
@@ -4241,9 +4242,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult181_g58760 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).yw ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).xw ) , break187_g58760.x);
 					float4 lerpResult182_g58760 = lerp( tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).yz ) , tex2D( _RNMZ1, (Input_FetchOffsets197_g58760).xz ) , break187_g58760.x);
 					float4 lerpResult176_g58760 = lerp( lerpResult181_g58760 , lerpResult182_g58760 , break187_g58760.y);
-					float4 Output_Fetch2D202_g58760 = lerpResult176_g58760;
+					float4 Output_Fetch2D_Auto202_g58760 = lerpResult176_g58760;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1084_g5296 = Output_Fetch2D202_g58760;
+					float4 staticSwitch1084_g5296 = Output_Fetch2D_Auto202_g58760;
 					#else
 					float4 staticSwitch1084_g5296 = tex2D( _RNMZ1, texCoord1086_g5296 );
 					#endif
@@ -4360,7 +4361,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float3 temp_output_4_0_g58836 = ddy( ase_normalWS );
 					float dotResult6_g58836 = dot( temp_output_4_0_g58836 , temp_output_4_0_g58836 );
 					#ifdef _USEGEOMETRICANTIALIASING_ON
-					float staticSwitch824_g5296 = min( staticSwitch845_g5296 , ( 1.0 - pow( saturate( max( dotResult5_g58836 , dotResult6_g58836 ) ) , 0.333 ) ) );
+					float staticSwitch824_g5296 = min( staticSwitch845_g5296, ( 1.0 - pow( saturate( max( dotResult5_g58836, dotResult6_g58836 ) ) , 0.333 ) ) );
 					#else
 					float staticSwitch824_g5296 = staticSwitch845_g5296;
 					#endif
@@ -4590,7 +4591,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#define _SPECULARHIGHLIGHTS_OFF
 				#pragma multi_compile_instancing
 				#define _SPECULAR_SETUP 1
-				#define ASE_VERSION 19905
+				#define ASE_VERSION 19907
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -4665,13 +4666,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonLightCount;
+				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
-				uniform float4 _UdonFakeLightPos[32];
-				uniform float4 _UdonFakeLightCol[32];
-				uniform float4 _UdonFakeLightRight[32];
-				uniform float4 _UdonFakeLightUp[32];
+				uniform float4 _UdonSpecularLightUp[32];
+				uniform float4 _UdonSpecularLightRight[32];
+				uniform float4 _UdonSpecularLightCol[32];
+				uniform float4 _UdonSpecularLightPos[32];
 
 
 				
@@ -4866,21 +4867,21 @@ Shader "Meenphie/Standard/Winter/Snow"
 	Fallback Off
 }
 /*ASEBEGIN
-Version=19905
+Version=19907
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2930;160,-1408;Inherit;False;Meenphie Outline;50;;1551;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;FLOAT3;0
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3034;192,-1200;Inherit;False;Meenphie;0;;5296;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,0;0;5;COLOR;625;FLOAT4;624;FLOAT;156;FLOAT;427;FLOAT3;1024
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3035;224,-928;Inherit;False;Snow Particles;56;;59360;5e2d84d094b538e50a87a98a44c75956;0;0;1;FLOAT;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2889;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2890;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2891;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Meta;0;4;Meta;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2892;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ShadowCaster;0;5;ShadowCaster;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=ShadowCaster;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2893;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;SceneSelectionPass;0;6;SceneSelectionPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;True;1;LightMode=SceneSelectionPass;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2894;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ScenePickingPass;0;7;ScenePickingPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;True;1;LightMode=ScenePickingPass;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2888;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;4;Meenphie/Standard/Winter/Snow;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;True;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;0;False;;True;0;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;True;True;0;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;0;638916348186966910;Surface;0;0;  Blend;0;0;  Dither Shadows;1;0;Two Sided;1;638915389515035230;Alpha Clipping;0;0;  Use Shadow Threshold;0;0;Deferred Pass;0;638915388739756900;Normal Space;0;0;Transmission;0;0;  Transmission Shadow;0.5,False,;0;Translucency;0;0;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;638922400255637350;Receive Shadows;0;638922400261099240;Receive Specular;0;638915388784334560;Receive Reflections;1;638915388803555030;GPU Instancing;1;638915411619689990;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;1;0;Meta Pass;1;0;Add Pass;1;0;Override Baked GI;0;638915390973737640;Write Depth;0;638915391054792770;Extra Pre Pass;1;638915414992188530;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;True;True;True;False;True;True;False;False;False;;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2887;480,-1440;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;4;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;False;0;True;True;0;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;True;True;1;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;0;False;;True;3;False;;True;False;0;False;;0;False;;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2889;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2890;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2891;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Meta;0;4;Meta;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2892;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ShadowCaster;0;5;ShadowCaster;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;False;True;1;LightMode=ShadowCaster;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2893;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;SceneSelectionPass;0;6;SceneSelectionPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=SceneSelectionPass;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2894;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ScenePickingPass;0;7;ScenePickingPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=ScenePickingPass;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2888;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;11;Meenphie/Standard/Winter/Snow;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;True;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;0;False;;True;0;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;True;True;0;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;0;638916348186966910;Surface;0;0;  Blend;0;0;  Dither Shadows;1;0;Two Sided;1;638915389515035230;Alpha Clipping;0;0;  Use Shadow Threshold;0;0;Deferred Pass;0;638915388739756900;Normal Space;0;0;Transmission;0;0;  Transmission Shadow;0.5,False,;0;Translucency;0;0;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;638922400255637350;Receive Shadows;0;638922400261099240;Receive Specular;0;638915388784334560;Receive Reflections;1;638915388803555030;GPU Instancing;1;638915411619689990;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;1;0;Meta Pass;1;0;Add Pass;1;0;Override Baked GI;0;638915390973737640;Write Depth;0;638915391054792770;Extra Pre Pass;1;638915414992188530;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;True;True;True;False;True;True;False;False;False;;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2887;480,-1440;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;11;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;True;True;0;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;True;True;1;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;0;False;;True;3;False;;True;False;0;False;;0;False;;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;0;False;0
 WireConnection;2888;0;3034;625
 WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=322C103F1FB71AD5805CCA1BFF583A197B70987F
+//CHKSM=62C3C4B2365EC932EB7C85115BC00BBCAAC9DA19
