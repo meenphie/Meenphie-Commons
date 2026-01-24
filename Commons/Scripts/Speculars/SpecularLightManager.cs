@@ -7,7 +7,7 @@ public class SpecularLightManager : UdonSharpBehaviour
 {
     [Header("Settings")]
     public bool isEnabled = true;
-    public float activationRadius = 500f;
+    public float activationRadius = 40f;
     public int updateIntervalFrames = 5;
 
     private const int MAX_LIGHTS = 32;
