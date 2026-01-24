@@ -745,37 +745,47 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
-					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					// Combined check to exit early
+					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
+					// Blinn-Phong exponent
 					float shininess = exp2(10.0 * Smoothness + 1.0);
 					float normalization = (shininess + 2.0) * 0.125;
-					float3 specAccum = 0.0;
 					float nv = saturate(dot(N, vDir));
-					float fresnel = 0.04 + (1.0 - 0.04) * pow(1.0 - nv, 5.0);
-					// Vecteur de réflexion idéal (R)
+					// --- OPTIMIZED FRESNEL ---
+					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
+					float fresBase = 1.0 - nv;
+					float fresBase2 = fresBase * fresBase;
+					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
+					// Ideal reflection vector
 					float3 R = reflect(-vDir, N);
+					float3 specAccum = 0.0;
 					// --- 3. BOUCLE ---
 					for (int i = 0; i < (int)_UdonSpecularLightCount; i++)
 					{
-					    float3 center = _UdonSpecularLightPos[i].xyz;
-					    float3 right  = _UdonSpecularLightRight[i].xyz;
-					    float3 up     = _UdonSpecularLightUp[i].xyz;
-					    float width   = _UdonSpecularLightRight[i].w;
-					    float height  = _UdonSpecularLightUp[i].w;
-					    // Projection du reflet sur le plan de la Area Light pour trouver le point le plus proche
+					    float4 lightPosRange = _UdonSpecularLightPos[i];
+					    float4 lightRightW = _UdonSpecularLightRight[i];
+					    float4 lightUpH = _UdonSpecularLightUp[i];
+					    float4 lightColInt = _UdonSpecularLightCol[i];
+					    float3 center = lightPosRange.xyz;
+					    float3 right  = lightRightW.xyz;
+					    float3 up     = lightUpH.xyz;
+					    float width   = lightRightW.w;
+					    float height  = lightUpH.w;
 					    float3 L = center - WorldPos;
-					    float distToPlane = dot(L, cross(right, up)); // Optionnel pour plus de précision
 					    
-					    // Approximation : On déplace le point d'échantillonnage vers le reflet
+					    // Approximation of closest point on area light
 					    float3 closestPoint = center;
-					    closestPoint += right * clamp(dot(R * dot(L, R) - L, right), -width, width);
-					    closestPoint += up * clamp(dot(R * dot(L, R) - L, up), -height, height);
+					    float3 proj = R * dot(L, R) - L;
+					    closestPoint += right * clamp(dot(proj, right), -width, width);
+					    closestPoint += up * clamp(dot(proj, up), -height, height);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
-					    float range = _UdonSpecularLightPos[i].w;
+					    float range = lightPosRange.w;
 					    
+					    // Square falloff
 					    float falloff = saturate(1.0 - (distSq / (range * range)));
 					    falloff *= falloff;
 					    if (falloff > 0)
@@ -785,9 +795,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 					        if (nDotL > 0)
 					        {
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
-					            float spec = pow(nDotH, shininess) * normalization;
 					            
-					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonSpecularLightCol[i].w);
+					            // --- OPTIMIZED SPECULAR ---
+					            // Replaces pow(nDotH, shininess) with exp2()
+					            // Using (nDotH - 1.0) ensures the peak is at 1.0
+					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
+					            
+					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
 					        }
 					    }
 					}
@@ -2178,37 +2192,47 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
-					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					// Combined check to exit early
+					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
+					// Blinn-Phong exponent
 					float shininess = exp2(10.0 * Smoothness + 1.0);
 					float normalization = (shininess + 2.0) * 0.125;
-					float3 specAccum = 0.0;
 					float nv = saturate(dot(N, vDir));
-					float fresnel = 0.04 + (1.0 - 0.04) * pow(1.0 - nv, 5.0);
-					// Vecteur de réflexion idéal (R)
+					// --- OPTIMIZED FRESNEL ---
+					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
+					float fresBase = 1.0 - nv;
+					float fresBase2 = fresBase * fresBase;
+					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
+					// Ideal reflection vector
 					float3 R = reflect(-vDir, N);
+					float3 specAccum = 0.0;
 					// --- 3. BOUCLE ---
 					for (int i = 0; i < (int)_UdonSpecularLightCount; i++)
 					{
-					    float3 center = _UdonSpecularLightPos[i].xyz;
-					    float3 right  = _UdonSpecularLightRight[i].xyz;
-					    float3 up     = _UdonSpecularLightUp[i].xyz;
-					    float width   = _UdonSpecularLightRight[i].w;
-					    float height  = _UdonSpecularLightUp[i].w;
-					    // Projection du reflet sur le plan de la Area Light pour trouver le point le plus proche
+					    float4 lightPosRange = _UdonSpecularLightPos[i];
+					    float4 lightRightW = _UdonSpecularLightRight[i];
+					    float4 lightUpH = _UdonSpecularLightUp[i];
+					    float4 lightColInt = _UdonSpecularLightCol[i];
+					    float3 center = lightPosRange.xyz;
+					    float3 right  = lightRightW.xyz;
+					    float3 up     = lightUpH.xyz;
+					    float width   = lightRightW.w;
+					    float height  = lightUpH.w;
 					    float3 L = center - WorldPos;
-					    float distToPlane = dot(L, cross(right, up)); // Optionnel pour plus de précision
 					    
-					    // Approximation : On déplace le point d'échantillonnage vers le reflet
+					    // Approximation of closest point on area light
 					    float3 closestPoint = center;
-					    closestPoint += right * clamp(dot(R * dot(L, R) - L, right), -width, width);
-					    closestPoint += up * clamp(dot(R * dot(L, R) - L, up), -height, height);
+					    float3 proj = R * dot(L, R) - L;
+					    closestPoint += right * clamp(dot(proj, right), -width, width);
+					    closestPoint += up * clamp(dot(proj, up), -height, height);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
-					    float range = _UdonSpecularLightPos[i].w;
+					    float range = lightPosRange.w;
 					    
+					    // Square falloff
 					    float falloff = saturate(1.0 - (distSq / (range * range)));
 					    falloff *= falloff;
 					    if (falloff > 0)
@@ -2218,9 +2242,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 					        if (nDotL > 0)
 					        {
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
-					            float spec = pow(nDotH, shininess) * normalization;
 					            
-					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonSpecularLightCol[i].w);
+					            // --- OPTIMIZED SPECULAR ---
+					            // Replaces pow(nDotH, shininess) with exp2()
+					            // Using (nDotH - 1.0) ensures the peak is at 1.0
+					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
+					            
+					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
 					        }
 					    }
 					}
@@ -3522,37 +3550,47 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
-					if (lmMask < 0.01 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					// Combined check to exit early
+					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
+					// Blinn-Phong exponent
 					float shininess = exp2(10.0 * Smoothness + 1.0);
 					float normalization = (shininess + 2.0) * 0.125;
-					float3 specAccum = 0.0;
 					float nv = saturate(dot(N, vDir));
-					float fresnel = 0.04 + (1.0 - 0.04) * pow(1.0 - nv, 5.0);
-					// Vecteur de réflexion idéal (R)
+					// --- OPTIMIZED FRESNEL ---
+					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
+					float fresBase = 1.0 - nv;
+					float fresBase2 = fresBase * fresBase;
+					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
+					// Ideal reflection vector
 					float3 R = reflect(-vDir, N);
+					float3 specAccum = 0.0;
 					// --- 3. BOUCLE ---
 					for (int i = 0; i < (int)_UdonSpecularLightCount; i++)
 					{
-					    float3 center = _UdonSpecularLightPos[i].xyz;
-					    float3 right  = _UdonSpecularLightRight[i].xyz;
-					    float3 up     = _UdonSpecularLightUp[i].xyz;
-					    float width   = _UdonSpecularLightRight[i].w;
-					    float height  = _UdonSpecularLightUp[i].w;
-					    // Projection du reflet sur le plan de la Area Light pour trouver le point le plus proche
+					    float4 lightPosRange = _UdonSpecularLightPos[i];
+					    float4 lightRightW = _UdonSpecularLightRight[i];
+					    float4 lightUpH = _UdonSpecularLightUp[i];
+					    float4 lightColInt = _UdonSpecularLightCol[i];
+					    float3 center = lightPosRange.xyz;
+					    float3 right  = lightRightW.xyz;
+					    float3 up     = lightUpH.xyz;
+					    float width   = lightRightW.w;
+					    float height  = lightUpH.w;
 					    float3 L = center - WorldPos;
-					    float distToPlane = dot(L, cross(right, up)); // Optionnel pour plus de précision
 					    
-					    // Approximation : On déplace le point d'échantillonnage vers le reflet
+					    // Approximation of closest point on area light
 					    float3 closestPoint = center;
-					    closestPoint += right * clamp(dot(R * dot(L, R) - L, right), -width, width);
-					    closestPoint += up * clamp(dot(R * dot(L, R) - L, up), -height, height);
+					    float3 proj = R * dot(L, R) - L;
+					    closestPoint += right * clamp(dot(proj, right), -width, width);
+					    closestPoint += up * clamp(dot(proj, up), -height, height);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
-					    float range = _UdonSpecularLightPos[i].w;
+					    float range = lightPosRange.w;
 					    
+					    // Square falloff
 					    float falloff = saturate(1.0 - (distSq / (range * range)));
 					    falloff *= falloff;
 					    if (falloff > 0)
@@ -3562,9 +3600,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 					        if (nDotL > 0)
 					        {
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
-					            float spec = pow(nDotH, shininess) * normalization;
 					            
-					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * fresnel * falloff * _UdonSpecularLightCol[i].w);
+					            // --- OPTIMIZED SPECULAR ---
+					            // Replaces pow(nDotH, shininess) with exp2()
+					            // Using (nDotH - 1.0) ensures the peak is at 1.0
+					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
+					            
+					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
 					        }
 					    }
 					}
@@ -4884,4 +4926,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=62C3C4B2365EC932EB7C85115BC00BBCAAC9DA19
+//CHKSM=64E257170AF67F929871183E99386BD18FA3BEBB
