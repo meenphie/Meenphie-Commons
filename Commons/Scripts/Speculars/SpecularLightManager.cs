@@ -3,7 +3,7 @@ using UnityEngine;
 using VRC.SDKBase;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
-public class FakeLightManager : UdonSharpBehaviour
+public class SpecularLightManager : UdonSharpBehaviour
 {
     [Header("Settings")]
     public bool isEnabled = true;

@@ -2,13 +2,13 @@ using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 
-public class FakeLightBaker : EditorWindow
+public class SpecularLightBaker : EditorWindow
 {
     [MenuItem("Meenphie/Lights/Bake Final")]
     public static void BakeLights()
     {
         // Récupération du manager
-        FakeLightManager manager = Object.FindObjectOfType<FakeLightManager>();
+        SpecularLightManager manager = Object.FindObjectOfType<SpecularLightManager>();
         if (manager == null)
         {
             Debug.LogWarning("Aucun FakeLightManager trouvé dans la scène.");
