@@ -42,51 +42,47 @@ public class SpecularLightBaker : EditorWindow
 
             for (int i = 0; i < finalPosRange.Count; i++)
             {
-                // Check if the light is close enough to an existing group
                 if (Vector3.SqrMagnitude((Vector3)finalPosRange[i] - pos) < mergeThresholdSq)
                 {
-                    // 1. Always grab the current accumulated intensity first
-                    float currentTotalIntensity = finalColorInt[i].w;
-                    float newTotalIntensity = currentTotalIntensity + lightIntensity;
+                    Vector4 p = finalPosRange[i];
+                    Vector4 c = finalColorInt[i];
+                    Vector4 r = finalRightWidth[i];
+                    Vector4 u = finalUpHeight[i];
+
+                    // 1. Calculate the new total intensity for the whole group
+                    float currentTotalIntensity = c.w;
+                    float combinedIntensity = currentTotalIntensity + lightIntensity;
 
                     if (lightIntensity > groupMaxIntensity[i])
                     {
-                        // 2. NEW DOMINANT LIGHT: Update position and color tint
-                        // But KEEP the newTotalIntensity in the 'w' channel
-                        finalPosRange[i] = new Vector4(pos.x, pos.y, pos.z, range);
-                        finalRightWidth[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w);
-                        finalUpHeight[i] = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h);
+                        // 2. New dominant light: Update spatial data and normalized color
+                        p = new Vector4(pos.x, pos.y, pos.z, range);
+                        r = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w);
+                        u = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h);
 
                         float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b);
-                        finalColorInt[i] = new Vector4(
+                        c = new Vector4(
                             l.color.r / Mathf.Max(maxRGB, 0.001f),
                             l.color.g / Mathf.Max(maxRGB, 0.001f),
                             l.color.b / Mathf.Max(maxRGB, 0.001f),
-                            newTotalIntensity // <--- Use the sum, not just the single light
+                            combinedIntensity // Keep the accumulated sum
                         );
 
-                        groupMaxIntensity[i] = lightIntensity;
+                        groupMaxIntensity[i] = lightIntensity; // Track peak for future comparisons
                     }
                     else
                     {
-                        // 3. SECONDARY LIGHT: Just update bounds and the total sum
-                        Vector4 p = finalPosRange[i];
-                        Vector4 c = finalColorInt[i];
-                        Vector4 r = finalRightWidth[i];
-                        Vector4 u = finalUpHeight[i];
-
+                        // 3. Not dominant: Just expand bounds and add to the sum
                         r.w = Mathf.Max(r.w, w);
                         u.w = Mathf.Max(u.w, h);
                         p.w = Mathf.Max(p.w, range);
-
-                        // Add to the total
-                        c.w = newTotalIntensity;
-
-                        finalPosRange[i] = p;
-                        finalColorInt[i] = c;
-                        finalRightWidth[i] = r;
-                        finalUpHeight[i] = u;
+                        c.w = combinedIntensity; // Add this light's power to the total
                     }
+
+                    finalPosRange[i] = p;
+                    finalColorInt[i] = c;
+                    finalRightWidth[i] = r;
+                    finalUpHeight[i] = u;
 
                     merged = true;
                     break;
