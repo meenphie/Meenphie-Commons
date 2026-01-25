@@ -44,15 +44,18 @@ public class SpecularLightBaker : EditorWindow
             {
                 if (Vector3.SqrMagnitude((Vector3)finalPosRange[i] - pos) < mergeThresholdSq)
                 {
-                    // Lumière proche déjà existante
                     Vector4 p = finalPosRange[i];
                     Vector4 c = finalColorInt[i];
                     Vector4 r = finalRightWidth[i];
                     Vector4 u = finalUpHeight[i];
 
+                    // 1. Calculate the new total intensity for the whole group
+                    float currentTotalIntensity = c.w;
+                    float combinedIntensity = currentTotalIntensity + lightIntensity;
+
                     if (lightIntensity > groupMaxIntensity[i])
                     {
-                        // Nouvelle lumière dominante, on remplace tout
+                        // 2. New dominant light: Update spatial data and normalized color
                         p = new Vector4(pos.x, pos.y, pos.z, range);
                         r = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w);
                         u = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h);
@@ -62,18 +65,18 @@ public class SpecularLightBaker : EditorWindow
                             l.color.r / Mathf.Max(maxRGB, 0.001f),
                             l.color.g / Mathf.Max(maxRGB, 0.001f),
                             l.color.b / Mathf.Max(maxRGB, 0.001f),
-                            lightIntensity
+                            combinedIntensity // Keep the accumulated sum
                         );
 
-                        groupMaxIntensity[i] = lightIntensity;
+                        groupMaxIntensity[i] = lightIntensity; // Track peak for future comparisons
                     }
                     else
                     {
-                        // Sinon, on cumule juste les valeurs secondaires
+                        // 3. Not dominant: Just expand bounds and add to the sum
                         r.w = Mathf.Max(r.w, w);
                         u.w = Mathf.Max(u.w, h);
-                        c.w += lightIntensity;
                         p.w = Mathf.Max(p.w, range);
+                        c.w = combinedIntensity; // Add this light's power to the total
                     }
 
                     finalPosRange[i] = p;
