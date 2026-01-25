@@ -739,8 +739,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05;
-					float LumaEnd   = 0.5;
+					float LumaStart = 0.01;
+					float LumaEnd   = 1.0;
 					float SpecBoost = 0.01;
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
@@ -2183,8 +2183,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05;
-					float LumaEnd   = 0.5;
+					float LumaStart = 0.01;
+					float LumaEnd   = 1.0;
 					float SpecBoost = 0.01;
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
@@ -3538,8 +3538,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05;
-					float LumaEnd   = 0.5;
+					float LumaStart = 0.01;
+					float LumaEnd   = 1.0;
 					float SpecBoost = 0.01;
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
@@ -4917,4 +4917,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=F73A84433F3056F7F4A9EB336A719A828049BF51
+//CHKSM=A7BE1987575BBAA4A5A656052F7CCD857F88081E

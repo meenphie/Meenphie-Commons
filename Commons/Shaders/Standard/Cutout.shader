@@ -401,8 +401,8 @@ Shader "Meenphie/Standard/Cutout"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05;
-					float LumaEnd   = 0.5;
+					float LumaStart = 0.01;
+					float LumaEnd   = 1.0;
 					float SpecBoost = 0.01;
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
@@ -2072,4 +2072,4 @@ WireConnection;2888;2;2952;624
 WireConnection;2888;7;2952;156
 WireConnection;2888;8;2952;427
 ASEEND*/
-//CHKSM=D7813A27E29013A1AAD97B5C12875D3FFBBBCB6C
+//CHKSM=1BE1BA894D5F51BD9F6081AE3EEE2C314A813DEF

@@ -399,8 +399,8 @@ Shader "Meenphie/Standard/Transparent"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05;
-					float LumaEnd   = 0.5;
+					float LumaStart = 0.01;
+					float LumaEnd   = 1.0;
 					float SpecBoost = 0.01;
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
@@ -1834,8 +1834,8 @@ Shader "Meenphie/Standard/Transparent"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05;
-					float LumaEnd   = 0.5;
+					float LumaStart = 0.01;
+					float LumaEnd   = 1.0;
 					float SpecBoost = 0.01;
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
@@ -3838,4 +3838,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=C5A0E2F28385449614EFD9F7714CE15743110EED
+//CHKSM=B2910B5C396425ECCD3551E3AC9095B4ED5AFCF4
