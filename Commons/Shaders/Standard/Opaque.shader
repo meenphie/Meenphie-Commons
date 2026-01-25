@@ -405,7 +405,7 @@ Shader "Meenphie/Standard/Opaque"
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
 					// Combined check to exit early
-					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -414,7 +414,6 @@ Shader "Meenphie/Standard/Opaque"
 					float normalization = (shininess + 2.0) * 0.125;
 					float nv = saturate(dot(N, vDir));
 					// --- OPTIMIZED FRESNEL ---
-					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
 					float fresBase = 1.0 - nv;
 					float fresBase2 = fresBase * fresBase;
 					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
@@ -456,8 +455,6 @@ Shader "Meenphie/Standard/Opaque"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            
 					            // --- OPTIMIZED SPECULAR ---
-					            // Replaces pow(nDotH, shininess) with exp2()
-					            // Using (nDotH - 1.0) ensures the peak is at 1.0
 					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
 					            
 					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
@@ -1842,7 +1839,7 @@ Shader "Meenphie/Standard/Opaque"
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
 					// Combined check to exit early
-					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -1851,7 +1848,6 @@ Shader "Meenphie/Standard/Opaque"
 					float normalization = (shininess + 2.0) * 0.125;
 					float nv = saturate(dot(N, vDir));
 					// --- OPTIMIZED FRESNEL ---
-					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
 					float fresBase = 1.0 - nv;
 					float fresBase2 = fresBase * fresBase;
 					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
@@ -1893,8 +1889,6 @@ Shader "Meenphie/Standard/Opaque"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            
 					            // --- OPTIMIZED SPECULAR ---
-					            // Replaces pow(nDotH, shininess) with exp2()
-					            // Using (nDotH - 1.0) ensures the peak is at 1.0
 					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
 					            
 					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
@@ -3838,4 +3832,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;3739;0;5131;625
 WireConnection;3739;2;5131;624
 ASEEND*/
-//CHKSM=8899F4EFE6D2E226015BA2C14517439B2F6197BF
+//CHKSM=34C8045480B0A29A99B0EBE4CBA378B277889F15

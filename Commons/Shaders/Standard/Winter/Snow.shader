@@ -746,7 +746,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
 					// Combined check to exit early
-					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -755,7 +755,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float normalization = (shininess + 2.0) * 0.125;
 					float nv = saturate(dot(N, vDir));
 					// --- OPTIMIZED FRESNEL ---
-					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
 					float fresBase = 1.0 - nv;
 					float fresBase2 = fresBase * fresBase;
 					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
@@ -797,8 +796,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            
 					            // --- OPTIMIZED SPECULAR ---
-					            // Replaces pow(nDotH, shininess) with exp2()
-					            // Using (nDotH - 1.0) ensures the peak is at 1.0
 					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
 					            
 					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
@@ -2193,7 +2190,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
 					// Combined check to exit early
-					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -2202,7 +2199,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float normalization = (shininess + 2.0) * 0.125;
 					float nv = saturate(dot(N, vDir));
 					// --- OPTIMIZED FRESNEL ---
-					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
 					float fresBase = 1.0 - nv;
 					float fresBase2 = fresBase * fresBase;
 					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
@@ -2244,8 +2240,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            
 					            // --- OPTIMIZED SPECULAR ---
-					            // Replaces pow(nDotH, shininess) with exp2()
-					            // Using (nDotH - 1.0) ensures the peak is at 1.0
 					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
 					            
 					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
@@ -3551,7 +3545,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
 					// Combined check to exit early
-					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -3560,7 +3554,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float normalization = (shininess + 2.0) * 0.125;
 					float nv = saturate(dot(N, vDir));
 					// --- OPTIMIZED FRESNEL ---
-					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
 					float fresBase = 1.0 - nv;
 					float fresBase2 = fresBase * fresBase;
 					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
@@ -3602,8 +3595,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            
 					            // --- OPTIMIZED SPECULAR ---
-					            // Replaces pow(nDotH, shininess) with exp2()
-					            // Using (nDotH - 1.0) ensures the peak is at 1.0
 					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
 					            
 					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
@@ -4926,4 +4917,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=64E257170AF67F929871183E99386BD18FA3BEBB
+//CHKSM=F73A84433F3056F7F4A9EB336A719A828049BF51

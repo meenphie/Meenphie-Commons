@@ -408,7 +408,7 @@ Shader "Meenphie/Standard/Cutout"
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
 					// Combined check to exit early
-					if (lmMask < 0.001 || Smoothness <= 0.0 || _UdonSpecularLightCount == 0) return 0;
+					if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount == 0) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
@@ -417,7 +417,6 @@ Shader "Meenphie/Standard/Cutout"
 					float normalization = (shininess + 2.0) * 0.125;
 					float nv = saturate(dot(N, vDir));
 					// --- OPTIMIZED FRESNEL ---
-					// Replaces pow(1.0 - nv, 5.0) with a multiplication chain (x^5)
 					float fresBase = 1.0 - nv;
 					float fresBase2 = fresBase * fresBase;
 					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
@@ -459,8 +458,6 @@ Shader "Meenphie/Standard/Cutout"
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
 					            
 					            // --- OPTIMIZED SPECULAR ---
-					            // Replaces pow(nDotH, shininess) with exp2()
-					            // Using (nDotH - 1.0) ensures the peak is at 1.0
 					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
 					            
 					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
@@ -2075,4 +2072,4 @@ WireConnection;2888;2;2952;624
 WireConnection;2888;7;2952;156
 WireConnection;2888;8;2952;427
 ASEEND*/
-//CHKSM=AA3D52F492CA8EAF089AEFC80036C3271A70F427
+//CHKSM=D7813A27E29013A1AAD97B5C12875D3FFBBBCB6C
