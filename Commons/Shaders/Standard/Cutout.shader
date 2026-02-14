@@ -9,7 +9,6 @@ Shader "Meenphie/Standard/Cutout"
 		[NoScaleOffset][SingleLineTexture] _MainTex( "Diffuse Map", 2D ) = "white" {}
 		_MaskClipValue( "Mask Clip Value", Range( 0, 1 ) ) = 0.5
 		[NoScaleOffset][Normal][SingleLineTexture] _BumpMap( "Normal Map", 2D ) = "bump" {}
-		_NormalScale( "Normal Scale", Float ) = 1
 		[NoScaleOffset][SingleLineTexture] _MetallicMap( "Metallic Map", 2D ) = "white" {}
 		[NoScaleOffset][SingleLineTexture] _GlossinessMap( "Roughness Map", 2D ) = "white" {}
 		_Metallic( "Metallic", Range( 0, 1 ) ) = 0
@@ -48,12 +47,12 @@ Shader "Meenphie/Standard/Cutout"
 		[Meenphie_DrawerCategory(SPECIAL EFFECTS,true,0,0)] _CATEGORYSPECIALEFFECTS( "CATEGORY SPECIAL EFFECTS", Float ) = 0
 		[KeywordEnum( Disabled,LED )] _SpecialEffects( "Special Effects", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESPECIALEFFECTS( "CATEGORY SPACE SPECIAL EFFECTS", Float ) = 0
-		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__2DLut( "Assign keyword _2DLUT", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
-		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
+		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
+		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 
 
 		//_TransmissionShadow( "Transmission Shadow", Range( 0, 1 ) ) = 0.5
@@ -365,7 +364,6 @@ Shader "Meenphie/Standard/Cutout"
 				float4 _Lightmap1_TexelSize;
 				uniform float _LIGHTMAPLERP;
 				uniform sampler2D _BumpMap;
-				uniform float _NormalScale;
 				uniform sampler2D _RNMX0;
 				float4 _RNMX0_TexelSize;
 				uniform sampler2D _RNMY0;
@@ -939,7 +937,7 @@ Shader "Meenphie/Standard/Cutout"
 					float2 temp_output_597_0_g59361 = ( UV100_g59362 + frac( ( ( (temp_output_12_0_g59363).xx + (temp_output_12_0_g59363).yz ) * (temp_output_12_0_g59363).zy ) ) );
 					float2 DDX631_g59361 = ddx( temp_output_5_0_g59361 );
 					float2 DDY632_g59361 = ddy( temp_output_5_0_g59361 );
-					float Input_Scale617_g59361 = _NormalScale;
+					float Input_Scale617_g59361 = 2.0;
 					float temp_output_65_0_g59362 = ( 0.0 - temp_output_56_0_g59362 );
 					float ifLocalVar59_g59362 = 0;
 					if( temp_output_56_0_g59362 <= 0.0 )
@@ -989,7 +987,7 @@ Shader "Meenphie/Standard/Cutout"
 					#ifdef _STOCHASTICENABLED_ON
 					float3 staticSwitch1003_g59360 = Output_2D_Normal641_g59361;
 					#else
-					float3 staticSwitch1003_g59360 = UnpackScaleNormal( tex2D( _BumpMap, UV02420_g59360 ), _NormalScale );
+					float3 staticSwitch1003_g59360 = UnpackScaleNormal( tex2D( _BumpMap, UV02420_g59360 ), 2.0 );
 					#endif
 					#ifdef _BUMPMAP
 					float3 staticSwitch980_g59360 = staticSwitch1003_g59360;
@@ -1076,7 +1074,7 @@ Shader "Meenphie/Standard/Cutout"
 					float dotResult121_g59392 = dot( appendResult139_g59392 , Normal_Map318_g59392 );
 					float temp_output_2_0_g59395 = saturate( dotResult121_g59392 );
 					float localStochasticTiling2_g59425 = ( 0.0 );
-					float2 UV2_g59425 = float2( 0,0 );
+					float2 UV2_g59425 = UV12361_g59360;
 					float4 TexelSize2_g59425 = _RNMX1_TexelSize;
 					float4 Offsets2_g59425 = float4( 0,0,0,0 );
 					float2 Weights2_g59425 = float2( 0,0 );
@@ -2027,4 +2025,4 @@ WireConnection;2888;2;2952;624
 WireConnection;2888;7;2952;156
 WireConnection;2888;8;2952;427
 ASEEND*/
-//CHKSM=C71A32283FA331E5FAB938BB3866327C2D5794AC
+//CHKSM=650A547C25EAAC8F385804D3FD0AC59E35167211
