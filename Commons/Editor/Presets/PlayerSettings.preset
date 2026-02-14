@@ -794,7 +794,7 @@ Preset:
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: VertexChannelCompressionMask
-    value: 182
+    value: 230
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: iPhoneSdkVersion
