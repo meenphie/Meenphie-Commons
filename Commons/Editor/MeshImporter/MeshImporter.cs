@@ -12,23 +12,20 @@ public class MeshImporter : AssetPostprocessor
         ModelImporter importer = (ModelImporter)assetImporter;
         if (importer == null) return;
 
-        importer.importTangents = ModelImporterTangents.CalculateMikk;
         importer.generateSecondaryUV = false;
     }
 
-    // 2. Packing UV (UV0.zw = UV1) tout en gardant UV1
-    void OnPostprocessModel(GameObject g)
+    void OnPostprocessModel(GameObject gameObject)
     {
-        foreach (MeshFilter filter in g.GetComponentsInChildren<MeshFilter>())
+        foreach (MeshFilter filter in gameObject.GetComponentsInChildren<MeshFilter>())
         {
             Mesh mesh = filter.sharedMesh;
-            if (mesh != null) ApplyPacking(mesh);
+            ApplyPacking(mesh);
         }
     }
 
     private void ApplyPacking(Mesh mesh)
     {
-        // Use lists to grab the data
         List<Vector2> uv0 = new List<Vector2>();
         List<Vector2> uv1 = new List<Vector2>();
 
@@ -46,42 +43,30 @@ public class MeshImporter : AssetPostprocessor
         Vector4[] packedUVs = new Vector4[uv0.Count];
         for (int i = 0; i < uv0.Count; i++)
         {
-            // Add a small bias or check if the scale is inverted (Blender Y is often 1-v)
             packedUVs[i] = new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y);
         }
-        
+
 
         mesh.SetUVs(0, packedUVs);
 
     }
 
-    // 3. Correction des Lumières (Trop fortes à l'import)
+    // 3. Lights
     void OnPostprocessGameObjectWithUserProperties(GameObject g, string[] names, object[] values)
     {
         Light light = g.GetComponent<Light>();
-        if (light != null)
+
+        light.intensity *= 0.01f;
+        light.lightmapBakeType = LightmapBakeType.Baked;
+        light.range = 500f;
+
+        for (int i = 0; i < names.Length; i++)
         {
-            // 1. Correction de l'intensité (0.1f comme convenu)
-            light.intensity *= 0.01f;
-            light.lightmapBakeType = LightmapBakeType.Baked;
-            light.range = 500f;
-
-            // 2. Récupération du Shadow Radius (Custom Property de Blender)
-            for (int i = 0; i < names.Length; i++)
+            if (names[i] == "shadow_radius")
             {
-                if (names[i] == "shadow_radius")
-                {
-                    float radius = (float)values[i] * 0.1f;
+                float radius = (float)values[i] * 0.1f;
 
-                    // Dans Unity (Progressive CPU/GPU), cela correspond au "Light Size" 
-                    // pour avoir des ombres douces (Soft Shadows) en baked.
-                    // Attention: Propriété uniquement utilisée pour le baking.
-                    // Note: shadowRadius n'existe pas directement en API simple hors SerializedObject
-                    // mais on peut utiliser le "Baking Output" ou un SerializedObject.
-
-                    SetLightSize(light, radius);
-                    Debug.Log($"{TAG} Light <b>{light.name}</b> | Shadow Radius appliqué : {radius}");
-                }
+                SetLightSize(light, radius);
             }
         }
     }
@@ -90,13 +75,10 @@ public class MeshImporter : AssetPostprocessor
     {
         if (light.type == LightType.Directional)
         {
-            // Pour le soleil : on utilise l'angle (ex: 0.5)
             light.shadowAngle = size;
         }
         else
         {
-            // Pour Point/Spot : on utilise le rayon (ex: 0.1)
-            // C'est ce qui donnera des ombres douces en Baked
             light.shadowRadius = size;
         }
     }
