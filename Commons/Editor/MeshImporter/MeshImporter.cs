@@ -32,22 +32,25 @@ public class MeshImporter : AssetPostprocessor
         mesh.GetUVs(0, uv0);
         mesh.GetUVs(1, uv1);
 
-        // If UV1 is missing, we can't pack. 
-        if (uv1 == null)
+        // Check if UV0 exists first
+        if (uv0.Count == 0) return;
+
+        // Fix: Check if uv1 has the SAME count as uv0
+        if (uv1.Count != uv0.Count)
         {
-            Debug.LogWarning($"{TAG} Skipping {mesh.name}: UV count mismatch ({uv0.Count} vs {uv1.Count})");
+            Debug.LogWarning($"{TAG} Skipping {mesh.name}: UV1 count ({uv1.Count}) does not match UV0 count ({uv0.Count}).");
             return;
         }
 
-        Vector4[] packedUVs = new Vector4[uv0.Count];
+        // Use Vector4 to pack (U0, V0, U1, V1)
+        List<Vector4> packedUVs = new List<Vector4>(uv0.Count);
         for (int i = 0; i < uv0.Count; i++)
         {
-            packedUVs[i] = new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y);
+            packedUVs.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
         }
 
-
+        // Set the packed data back to channel 0
         mesh.SetUVs(0, packedUVs);
-
     }
 
     // 3. Lights
