@@ -34,7 +34,7 @@ public class MeshImporter : AssetPostprocessor
 
         // If UV1 is missing, we can't pack. 
         // If counts differ, the mesh was likely split/optimized during import.
-        if (uv1.Count == 0 || uv0.Count != uv1.Count)
+        if (uv1.Count == 0)
         {
             Debug.LogWarning($"{TAG} Skipping {mesh.name}: UV count mismatch ({uv0.Count} vs {uv1.Count})");
             return;
