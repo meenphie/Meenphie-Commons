@@ -4,154 +4,134 @@ using System.Collections.Generic;
 
 public class SpecularLightBaker : EditorWindow
 {
-    // Updated Menu Item Name
-    [MenuItem("Meenphie/Specular Light/Bake Speculars")]
-    public static void BakeAllHierarchies()
+    [MenuItem("Meenphie/Specular Light/Bake")]
+    public static void BakeLights()
     {
-        // 1. Find ALL managers in the scene
-        SpecularLightManager[] allManagers = Object.FindObjectsByType<SpecularLightManager>(FindObjectsSortMode.None);
-
-        if (allManagers.Length == 0)
+        SpecularLightManager manager = Object.FindObjectOfType<SpecularLightManager>();
+        if (manager == null)
         {
-            Debug.LogWarning("No SpecularLightManagers found in the scene.");
+            Debug.LogWarning("Aucun SpecularLightManager trouvé.");
             return;
         }
 
-        int managersUpdated = 0;
+        Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
 
-        // 2. Loop through each manager individually
-        foreach (SpecularLightManager manager in allManagers)
+        List<Vector4> finalPosRange = new List<Vector4>();
+        List<Vector4> finalColorInt = new List<Vector4>();
+        List<Vector4> finalRightWidth = new List<Vector4>();
+        List<Vector4> finalUpHeight = new List<Vector4>();
+        List<float> groupMaxIntensity = new List<float>();
+
+        float mergeThresholdSq = 0.5f; // Adjust this for grouping distance
+
+        foreach (Light l in sceneLights)
         {
-            if (manager == null) continue;
+            // Skip directional lights or disabled lights
+            if (l.type == LightType.Directional || !l.enabled || l.renderMode == LightRenderMode.ForceVertex) continue;
 
-            // --- A. Find components specific to THIS hierarchy ---
-            Light[] sceneLights = manager.GetComponentsInChildren<Light>(true);
-            MeshRenderer[] childRenderers = manager.GetComponentsInChildren<MeshRenderer>(true);
+            Vector3 pos = l.transform.position;
+            float individualIntensity = l.intensity;
 
-            // Assign the renderers to the manager so Udon knows who to target
-            manager.targetRenderers = childRenderers;
-
-            // --- B. The Baking Logic (Same math, applied per manager) ---
-            List<Vector4> finalPosRange = new List<Vector4>();
-            List<Vector4> finalColorInt = new List<Vector4>();
-            List<Vector4> finalRightWidth = new List<Vector4>();
-            List<Vector4> finalUpHeight = new List<Vector4>();
-            List<float> groupMaxIntensity = new List<float>();
-
-            float mergeThresholdSq = 0.5f;
-
-            foreach (Light l in sceneLights)
+            // --- EXACT RANGE FIX ---
+            // l.range for Area Lights returns Range + Shape Radius. 
+            // SerializedObject pulls the literal value from the UI.
+            float rawRange;
+            if (l.type == LightType.Area)
             {
-                if (l.type == LightType.Directional || !l.enabled || l.renderMode == LightRenderMode.ForceVertex) continue;
+                SerializedObject so = new SerializedObject(l);
+                rawRange = so.FindProperty("m_Range").floatValue;
+            }
+            else
+            {
+                rawRange = l.range;
+            }
 
-                Vector3 pos = l.transform.position;
-                float individualIntensity = l.intensity;
+            // Determine dimensions (Radius for points, Half-extents for area)
+            float w = (l.type == LightType.Area) ? l.areaSize.x * 0.5f : 0.01f;
+            float h = (l.type == LightType.Area) ? l.areaSize.y * 0.5f : 0.01f;
 
-                // Handle Area Light Range vs Point Light Range
-                float rawRange;
-                if (l.type == LightType.Area)
+            bool merged = false;
+
+            // Try to find a group to merge into
+            for (int i = 0; i < finalPosRange.Count; i++)
+            {
+                if (Vector3.SqrMagnitude((Vector3)finalPosRange[i] - pos) < mergeThresholdSq)
                 {
-                    SerializedObject so = new SerializedObject(l);
-                    rawRange = so.FindProperty("m_Range").floatValue;
-                }
-                else
-                {
-                    rawRange = l.range;
-                }
+                    // 1. SUM the intensity immediately
+                    float currentSum = finalColorInt[i].w;
+                    float newSum = currentSum + individualIntensity;
 
-                float w = (l.type == LightType.Area) ? l.areaSize.x * 0.5f : 0.01f;
-                float h = (l.type == LightType.Area) ? l.areaSize.y * 0.5f : 0.01f;
-
-                bool merged = false;
-
-                // Try to merge with existing light groups in this specific manager
-                for (int i = 0; i < finalPosRange.Count; i++)
-                {
-                    if (Vector3.SqrMagnitude((Vector3)finalPosRange[i] - pos) < mergeThresholdSq)
+                    // 2. Determine if this light is the new "Dominant" source for the group
+                    if (individualIntensity > groupMaxIntensity[i])
                     {
-                        float currentSum = finalColorInt[i].w;
-                        float newSum = currentSum + individualIntensity;
+                        // Update Group Position, Orientation, and exact Range
+                        finalPosRange[i] = new Vector4(pos.x, pos.y, pos.z, rawRange);
+                        finalRightWidth[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w);
+                        finalUpHeight[i] = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h);
 
-                        if (individualIntensity > groupMaxIntensity[i])
-                        {
-                            // New dominant light
-                            finalPosRange[i] = new Vector4(pos.x, pos.y, pos.z, rawRange);
-                            finalRightWidth[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w);
-                            finalUpHeight[i] = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h);
+                        // Update dominant color (normalized) but keep the SUMMED intensity in W
+                        float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
+                        finalColorInt[i] = new Vector4(
+                            l.color.r / maxRGB,
+                            l.color.g / maxRGB,
+                            l.color.b / maxRGB,
+                            newSum
+                        );
 
-                            float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
-                            finalColorInt[i] = new Vector4(l.color.r / maxRGB, l.color.g / maxRGB, l.color.b / maxRGB, newSum);
-
-                            groupMaxIntensity[i] = individualIntensity;
-                        }
-                        else
-                        {
-                            // Merging into existing dominant light
-                            Vector4 c = finalColorInt[i]; c.w = newSum; finalColorInt[i] = c;
-                            Vector4 p = finalPosRange[i]; p.w = Mathf.Max(p.w, rawRange); finalPosRange[i] = p;
-                            Vector4 rw = finalRightWidth[i]; rw.w = Mathf.Max(rw.w, w); finalRightWidth[i] = rw;
-                            Vector4 uh = finalUpHeight[i]; uh.w = Mathf.Max(uh.w, h); finalUpHeight[i] = uh;
-                        }
-                        merged = true;
-                        break;
+                        groupMaxIntensity[i] = individualIntensity;
                     }
-                }
+                    else
+                    {
+                        // Not dominant: Just update the sum and ensure the range/size covers the new light
+                        Vector4 c = finalColorInt[i];
+                        c.w = newSum;
+                        finalColorInt[i] = c;
 
-                if (!merged)
-                {
-                    finalPosRange.Add(new Vector4(pos.x, pos.y, pos.z, rawRange));
-                    float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
-                    finalColorInt.Add(new Vector4(l.color.r / maxRGB, l.color.g / maxRGB, l.color.b / maxRGB, individualIntensity));
-                    finalRightWidth.Add(new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w));
-                    finalUpHeight.Add(new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h));
-                    groupMaxIntensity.Add(individualIntensity);
+                        // We keep the largest range/dimensions found in the group
+                        Vector4 p = finalPosRange[i];
+                        p.w = Mathf.Max(p.w, rawRange);
+                        finalPosRange[i] = p;
+
+                        Vector4 rw = finalRightWidth[i];
+                        rw.w = Mathf.Max(rw.w, w);
+                        finalRightWidth[i] = rw;
+
+                        Vector4 uh = finalUpHeight[i];
+                        uh.w = Mathf.Max(uh.w, h);
+                        finalUpHeight[i] = uh;
+                    }
+
+                    merged = true;
+                    break;
                 }
             }
 
-            // --- C. Save Data ---
-            Undo.RecordObject(manager, "Bake Lights");
-            manager.bakedPositions = finalPosRange.ToArray();
-            manager.bakedColors = finalColorInt.ToArray();
-            manager.bakedRight = finalRightWidth.ToArray();
-            manager.bakedUp = finalUpHeight.ToArray();
-
-            EditorUtility.SetDirty(manager);
-            managersUpdated++;
-
-            Debug.Log($"Baked <b>{manager.name}</b>: {finalPosRange.Count} lights found, applied to {childRenderers.Length} renderers.");
-        }
-
-        Debug.Log($"<color=green><b>SUCCESS:</b></color> Updated {managersUpdated} managers in the scene.");
-    }
-
-    [MenuItem("Meenphie/Specular Light/Clear All Baked Data")]
-    public static void ClearAllLights()
-    {
-        SpecularLightManager[] allManagers = Object.FindObjectsByType<SpecularLightManager>(FindObjectsSortMode.None);
-
-        foreach (SpecularLightManager manager in allManagers)
-        {
-            Undo.RecordObject(manager, "Clear Specular Data");
-
-            // Wipe the baked arrays
-            manager.bakedPositions = new Vector4[0];
-            manager.bakedColors = new Vector4[0];
-            manager.bakedRight = new Vector4[0];
-            manager.bakedUp = new Vector4[0];
-
-            // Optional: If you want to force the renderers to clear immediately in-editor
-            if (manager.targetRenderers != null)
+            if (!merged)
             {
-                MaterialPropertyBlock emptyBlock = new MaterialPropertyBlock();
-                foreach (MeshRenderer renderer in manager.targetRenderers)
-                {
-                    if (renderer != null) renderer.SetPropertyBlock(emptyBlock);
-                }
-            }
+                // Add as a new light group
+                finalPosRange.Add(new Vector4(pos.x, pos.y, pos.z, rawRange));
 
-            EditorUtility.SetDirty(manager);
+                float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
+                finalColorInt.Add(new Vector4(
+                    l.color.r / maxRGB,
+                    l.color.g / maxRGB,
+                    l.color.b / maxRGB,
+                    individualIntensity
+                ));
+
+                finalRightWidth.Add(new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w));
+                finalUpHeight.Add(new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h));
+                groupMaxIntensity.Add(individualIntensity);
+            }
         }
 
-        Debug.Log("<color=orange><b>All Specular Light data has been cleared from the scene.</b></color>");
+        Undo.RecordObject(manager, "Bake All Lights");
+        manager.bakedPositions = finalPosRange.ToArray();
+        manager.bakedColors = finalColorInt.ToArray();
+        manager.bakedRight = finalRightWidth.ToArray();
+        manager.bakedUp = finalUpHeight.ToArray();
+        EditorUtility.SetDirty(manager);
+
+        Debug.Log($"Baked {finalPosRange.Count} groups. Intensity is summed, Range is exact.");
     }
 }

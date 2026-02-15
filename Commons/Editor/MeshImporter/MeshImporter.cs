@@ -5,8 +5,11 @@ using System.Collections.Generic;
 public class MeshImporter : AssetPostprocessor
 {
     private const string TAG = "[<color=purple>Meenphie</color>]";
+    
+    // Adjust this to control how "far" the light travels before fading out.
+    // Smaller value = Longer range.
+    private const float RANGE_THRESHOLD = 0.0001f;
 
-    // 1. Configuration du Mesh (Tangentes + Optimisation)
     void OnPreprocessModel()
     {
         ModelImporter importer = (ModelImporter)assetImporter;
@@ -20,7 +23,7 @@ public class MeshImporter : AssetPostprocessor
         foreach (MeshFilter filter in gameObject.GetComponentsInChildren<MeshFilter>())
         {
             Mesh mesh = filter.sharedMesh;
-            ApplyPacking(mesh);
+            if (mesh != null) ApplyPacking(mesh);
         }
     }
 
@@ -32,45 +35,57 @@ public class MeshImporter : AssetPostprocessor
         mesh.GetUVs(0, uv0);
         mesh.GetUVs(1, uv1);
 
-        // Check if UV0 exists first
         if (uv0.Count == 0) return;
 
-        // Fix: Check if uv1 has the SAME count as uv0
         if (uv1.Count != uv0.Count)
         {
-            Debug.LogWarning($"{TAG} Skipping {mesh.name}: UV1 count ({uv1.Count}) does not match UV0 count ({uv0.Count}).");
+            // If UV1 is missing, we might want to just pack UV0 and zeros, 
+            // but for now, we follow your logic to skip.
             return;
         }
 
-        // Use Vector4 to pack (U0, V0, U1, V1)
         List<Vector4> packedUVs = new List<Vector4>(uv0.Count);
         for (int i = 0; i < uv0.Count; i++)
         {
             packedUVs.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
         }
 
-        // Set the packed data back to channel 0
         mesh.SetUVs(0, packedUVs);
     }
 
-    // 3. Lights
+    // --- Dynamic Light Range Calculation ---
     void OnPostprocessGameObjectWithUserProperties(GameObject g, string[] names, object[] values)
     {
         Light light = g.GetComponent<Light>();
+        if (light == null) return;
 
+        // 1. Scale intensity from Blender's high values to Unity's range
+        // Blender lights (Watts) are usually ~100x stronger than Unity intensity.
         light.intensity *= 0.01f;
-        light.lightmapBakeType = LightmapBakeType.Baked;
-        light.range = 500f;
 
+        // 2. Set to Baked for your specular light system
+        light.lightmapBakeType = LightmapBakeType.Baked;
+
+        // 3. CALCULATE RANGE BASED ON INTENSITY
+        // Range = Sqrt(Intensity / Threshold)
+        // This ensures a 1000W light has a much larger range than a 10W light.
+        float calculatedRange = Mathf.Sqrt(light.intensity / RANGE_THRESHOLD);
+        
+        // Clamp the range to reasonable values (e.g., minimum 1m, maximum 100m)
+        light.range = Mathf.Clamp(calculatedRange, 1.0f, 100.0f);
+
+        // 4. Handle Shadow Radius / Size
         for (int i = 0; i < names.Length; i++)
         {
             if (names[i] == "shadow_radius")
             {
                 float radius = (float)values[i] * 0.1f;
-
                 SetLightSize(light, radius);
             }
         }
+        
+        // Debugging to see your results in the console
+        // Debug.Log($"{TAG} Light {g.name}: Intensity {light.intensity}, Calculated Range: {light.range}");
     }
 
     private void SetLightSize(Light light, float size)
