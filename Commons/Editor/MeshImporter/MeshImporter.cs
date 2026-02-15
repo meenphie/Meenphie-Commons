@@ -57,22 +57,16 @@ public class MeshImporter : AssetPostprocessor
         mesh.GetUVs(0, uv0);
         mesh.GetUVs(1, uv1);
 
-        // Check if both channels exist and match
         if (uv0.Count == 0 || uv1.Count != uv0.Count) return;
 
-        // 1. Pack (UV0.x, UV0.y, UV1.x, UV1.y) into a Vector4
         List<Vector4> packedUVs = new List<Vector4>(uv0.Count);
         for (int i = 0; i < uv0.Count; i++)
         {
             packedUVs.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
         }
 
-        // 2. Set the packed data to Channel 0 for your shader
-        mesh.SetUVs(0, packedUVs);
-
-        // 3. FORCE UV1 to remain a standard Vector2 list
-        // This ensures Unity's Texel Density and Lightmapper see the original layout
-        mesh.SetUVs(1, uv1);
+        mesh.SetUVs(0, packedUVs); // Custom packed data for shader
+        mesh.SetUVs(1, uv1);       // Keep original UV1 so Unity tools work!
     }
 
     // Still useful if you use Blender's "Custom Properties" panel for extra settings
