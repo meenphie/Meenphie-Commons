@@ -10,8 +10,11 @@ public class SpecularLightManager : UdonSharpBehaviour
     public float activationRadius = 40f;
     [Range(1, 60)] public int updateIntervalFrames = 10;
 
+    [Header("Hierarchy Targets")]
+    [Tooltip("The objects that will receive these specific lights")]
+    public MeshRenderer[] targetRenderers;
+
     private const int MAX_LIGHTS = 32;
-    // We limit the candidate search to 64 for Udon performance
     private const int MAX_CANDIDATES = 64; 
 
     [Header("Baked Data")]
@@ -23,19 +26,22 @@ public class SpecularLightManager : UdonSharpBehaviour
     [Header("Debug Info")]
     public int currentActiveCount;
     
-    // Buffers for Shader
+    // Shader Buffers
     private Vector4[] _shaderPosBuffer = new Vector4[MAX_LIGHTS];
     private Vector4[] _shaderColBuffer = new Vector4[MAX_LIGHTS];
     private Vector4[] _shaderRightBuffer = new Vector4[MAX_LIGHTS];
     private Vector4[] _shaderUpBuffer = new Vector4[MAX_LIGHTS];
 
-    // Internal logic buffers
+    // Logic Buffers
     private float[] _distances = new float[MAX_CANDIDATES];
     private int[] _indices = new int[MAX_CANDIDATES];
     private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
     private int[] _compareBuffer = new int[MAX_LIGHTS];
 
+    // Property Block
+    private MaterialPropertyBlock _props;
     private int _posID, _colID, _rightID, _upID, _countID;
+    
     private VRCPlayerApi _localPlayer;
     private int _lastFinalCount = -1;
     private bool _isLooping = false;
@@ -43,15 +49,15 @@ public class SpecularLightManager : UdonSharpBehaviour
     void Start()
     {
         _localPlayer = Networking.LocalPlayer;
+        _props = new MaterialPropertyBlock();
         
-        // Cache Shader IDs
+        // Property IDs
         _posID = VRCShader.PropertyToID("_UdonSpecularLightPos");
         _colID = VRCShader.PropertyToID("_UdonSpecularLightCol");
         _rightID = VRCShader.PropertyToID("_UdonSpecularRight");
         _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
         _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 
-        // Initialize sort tracker
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
 
         if (isEnabled) StartUpdateLoop();
@@ -62,7 +68,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         isEnabled = !isEnabled;
         if (!isEnabled)
         {
-            ApplyToShader(0);
+            ApplyToRenderers(0);
             _lastFinalCount = 0;
             currentActiveCount = 0;
             for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
@@ -75,7 +81,7 @@ public class SpecularLightManager : UdonSharpBehaviour
 
     private void StartUpdateLoop()
     {
-        if (_isLooping) return; // Prevent parallel loops
+        if (_isLooping) return;
         _isLooping = true;
         UpdateNearestLights();
     }
@@ -92,12 +98,10 @@ public class SpecularLightManager : UdonSharpBehaviour
         float radiusSq = activationRadius * activationRadius;
         int candidateCount = 0;
 
-        // 1. Filter lights by distance
+        // 1. Filter lights
         for (int i = 0; i < bakedPositions.Length; i++)
         {
-            // Check range (bakedPositions.w)
             if (bakedPositions[i].w <= 0.001f) continue;
-
             float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
             if (distSq < radiusSq)
             {
@@ -108,7 +112,7 @@ public class SpecularLightManager : UdonSharpBehaviour
             }
         }
 
-        // 2. Sort candidates by distance (Closest first)
+        // 2. Sort
         for (int i = 0; i < candidateCount - 1; i++)
         {
             for (int j = 0; j < candidateCount - i - 1; j++)
@@ -124,10 +128,10 @@ public class SpecularLightManager : UdonSharpBehaviour
         int finalCount = Mathf.Min(candidateCount, MAX_LIGHTS);
         currentActiveCount = finalCount;
 
-        // 3. Dirty Check: Has the SET of lights changed?
-        // We sort the indices numerically so order-swapping doesn't trigger a shader upload
+        // 3. Check for changes
         for (int i = 0; i < finalCount; i++) _compareBuffer[i] = _indices[i];
         
+        // Sort indices numerically for stable comparison
         for (int i = 0; i < finalCount - 1; i++)
         {
             for (int j = 0; j < finalCount - i - 1; j++)
@@ -148,7 +152,7 @@ public class SpecularLightManager : UdonSharpBehaviour
             }
         }
 
-        // 4. Update Shader if necessary
+        // 4. Update Renderers if dirty
         if (isDirty)
         {
             for (int i = 0; i < MAX_LIGHTS; i++)
@@ -171,19 +175,31 @@ public class SpecularLightManager : UdonSharpBehaviour
                     _lastIndicesSorted[i] = -1;
                 }
             }
-            ApplyToShader(finalCount);
+            ApplyToRenderers(finalCount);
             _lastFinalCount = finalCount;
         }
 
         SendCustomEventDelayedFrames(nameof(UpdateNearestLights), updateIntervalFrames);
     }
 
-    private void ApplyToShader(int count)
+    private void ApplyToRenderers(int count)
     {
-        VRCShader.SetGlobalVectorArray(_posID, _shaderPosBuffer);
-        VRCShader.SetGlobalVectorArray(_colID, _shaderColBuffer);
-        VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer);
-        VRCShader.SetGlobalVectorArray(_upID, _shaderUpBuffer);
-        VRCShader.SetGlobalFloat(_countID, (float)count);
+        if (targetRenderers == null) return;
+
+        // Update the Property Block once
+        _props.SetVectorArray(_posID, _shaderPosBuffer);
+        _props.SetVectorArray(_colID, _shaderColBuffer);
+        _props.SetVectorArray(_rightID, _shaderRightBuffer);
+        _props.SetVectorArray(_upID, _shaderUpBuffer);
+        _props.SetFloat(_countID, (float)count);
+
+        // Apply to all valid renderers in the hierarchy
+        for (int i = 0; i < targetRenderers.Length; i++)
+        {
+            if (targetRenderers[i] != null)
+            {
+                targetRenderers[i].SetPropertyBlock(_props);
+            }
+        }
     }
 }
