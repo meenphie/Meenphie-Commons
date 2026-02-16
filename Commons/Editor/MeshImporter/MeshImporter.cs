@@ -79,7 +79,6 @@ public class MeshImporter : AssetPostprocessor
         Debug.Log($"{TAG} Processing finished. <color=green>{updatedCount}</color> materials handled.");
     }
 
-    // --- AUTOMATISATION IMPORT ---
 
     void OnPostprocessModel(GameObject gameObject)
     {
@@ -97,8 +96,27 @@ public class MeshImporter : AssetPostprocessor
     private static bool ApplyTexturesToMaterial(Material mat, Dictionary<string, string> textures)
     {
         bool changed = false;
+
+        // 1. Gestion de la Couleur Brute (Hex)
+        if (textures.ContainsKey("ColorHex"))
+        {
+            if (ColorUtility.TryParseHtmlString("#" + textures["ColorHex"], out Color blenderColor))
+            {
+                // On cherche le nom de la propriété couleur (souvent _BaseColor ou _Color)
+                string colorProp = GetAutoColorPropName(mat);
+                if (!string.IsNullOrEmpty(colorProp))
+                {
+                    mat.SetColor(colorProp, blenderColor);
+                    changed = true;
+                }
+            }
+        }
+
+        // 2. Gestion des Textures (ton code actuel)
         foreach (var entry in textures)
         {
+            if (entry.Key == "ColorHex") continue; // On l'a déjà fait
+
             Texture2D tex = FindTextureGlobal(entry.Value);
             if (tex == null) continue;
 
@@ -114,6 +132,19 @@ public class MeshImporter : AssetPostprocessor
             }
         }
         return changed;
+    }
+
+    // Helper pour trouver le nom de la couleur principale du shader
+    private static string GetAutoColorPropName(Material mat)
+    {
+        Shader shader = mat.shader;
+        for (int i = 0; i < ShaderUtil.GetPropertyCount(shader); i++)
+        {
+            if (ShaderUtil.GetPropertyType(shader, i) != ShaderUtil.ShaderPropertyType.Color) continue;
+            string name = ShaderUtil.GetPropertyName(shader, i);
+            if (name.Contains("_BaseColor") || name.Contains("_Color")) return name;
+        }
+        return null;
     }
 
     private static bool ClearMaterialTextures(Material mat)
@@ -202,16 +233,20 @@ public static class SimpleJsonParser
                 string matName = m.Substring(firstQuote, secondQuote - firstQuote);
 
                 var texs = new Dictionary<string, string>();
+
+                if (m.Contains("ColorHex")) texs.Add("ColorHex", ExtractVal(m, "ColorHex"));
                 if (m.Contains("Base Color")) texs.Add("Base Color", ExtractVal(m, "Base Color"));
                 if (m.Contains("Roughness")) texs.Add("Roughness", ExtractVal(m, "Roughness"));
                 if (m.Contains("Normal")) texs.Add("Normal", ExtractVal(m, "Normal"));
                 if (m.Contains("Metallic")) texs.Add("Metallic", ExtractVal(m, "Metallic"));
+                
                 result[matName] = texs;
             }
             catch { }
         }
         return result;
     }
+
     static string ExtractVal(string text, string key)
     {
         string search = "\"" + key + "\": \"";
