@@ -58,7 +58,7 @@ Preset:
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.size
-    value: 9
+    value: 10
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[0].m_Preset
@@ -135,10 +135,10 @@ Preset:
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[6].m_Preset
     value: 
-    objectReference: {fileID: 2655988077585873504, guid: ee04592e9d34db6d48b9c64c20c8a537, type: 2}
+    objectReference: {fileID: 2655988077585873504, guid: 2fb86781efe45eea389cb32c25bdbb39, type: 2}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[6].m_Filter
-    value: _normal
+    value: _metalness
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[6].m_Disabled
@@ -147,10 +147,10 @@ Preset:
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[7].m_Preset
     value: 
-    objectReference: {fileID: 2655988077585873504, guid: 955b7f7362298262ea50af79e696b406, type: 2}
+    objectReference: {fileID: 2655988077585873504, guid: ee04592e9d34db6d48b9c64c20c8a537, type: 2}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[7].m_Filter
-    value: _lightmap
+    value: _normal
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[7].m_Disabled
@@ -162,10 +162,22 @@ Preset:
     objectReference: {fileID: 2655988077585873504, guid: 955b7f7362298262ea50af79e696b406, type: 2}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[8].m_Filter
-    value: _rnm
+    value: _lightmap
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[8].m_Disabled
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[9].m_Preset
+    value: 
+    objectReference: {fileID: 2655988077585873504, guid: 955b7f7362298262ea50af79e696b406, type: 2}
+  - target: {fileID: 0}
+    propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[9].m_Filter
+    value: _rnm
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[9].m_Disabled
     value: 0
     objectReference: {fileID: 0}
   - target: {fileID: 0}
