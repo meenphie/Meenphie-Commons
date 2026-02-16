@@ -50,6 +50,7 @@ public class MeshImporter : AssetPostprocessor
     {
         bool changed = false;
 
+        // --- VALEURS & COULEURS ---
         if (data.ContainsKey("ColorHex") && ColorUtility.TryParseHtmlString("#" + data["ColorHex"], out Color c)) {
             mat.SetColor("_Color", c); changed = true;
         }
@@ -59,13 +60,24 @@ public class MeshImporter : AssetPostprocessor
         if (data.ContainsKey("SmoothnessValue")) {
             mat.SetFloat("_Glossiness", ParseF(data["SmoothnessValue"])); changed = true;
         }
+
+        // --- EMISSION (Color HDR + Slider Intensity) ---
         if (data.ContainsKey("EmissionHex") && ColorUtility.TryParseHtmlString("#" + data["EmissionHex"], out Color ec)) {
             float intensity = data.ContainsKey("EmissionIntensity") ? ParseF(data["EmissionIntensity"]) : 1.0f;
+            
+            // On applique l'intensité sur la couleur (HDR)
             mat.SetColor("_EmissionColor", ec * intensity);
+            
+            // Si le shader a un slider spécifique pour l'intensité
+            if (mat.HasProperty("_EmissionIntensity")) {
+                mat.SetFloat("_EmissionIntensity", intensity);
+            }
+            
             mat.EnableKeyword("_EMISSION");
             changed = true;
         }
 
+        // --- TEXTURES ---
         changed |= SetTex(mat, data, "Base Color", "_MainTex");
         changed |= SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP");
         changed |= SetTex(mat, data, "Roughness", "_GlossinessMap");
@@ -91,8 +103,11 @@ public class MeshImporter : AssetPostprocessor
     {
         string[] texProps = { "_MainTex", "_BumpMap", "_MetallicMap", "_GlossinessMap", "_EmissionMap" };
         foreach (var p in texProps) if (mat.HasProperty(p)) mat.SetTexture(p, null);
+        
         mat.SetColor("_Color", Color.white);
         mat.SetColor("_EmissionColor", Color.black);
+        if (mat.HasProperty("_EmissionIntensity")) mat.SetFloat("_EmissionIntensity", 0);
+        
         mat.SetFloat("_Metallic", 0);
         mat.SetFloat("_Glossiness", 0);
         mat.DisableKeyword("_NORMALMAP");
@@ -113,22 +128,19 @@ public class MeshImporter : AssetPostprocessor
 
     private static float ParseF(string s) => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 0;
 
-    // --- LE RETOUR DES UVs ---
-
+    // --- PACKING UV ---
     void OnPostprocessModel(GameObject g)
     {
         foreach (MeshFilter filter in g.GetComponentsInChildren<MeshFilter>())
         {
             if (filter.sharedMesh != null) ApplyPacking(filter.sharedMesh);
         }
-        Debug.Log($"{TAG} UV Packing réappliqué sur : <b>{g.name}</b>");
     }
 
     private void ApplyPacking(Mesh mesh)
     {
         List<Vector2> uv0 = new List<Vector2>(), uv1 = new List<Vector2>();
         mesh.GetUVs(0, uv0); mesh.GetUVs(1, uv1);
-        
         if (uv0.Count == 0 || uv1.Count != uv0.Count) return;
 
         List<Vector4> packed = new List<Vector4>(uv0.Count);
