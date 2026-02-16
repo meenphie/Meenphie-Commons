@@ -8,11 +8,9 @@ public class MeshImporter : AssetPostprocessor
 {
     private const string TAG = "[<color=purple>Meenphie</color>]";
 
-    [MenuItem("Meenphie/Texture/Sync All")]
+    [MenuItem("Meenphie/Materials/Update All")]
     public static void SyncAll() => Process(true);
 
-    [MenuItem("Meenphie/Texture/Unassign All")]
-    public static void UnassignAll() => Process(false);
 
     private static void Process(bool assign)
     {
