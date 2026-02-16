@@ -11,7 +11,6 @@ public class MeshImporter : AssetPostprocessor
     [MenuItem("Meenphie/Materials/Update All")]
     public static void SyncAll() => Process(true);
 
-
     private static void Process(bool assign)
     {
         string projectRoot = Path.GetDirectoryName(Application.dataPath);
@@ -51,7 +50,6 @@ public class MeshImporter : AssetPostprocessor
     {
         bool changed = false;
 
-        // --- VALEURS NUMÉRIQUES & COULEURS ---
         if (data.ContainsKey("ColorHex") && ColorUtility.TryParseHtmlString("#" + data["ColorHex"], out Color c)) {
             mat.SetColor("_Color", c); changed = true;
         }
@@ -68,7 +66,6 @@ public class MeshImporter : AssetPostprocessor
             changed = true;
         }
 
-        // --- TEXTURES (Mapping strict sur les clés Blender) ---
         changed |= SetTex(mat, data, "Base Color", "_MainTex");
         changed |= SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP");
         changed |= SetTex(mat, data, "Roughness", "_GlossinessMap");
@@ -81,7 +78,6 @@ public class MeshImporter : AssetPostprocessor
     private static bool SetTex(Material mat, Dictionary<string, string> data, string key, string prop, string keyword = "")
     {
         if (!data.ContainsKey(key)) return false;
-        
         Texture2D tex = FindTex(data[key]);
         if (tex != null && mat.GetTexture(prop) != tex) {
             mat.SetTexture(prop, tex);
@@ -93,15 +89,12 @@ public class MeshImporter : AssetPostprocessor
 
     private static bool Clear(Material mat)
     {
-        // Nettoyage complet des slots et des keywords
         string[] texProps = { "_MainTex", "_BumpMap", "_MetallicMap", "_GlossinessMap", "_EmissionMap" };
         foreach (var p in texProps) if (mat.HasProperty(p)) mat.SetTexture(p, null);
-        
         mat.SetColor("_Color", Color.white);
         mat.SetColor("_EmissionColor", Color.black);
         mat.SetFloat("_Metallic", 0);
         mat.SetFloat("_Glossiness", 0);
-        
         mat.DisableKeyword("_NORMALMAP");
         mat.DisableKeyword("_EMISSION");
         return true;
@@ -119,6 +112,31 @@ public class MeshImporter : AssetPostprocessor
     }
 
     private static float ParseF(string s) => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 0;
+
+    // --- LE RETOUR DES UVs ---
+
+    void OnPostprocessModel(GameObject g)
+    {
+        foreach (MeshFilter filter in g.GetComponentsInChildren<MeshFilter>())
+        {
+            if (filter.sharedMesh != null) ApplyPacking(filter.sharedMesh);
+        }
+        Debug.Log($"{TAG} UV Packing réappliqué sur : <b>{g.name}</b>");
+    }
+
+    private void ApplyPacking(Mesh mesh)
+    {
+        List<Vector2> uv0 = new List<Vector2>(), uv1 = new List<Vector2>();
+        mesh.GetUVs(0, uv0); mesh.GetUVs(1, uv1);
+        
+        if (uv0.Count == 0 || uv1.Count != uv0.Count) return;
+
+        List<Vector4> packed = new List<Vector4>(uv0.Count);
+        for (int i = 0; i < uv0.Count; i++)
+            packed.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
+
+        mesh.SetUVs(0, packed);
+    }
 }
 
 public static class SimpleJsonParser
@@ -127,12 +145,7 @@ public static class SimpleJsonParser
     {
         var result = new Dictionary<string, Dictionary<string, string>>();
         string[] materials = json.Split(new string[] { "}," }, System.StringSplitOptions.RemoveEmptyEntries);
-        
-        // Liste des clés à extraire
-        string[] keys = { 
-            "Base Color", "Normal", "Roughness", "Metallic", "Emission", 
-            "ColorHex", "EmissionHex", "MetallicValue", "SmoothnessValue", "EmissionIntensity" 
-        };
+        string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "SmoothnessValue", "EmissionIntensity" };
 
         foreach (var m in materials) {
             try {
@@ -140,7 +153,6 @@ public static class SimpleJsonParser
                 int e = m.IndexOf('"', s);
                 if (s <= 0 || e <= 0) continue;
                 string matName = m.Substring(s, e - s);
-
                 var dict = new Dictionary<string, string>();
                 foreach (var k in keys) {
                     string search = $"\"{k}\": ";
