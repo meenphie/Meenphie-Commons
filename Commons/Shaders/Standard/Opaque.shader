@@ -382,7 +382,7 @@ Shader "Meenphie/Standard/Opaque"
 					// --- CONFIGURATION ---
 					float LumaStart = 0.01;
 					float LumaEnd   = 1.0;
-					float SpecBoost = 0.01;
+					float SpecBoost = 0.2;
 					// --- 1. EARLY EXIT ---
 					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
@@ -1365,18 +1365,18 @@ Shader "Meenphie/Standard/Opaque"
 					float4 staticSwitch1017_g1 = temp_cast_5;
 					#endif
 					float4 Emission86_g1 = staticSwitch1017_g1;
-					float3 WorldPos97_g59443 = PositionWS;
-					float3 tanNormal85_g59443 = Normal_Map700_g1;
-					float3 worldNormal85_g59443 = float3( dot( tanToWorld0, tanNormal85_g59443 ), dot( tanToWorld1, tanNormal85_g59443 ), dot( tanToWorld2, tanNormal85_g59443 ) );
-					float3 WorldNormal97_g59443 = worldNormal85_g59443;
-					float Smoothness97_g59443 = Smoothness1399_g1;
-					float3 LightmapColor97_g59443 = Lightmap46_g1.rgb;
-					float3 ViewDir97_g59443 = ViewDirWS;
-					float3 localSpecular97_g59443 = Specular( WorldPos97_g59443 , WorldNormal97_g59443 , Smoothness97_g59443 , LightmapColor97_g59443 , ViewDir97_g59443 );
+					float3 WorldPos97_g59444 = PositionWS;
+					float3 tanNormal85_g59444 = Normal_Map700_g1;
+					float3 worldNormal85_g59444 = float3( dot( tanToWorld0, tanNormal85_g59444 ), dot( tanToWorld1, tanNormal85_g59444 ), dot( tanToWorld2, tanNormal85_g59444 ) );
+					float3 WorldNormal97_g59444 = worldNormal85_g59444;
+					float Smoothness97_g59444 = Smoothness1399_g1;
+					float3 LightmapColor97_g59444 = Lightmap46_g1.rgb;
+					float3 ViewDir97_g59444 = ViewDirWS;
+					float3 localSpecular97_g59444 = Specular( WorldPos97_g59444 , WorldNormal97_g59444 , Smoothness97_g59444 , LightmapColor97_g59444 , ViewDir97_g59444 );
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g1 = Lightmap46_g1;
 					#else
-					float4 staticSwitch1181_g1 = ( ( aAlbedo1466_g1 * Lightmap46_g1 ) + Specular1419_g1 + Emission86_g1 + float4( localSpecular97_g59443 , 0.0 ) );
+					float4 staticSwitch1181_g1 = ( ( aAlbedo1466_g1 * Lightmap46_g1 ) + Specular1419_g1 + Emission86_g1 + float4( localSpecular97_g59444 , 0.0 ) );
 					#endif
 					float4 temp_output_35_0_g59357 = staticSwitch1181_g1;
 					float4 Color353_g59357 = temp_output_35_0_g59357;
@@ -1398,7 +1398,7 @@ Shader "Meenphie/Standard/Opaque"
 					float2 Scaled_Blue280_g59357 = ( (Color_Saturate49_g59357).zw * (Scale_Offset208_g59357).z );
 					float2 Shift288_g59357 = floor( Scaled_Blue280_g59357 );
 					float2 Final_X313_g59357 = ( (Adjusted_UV305_g59357).xz + ( Shift288_g59357 * (Scale_Offset208_g59357).y ) );
-					float2 appendResult326_g59357 = (float2(Final_X313_g59357));
+					float2 appendResult326_g59357 = (float2(Final_X313_g59357.x , (Adjusted_UV305_g59357).yz.x));
 					float2 Final_UV325_g59357 = appendResult326_g59357;
 					float2 appendResult338_g59357 = (float2((Scale_Offset208_g59357).y , 0.0));
 					float2 Offset_UV336_g59357 = ( Final_UV325_g59357 + appendResult338_g59357 );
@@ -1920,4 +1920,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;3739;0;5255;625
 WireConnection;3739;2;5255;624
 ASEEND*/
-//CHKSM=A547C87F679327071FE1B9D6B4D21A212E35D5F7
+//CHKSM=368647252F7D5E4365D75648A2E651EF80BABF77
