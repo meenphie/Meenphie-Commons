@@ -151,6 +151,12 @@ public class MeshImporter : AssetPostprocessor
         {
             if (filter.sharedMesh != null) ApplyPacking(filter.sharedMesh);
         }
+
+        Light[] lights = g.GetComponentsInChildren<Light>();
+        foreach (Light light in lights)
+        {
+            light.intensity *= 0.1f;
+        }
     }
 
     private void ApplyPacking(Mesh mesh)
