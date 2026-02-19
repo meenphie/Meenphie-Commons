@@ -26,36 +26,39 @@ MonoBehaviour:
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;103;-1280,-544;Inherit;False;_UdonSpecularLightPos;0;32;2;False;False;0;1;True;Object;-1;4;0;INT;0;False;2;INT;0;False;1;INT;0;False;3;INT;0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.RangedFloatNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;101;-1280,-624;Inherit;False;Global;_UdonSpecularLightCount;_UdonSpecularLightCount;44;0;Create;True;0;0;0;True;0;False;0;0;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;97;-320,-160;Inherit;False;//
-    --- CONFIGURATION ---$float LumaStart = 0.01@$float LumaEnd   = 1.0@$float SpecBoost
-    = 0.2@$$// --- 1. EARLY EXIT ---$float luma = dot(LightmapColor, float3(0.21,
-    0.72, 0.07))@$float lmMask = smoothstep(LumaStart, LumaEnd, luma)@$$// Combined
-    check to exit early$if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount
-    == 0) return 0@$$// --- 2. SETUP ---$float3 vDir = normalize(ViewDir)@$float3
-    N = normalize(WorldNormal)@$$// Blinn-Phong exponent$float shininess = exp2(10.0
-    * Smoothness + 1.0)@$float normalization = (shininess + 2.0) * 0.125@$$float
-    nv = saturate(dot(N, vDir))@$$// --- OPTIMIZED FRESNEL ---$float fresBase = 1.0
-    - nv@$float fresBase2 = fresBase * fresBase@$float fresnel = 0.04 + (1.0 - 0.04)
-    * (fresBase2 * fresBase2 * fresBase)@$$// Ideal reflection vector$float3 R =
-    reflect(-vDir, N)@$float3 specAccum = 0.0@$$// --- 3. BOUCLE ---$for (int i =
-    0@ i < (int)_UdonSpecularLightCount@ i++)${$    float4 lightPosRange = _UdonSpecularLightPos[i]@$   
-    float4 lightRightW = _UdonSpecularLightRight[i]@$    float4 lightUpH = _UdonSpecularLightUp[i]@$   
-    float4 lightColInt = _UdonSpecularLightCol[i]@$$    float3 center = lightPosRange.xyz@$   
-    float3 right  = lightRightW.xyz@$    float3 up     = lightUpH.xyz@$    float
-    width   = lightRightW.w@$    float height  = lightUpH.w@$$    float3 L = center
-    - WorldPos@$    $    // Approximation of closest point on area light$    float3
-    closestPoint = center@$    float3 proj = R * dot(L, R) - L@$    closestPoint
-    += right * clamp(dot(proj, right), -width, width)@$    closestPoint += up * clamp(dot(proj,
-    up), -height, height)@$$    float3 diff = closestPoint - WorldPos@$    float
-    distSq = dot(diff, diff)@$    float range = lightPosRange.w@$    $    // Square
-    falloff$    float falloff = saturate(1.0 - (distSq / (range * range)))@$    falloff
-    *= falloff@$$    if (falloff > 0)$    {$        float3 lDir = normalize(diff)@$       
-    float nDotL = saturate(dot(N, lDir))@$$        if (nDotL > 0)$        {$           
-    float nDotH = saturate(dot(N, normalize(lDir + vDir)))@$            $           
-    // --- OPTIMIZED SPECULAR ---$            float spec = exp2(shininess * (nDotH
-    - 1.0)) * normalization@$            $            specAccum += lightColInt.rgb
-    * (spec * nDotL * fresnel * falloff * lightColInt.w)@$        }$    }$}$$return
-    specAccum * lmMask * SpecBoost@;3;Create;5;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;LightmapColor;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;Specular;False;False;0;;False;5;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT;0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-160;Inherit;False;True;-1;Output;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;85;0;98;0\nWireConnection;97;0;86;0\nWireConnection;97;1;85;0\nWireConnection;97;2;99;0\nWireConnection;97;3;100;0\nWireConnection;97;4;96;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=875A7C43DC70DCA7F53C9F5EA07E2827BE2B6EEB"
+    --- CONFIGURATION ORIGINALE ---$float LumaStart = 0.01@$float LumaEnd   = 1.0@$float
+    SpecBoost = 0.2@$$// --- CONFIGURATION TRANSITION RADIUS ---$// Doit \xEAtre
+    coh\xE9rent avec ton activationRadius dans Udon (50.0)$float MaxRadius = 8.0@
+    $float RadiusFadeStart = 0.0@ // Le fondu commence \xE0 40m$$// --- 1. EARLY
+    EXIT ---$float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08))@$float lmMask
+    = smoothstep(LumaStart, LumaEnd, luma)@$$if (lmMask < 0.001 || Smoothness < 0.01
+    || _UdonSpecularLightCount == 0) return 0@$$// --- CALCUL DU FADE DE RAYON (S\xC9CURIT\xC9
+    UDON) ---$float playerDist = distance(_WorldSpaceCameraPos, WorldPos)@$// On
+    cr\xE9e un masque qui s'adoucit quand on s'approche des 50m$float radiusFade
+    = 1.0 - smoothstep(RadiusFadeStart, MaxRadius, playerDist)@$$// Exit si on est
+    au-del\xE0 du rayon d'activation$if (radiusFade < 0.001) return 0@$$// --- 2.
+    SETUP ---$float3 vDir = normalize(ViewDir)@$float3 N = normalize(WorldNormal)@$$float
+    sharpSmooth = pow(Smoothness, 1.5)@ $float shininess = exp2(10.0 * sharpSmooth
+    + 2.0)@ $float normalization = (shininess + 2.0) * 0.125@$$float nv = saturate(dot(N,
+    vDir))@$float fresnel = 0.04 + 0.96 * pow(1.0 - nv, 5.0)@ $$float3 R = reflect(-vDir,
+    N)@$float3 specAccum = 0.0@$$// --- 3. BOUCLE ---$int lightCount = (int)_UdonSpecularLightCount@$for
+    (int i = 0@ i < lightCount@ i++)${$    float4 lightPosRange = _UdonSpecularLightPos[i]@$   
+    float3 center = lightPosRange.xyz@$    float range   = lightPosRange.w@$$   
+    float3 L = center - WorldPos@$    $    float3 proj = R * dot(L, R) - L@$    float3
+    closestPoint = center@$    closestPoint += _UdonSpecularLightRight[i].xyz * clamp(dot(proj,
+    _UdonSpecularLightRight[i].xyz), -_UdonSpecularLightRight[i].w, _UdonSpecularLightRight[i].w)@$   
+    closestPoint += _UdonSpecularLightUp[i].xyz * clamp(dot(proj, _UdonSpecularLightUp[i].xyz),
+    -_UdonSpecularLightUp[i].w, _UdonSpecularLightUp[i].w)@$$    float3 diff = closestPoint
+    - WorldPos@$    float distSq = dot(diff, diff)@$    $    float falloff = saturate(1.0
+    - (distSq / (range * range)))@$    falloff *= falloff@ $$    if (falloff > 0)$   
+    {$        float3 lDir = normalize(diff)@$        float nDotL = saturate(dot(N,
+    lDir))@$$        if (nDotL > 0)$        {$            float nDotH = saturate(dot(N,
+    normalize(lDir + vDir)))@$            float spec = pow(nDotH, shininess) * normalization@$           
+    specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w
+    * falloff)@$        }$    }$}$$// Multipli\xE9 par radiusFade pour une disparition
+    douce aux limites de l'Udon$return specAccum * fresnel * lmMask * SpecBoost *
+    radiusFade@;3;Create;5;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;LightmapColor;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;Specular;False;False;0;;False;5;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT;0;False;3;FLOAT3;0,0,0;False;4;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-160;Inherit;False;True;-1;Output;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;85;0;98;0\nWireConnection;97;0;86;0\nWireConnection;97;1;85;0\nWireConnection;97;2;99;0\nWireConnection;97;3;100;0\nWireConnection;97;4;96;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=223769A561C62E326533AE564A7DFB378EE78B50"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

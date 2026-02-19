@@ -7,7 +7,7 @@ public class SpecularLightManager : UdonSharpBehaviour
 {
     [Header("Settings")]
     public bool isEnabled = true;
-    public float activationRadius = 50f;
+    public float activationRadius = 16f;
     public int updateIntervalFrames = 5;
 
     private const int MAX_LIGHTS = 32;
@@ -42,7 +42,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         _localPlayer = Networking.LocalPlayer;
         _posID = VRCShader.PropertyToID("_UdonSpecularLightPos");
         _colID = VRCShader.PropertyToID("_UdonSpecularLightCol");
-        _rightID = VRCShader.PropertyToID("_UdonSpecularRight");
+        _rightID = VRCShader.PropertyToID("_UdonSpecularLightRight");
         _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
         _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 

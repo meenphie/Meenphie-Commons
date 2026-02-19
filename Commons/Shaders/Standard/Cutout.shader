@@ -382,55 +382,52 @@ Shader "Meenphie/Standard/Cutout"
 
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
 				{
-					// --- CONFIGURATION ---
+					// --- CONFIGURATION ORIGINALE ---
 					float LumaStart = 0.01;
 					float LumaEnd   = 1.0;
 					float SpecBoost = 0.2;
+					// --- CONFIGURATION TRANSITION RADIUS ---
+					// Doit être cohérent avec ton activationRadius dans Udon (50.0)
+					float MaxRadius = 8.0; 
+					float RadiusFadeStart = 0.0; // Le fondu commence à 40m
 					// --- 1. EARLY EXIT ---
-					float luma = dot(LightmapColor, float3(0.21, 0.72, 0.07));
+					float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08));
 					float lmMask = smoothstep(LumaStart, LumaEnd, luma);
-					// Combined check to exit early
-					if (lmMask < 0.001 || Smoothness < 0.001 || _UdonSpecularLightCount == 0) return 0;
+					if (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount == 0) return 0;
+					// --- CALCUL DU FADE DE RAYON (SÉCURITÉ UDON) ---
+					float playerDist = distance(_WorldSpaceCameraPos, WorldPos);
+					// On crée un masque qui s'adoucit quand on s'approche des 50m
+					float radiusFade = 1.0 - smoothstep(RadiusFadeStart, MaxRadius, playerDist);
+					// Exit si on est au-delà du rayon d'activation
+					if (radiusFade < 0.001) return 0;
 					// --- 2. SETUP ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
-					// Blinn-Phong exponent
-					float shininess = exp2(10.0 * Smoothness + 1.0);
+					float sharpSmooth = pow(Smoothness, 1.5); 
+					float shininess = exp2(10.0 * sharpSmooth + 2.0); 
 					float normalization = (shininess + 2.0) * 0.125;
 					float nv = saturate(dot(N, vDir));
-					// --- OPTIMIZED FRESNEL ---
-					float fresBase = 1.0 - nv;
-					float fresBase2 = fresBase * fresBase;
-					float fresnel = 0.04 + (1.0 - 0.04) * (fresBase2 * fresBase2 * fresBase);
-					// Ideal reflection vector
+					float fresnel = 0.04 + 0.96 * pow(1.0 - nv, 5.0); 
 					float3 R = reflect(-vDir, N);
 					float3 specAccum = 0.0;
 					// --- 3. BOUCLE ---
-					for (int i = 0; i < (int)_UdonSpecularLightCount; i++)
+					int lightCount = (int)_UdonSpecularLightCount;
+					for (int i = 0; i < lightCount; i++)
 					{
 					    float4 lightPosRange = _UdonSpecularLightPos[i];
-					    float4 lightRightW = _UdonSpecularLightRight[i];
-					    float4 lightUpH = _UdonSpecularLightUp[i];
-					    float4 lightColInt = _UdonSpecularLightCol[i];
 					    float3 center = lightPosRange.xyz;
-					    float3 right  = lightRightW.xyz;
-					    float3 up     = lightUpH.xyz;
-					    float width   = lightRightW.w;
-					    float height  = lightUpH.w;
+					    float range   = lightPosRange.w;
 					    float3 L = center - WorldPos;
 					    
-					    // Approximation of closest point on area light
-					    float3 closestPoint = center;
 					    float3 proj = R * dot(L, R) - L;
-					    closestPoint += right * clamp(dot(proj, right), -width, width);
-					    closestPoint += up * clamp(dot(proj, up), -height, height);
+					    float3 closestPoint = center;
+					    closestPoint += _UdonSpecularLightRight[i].xyz * clamp(dot(proj, _UdonSpecularLightRight[i].xyz), -_UdonSpecularLightRight[i].w, _UdonSpecularLightRight[i].w);
+					    closestPoint += _UdonSpecularLightUp[i].xyz * clamp(dot(proj, _UdonSpecularLightUp[i].xyz), -_UdonSpecularLightUp[i].w, _UdonSpecularLightUp[i].w);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
-					    float range = lightPosRange.w;
 					    
-					    // Square falloff
 					    float falloff = saturate(1.0 - (distSq / (range * range)));
-					    falloff *= falloff;
+					    falloff *= falloff; 
 					    if (falloff > 0)
 					    {
 					        float3 lDir = normalize(diff);
@@ -438,15 +435,13 @@ Shader "Meenphie/Standard/Cutout"
 					        if (nDotL > 0)
 					        {
 					            float nDotH = saturate(dot(N, normalize(lDir + vDir)));
-					            
-					            // --- OPTIMIZED SPECULAR ---
-					            float spec = exp2(shininess * (nDotH - 1.0)) * normalization;
-					            
-					            specAccum += lightColInt.rgb * (spec * nDotL * fresnel * falloff * lightColInt.w);
+					            float spec = pow(nDotH, shininess) * normalization;
+					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w * falloff);
 					        }
 					    }
 					}
-					return specAccum * lmMask * SpecBoost;
+					// Multiplié par radiusFade pour une disparition douce aux limites de l'Udon
+					return specAccum * fresnel * lmMask * SpecBoost * radiusFade;
 				}
 				
 
@@ -1368,18 +1363,18 @@ Shader "Meenphie/Standard/Cutout"
 					float4 staticSwitch1017_g59360 = temp_cast_5;
 					#endif
 					float4 Emission86_g59360 = staticSwitch1017_g59360;
-					float3 WorldPos97_g59444 = PositionWS;
-					float3 tanNormal85_g59444 = Normal_Map700_g59360;
-					float3 worldNormal85_g59444 = float3( dot( tanToWorld0, tanNormal85_g59444 ), dot( tanToWorld1, tanNormal85_g59444 ), dot( tanToWorld2, tanNormal85_g59444 ) );
-					float3 WorldNormal97_g59444 = worldNormal85_g59444;
-					float Smoothness97_g59444 = Smoothness1399_g59360;
-					float3 LightmapColor97_g59444 = Lightmap46_g59360.rgb;
-					float3 ViewDir97_g59444 = ViewDirWS;
-					float3 localSpecular97_g59444 = Specular( WorldPos97_g59444 , WorldNormal97_g59444 , Smoothness97_g59444 , LightmapColor97_g59444 , ViewDir97_g59444 );
+					float3 WorldPos97_g59445 = PositionWS;
+					float3 tanNormal85_g59445 = Normal_Map700_g59360;
+					float3 worldNormal85_g59445 = float3( dot( tanToWorld0, tanNormal85_g59445 ), dot( tanToWorld1, tanNormal85_g59445 ), dot( tanToWorld2, tanNormal85_g59445 ) );
+					float3 WorldNormal97_g59445 = worldNormal85_g59445;
+					float Smoothness97_g59445 = Smoothness1399_g59360;
+					float3 LightmapColor97_g59445 = Lightmap46_g59360.rgb;
+					float3 ViewDir97_g59445 = ViewDirWS;
+					float3 localSpecular97_g59445 = Specular( WorldPos97_g59445 , WorldNormal97_g59445 , Smoothness97_g59445 , LightmapColor97_g59445 , ViewDir97_g59445 );
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g59360 = Lightmap46_g59360;
 					#else
-					float4 staticSwitch1181_g59360 = ( ( aAlbedo1466_g59360 * Lightmap46_g59360 ) + Specular1419_g59360 + Emission86_g59360 + float4( localSpecular97_g59444 , 0.0 ) );
+					float4 staticSwitch1181_g59360 = ( ( aAlbedo1466_g59360 * Lightmap46_g59360 ) + Specular1419_g59360 + Emission86_g59360 + float4( localSpecular97_g59445 , 0.0 ) );
 					#endif
 					float4 temp_output_35_0_g59383 = staticSwitch1181_g59360;
 					float4 Color353_g59383 = temp_output_35_0_g59383;
@@ -2025,4 +2020,4 @@ WireConnection;2888;2;2952;624
 WireConnection;2888;7;2952;156
 WireConnection;2888;8;2952;427
 ASEEND*/
-//CHKSM=BDF2CC50BABEEE987C4AD3C8DDAE3E0894E7AF0F
+//CHKSM=AA636ECED5BE0CFBCC0F0E2CBC04191267DC4DA5
