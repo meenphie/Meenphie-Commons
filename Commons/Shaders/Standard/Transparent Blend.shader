@@ -1396,7 +1396,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float2 Scaled_Blue280_g59469 = ( (Color_Saturate49_g59469).zw * (Scale_Offset208_g59469).z );
 					float2 Shift288_g59469 = floor( Scaled_Blue280_g59469 );
 					float2 Final_X313_g59469 = ( (Adjusted_UV305_g59469).xz + ( Shift288_g59469 * (Scale_Offset208_g59469).y ) );
-					float2 appendResult326_g59469 = (float2(Final_X313_g59469));
+					float2 appendResult326_g59469 = (float2(Final_X313_g59469.x , (Adjusted_UV305_g59469).yz.x));
 					float2 Final_UV325_g59469 = appendResult326_g59469;
 					float2 appendResult338_g59469 = (float2((Scale_Offset208_g59469).y , 0.0));
 					float2 Offset_UV336_g59469 = ( Final_UV325_g59469 + appendResult338_g59469 );
@@ -2780,7 +2780,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float2 Scaled_Blue280_g59469 = ( (Color_Saturate49_g59469).zw * (Scale_Offset208_g59469).z );
 					float2 Shift288_g59469 = floor( Scaled_Blue280_g59469 );
 					float2 Final_X313_g59469 = ( (Adjusted_UV305_g59469).xz + ( Shift288_g59469 * (Scale_Offset208_g59469).y ) );
-					float2 appendResult326_g59469 = (float2(Final_X313_g59469));
+					float2 appendResult326_g59469 = (float2(Final_X313_g59469.x , (Adjusted_UV305_g59469).yz.x));
 					float2 Final_UV325_g59469 = appendResult326_g59469;
 					float2 appendResult338_g59469 = (float2((Scale_Offset208_g59469).y , 0.0));
 					float2 Offset_UV336_g59469 = ( Final_UV325_g59469 + appendResult338_g59469 );
@@ -3753,4 +3753,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;2;0;10;625
 WireConnection;2;2;10;624
 ASEEND*/
-//CHKSM=B135394EB44B6102060D08A6D05F6311A432FCCD
+//CHKSM=23F4AF46A5CA44B3874F2722B842EC5661D3EFC0
