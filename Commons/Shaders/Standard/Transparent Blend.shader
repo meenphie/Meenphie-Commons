@@ -69,8 +69,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 		//_TessEdgeLength ( "Tess Edge length", Range( 2, 50 ) ) = 16
 		//_TessMaxDisp( "Tess Max Displacement", Float ) = 25
 
-		[ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
-		[ToggleOff] _GlossyReflections("Reflections", Float) = 1.0
+		//[ToggleOff] _SpecularHighlights("Specular Highlights", Float) = 1.0
+		//[ToggleOff] _GlossyReflections("Reflections", Float) = 1.0
 
 		//_InstancedTerrainNormals("Specular Highlights", Float) = 1.0
 	}
@@ -223,14 +223,13 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#define _ALPHABLEND_ON 1
 				#define ASE_FRAGMENT_NORMAL 0
 				#define ASE_RECEIVE_SHADOWS
-				#pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
-				#pragma shader_feature_local_fragment _GLOSSYREFLECTIONS_OFF
 				#pragma multi_compile_instancing
 				#pragma multi_compile _ LOD_FADE_CROSSFADE
 				#pragma multi_compile_fog
 				#define ASE_FOG
 				#define ASE_LIGHTING_SIMPLE 1
 				#define ASE_NO_AMBIENT 1
+				#define _SPECULARHIGHLIGHTS_OFF
 				#define ASE_VERSION 19907
 
 				#pragma vertex vert
@@ -1427,6 +1426,12 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float4 staticSwitch41_g59469 = Color353_g59469;
 					#endif
 					
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g59446 = White38_g59446;
+					#else
+					float staticSwitch1191_g59446 = staticSwitch1549_g59446.a;
+					#endif
+					
 
 					o.Albedo = staticSwitch1180_g59446.rgb;
 					o.Normal = half3( 0, 0, 1 );
@@ -1450,7 +1455,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					#endif
 
 					o.Emission = staticSwitch41_g59469.xyz;
-					o.Alpha = 1;
+					o.Alpha = staticSwitch1191_g59446;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
 					half3 BakedGI = 0;
@@ -1626,13 +1631,12 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#define _ALPHABLEND_ON 1
 				#define ASE_FRAGMENT_NORMAL 0
 				#define ASE_RECEIVE_SHADOWS
-				#pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
-				#pragma shader_feature_local_fragment _GLOSSYREFLECTIONS_OFF
 				#pragma multi_compile_instancing
 				#pragma multi_compile _ LOD_FADE_CROSSFADE
 				#define ASE_FOG
 				#define ASE_LIGHTING_SIMPLE 1
 				#define ASE_NO_AMBIENT 1
+				#define _SPECULARHIGHLIGHTS_OFF
 				#define ASE_VERSION 19907
 
 				#pragma vertex vert
@@ -2811,6 +2815,12 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float4 staticSwitch41_g59469 = Color353_g59469;
 					#endif
 					
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g59446 = White38_g59446;
+					#else
+					float staticSwitch1191_g59446 = staticSwitch1549_g59446.a;
+					#endif
+					
 
 					o.Albedo = staticSwitch1180_g59446.rgb;
 					o.Normal = half3( 0, 0, 1 );
@@ -2834,7 +2844,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					#endif
 
 					o.Emission = staticSwitch41_g59469.xyz;
-					o.Alpha = 1;
+					o.Alpha = staticSwitch1191_g59446;
 					half AlphaClipThreshold = 0.5;
 					half3 BakedGI = 0;
 
@@ -2966,6 +2976,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#define ASE_FOG
 				#define ASE_LIGHTING_SIMPLE 1
 				#define ASE_NO_AMBIENT 1
+				#define _SPECULARHIGHLIGHTS_OFF
 				#define ASE_VERSION 19907
 
 				#pragma vertex vert
@@ -2992,7 +3003,11 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#include "Lighting.cginc"
 				#include "UnityPBSLighting.cginc"
 
-				
+				#define ASE_NEEDS_TEXTURE_COORDINATES0
+				#pragma shader_feature _LIGHTMAPDEBUG
+				#pragma shader_feature_local_fragment _MAINTEX
+				#pragma shader_feature_local _STOCHASTICENABLED_ON
+
 
 				struct appdata
 				{
@@ -3001,14 +3016,14 @@ Shader "Meenphie/Standard/Transparent Blend"
 					half4 tangent : TANGENT;
 					float4 texcoord1 : TEXCOORD1;
 					float4 texcoord2 : TEXCOORD2;
-					
+					float4 ase_texcoord : TEXCOORD0;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 				};
 
 				struct v2f
 				{
 					V2F_SHADOW_CASTER;
-					
+					float4 ase_texcoord1 : TEXCOORD1;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 					UNITY_VERTEX_OUTPUT_STEREO
 				};
@@ -3046,6 +3061,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 				uniform float4 _UdonSpecularLightRight[32];
 				uniform float4 _UdonSpecularLightCol[32];
 				uniform float4 _UdonSpecularLightPos[32];
+				uniform half4 _Color;
+				uniform sampler2D _MainTex;
 
 
 				
@@ -3057,7 +3074,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					UNITY_TRANSFER_INSTANCE_ID(v,o);
 					UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-					
+					o.ase_texcoord1 = v.ase_texcoord;
 
 					#ifdef ASE_ABSOLUTE_VERTEX_POS
 						float3 defaultVertexValue = v.vertex.xyz;
@@ -3091,7 +3108,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 					half3 normal : NORMAL;
 					float4 texcoord1 : TEXCOORD1;
 					float4 texcoord2 : TEXCOORD2;
-					
+					float4 ase_texcoord : TEXCOORD0;
+
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 				};
 
@@ -3111,7 +3129,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					o.normal = v.normal;
 					o.texcoord1 = v.texcoord1;
 					o.texcoord2 = v.texcoord2;
-					
+					o.ase_texcoord = v.ase_texcoord;
 					return o;
 				}
 
@@ -3153,7 +3171,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					o.normal = patch[0].normal * bary.x + patch[1].normal * bary.y + patch[2].normal * bary.z;
 					o.texcoord1 = patch[0].texcoord1 * bary.x + patch[1].texcoord1 * bary.y + patch[2].texcoord1 * bary.z;
 					o.texcoord2 = patch[0].texcoord2 * bary.x + patch[1].texcoord2 * bary.y + patch[2].texcoord2 * bary.z;
-					
+					o.ase_texcoord = patch[0].ase_texcoord * bary.x + patch[1].ase_texcoord * bary.y + patch[2].ase_texcoord * bary.z;
 					#if defined(ASE_PHONG_TESSELLATION)
 					float3 pp[3];
 					for (int i = 0; i < 3; ++i)
@@ -3194,11 +3212,96 @@ Shader "Meenphie/Standard/Transparent Blend"
 						o.Occlusion = 1;
 					#endif
 
+					float2 texCoord2357_g59446 = IN.ase_texcoord1.xy * float2( 1,1 ) + float2( 0,0 );
+					half2 UV02420_g59446 = texCoord2357_g59446;
+					float2 temp_output_5_0_g59493 = UV02420_g59446;
+					float2 UV633_g59493 = temp_output_5_0_g59493;
+					float2 UV100_g59494 = UV633_g59493;
+					float2 temp_output_51_0_g59494 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g59494 * float2( 3.464,3.464 ) ) );
+					float2 break55_g59494 = frac( temp_output_51_0_g59494 );
+					float temp_output_56_0_g59494 = ( ( 1.0 - break55_g59494.x ) - break55_g59494.y );
+					float2 temp_output_52_0_g59494 = floor( temp_output_51_0_g59494 );
+					float2 temp_output_125_0_g59494 = ( temp_output_52_0_g59494 + float2( 1,1 ) );
+					float2 ifLocalVar87_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar87_g59494 = temp_output_52_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar87_g59494 = temp_output_125_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar87_g59494 = temp_output_125_0_g59494;
+					float3 temp_output_7_0_g59495 = frac( ( (ifLocalVar87_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59495 = dot( temp_output_7_0_g59495 , ( (temp_output_7_0_g59495).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59495 = ( temp_output_7_0_g59495 + dotResult8_g59495 );
+					float2 temp_output_597_0_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59495).xx + (temp_output_12_0_g59495).yz ) * (temp_output_12_0_g59495).zy ) ) );
+					float2 DDX631_g59493 = ddx( temp_output_5_0_g59493 );
+					float2 DDY632_g59493 = ddy( temp_output_5_0_g59493 );
+					float temp_output_65_0_g59494 = ( 0.0 - temp_output_56_0_g59494 );
+					float ifLocalVar59_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar59_g59494 = temp_output_65_0_g59494;
+					else
+					ifLocalVar59_g59494 = temp_output_56_0_g59494;
+					float temp_output_597_30_g59493 = ifLocalVar59_g59494;
+					float2 temp_output_90_0_g59494 = ( temp_output_52_0_g59494 + float2( 0,1 ) );
+					float2 temp_output_123_0_g59494 = ( temp_output_52_0_g59494 + float2( 1,0 ) );
+					float2 ifLocalVar88_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar88_g59494 = temp_output_90_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar88_g59494 = temp_output_123_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar88_g59494 = temp_output_123_0_g59494;
+					float3 temp_output_7_0_g59496 = frac( ( (ifLocalVar88_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59496 = dot( temp_output_7_0_g59496 , ( (temp_output_7_0_g59496).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59496 = ( temp_output_7_0_g59496 + dotResult8_g59496 );
+					float2 temp_output_597_26_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59496).xx + (temp_output_12_0_g59496).yz ) * (temp_output_12_0_g59496).zy ) ) );
+					float temp_output_66_0_g59494 = ( 1.0 - break55_g59494.y );
+					float ifLocalVar60_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar60_g59494 = temp_output_66_0_g59494;
+					else
+					ifLocalVar60_g59494 = break55_g59494.y;
+					float temp_output_597_28_g59493 = ifLocalVar60_g59494;
+					float2 ifLocalVar89_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar89_g59494 = temp_output_123_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar89_g59494 = temp_output_90_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar89_g59494 = temp_output_90_0_g59494;
+					float3 temp_output_7_0_g59497 = frac( ( (ifLocalVar89_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59497 = dot( temp_output_7_0_g59497 , ( (temp_output_7_0_g59497).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59497 = ( temp_output_7_0_g59497 + dotResult8_g59497 );
+					float2 temp_output_597_27_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59497).xx + (temp_output_12_0_g59497).yz ) * (temp_output_12_0_g59497).zy ) ) );
+					float temp_output_67_0_g59494 = ( 1.0 - break55_g59494.x );
+					float ifLocalVar61_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar61_g59494 = temp_output_67_0_g59494;
+					else
+					ifLocalVar61_g59494 = break55_g59494.x;
+					float temp_output_597_29_g59493 = ifLocalVar61_g59494;
+					float4 Output_2D293_g59493 = ( ( tex2D( _MainTex, temp_output_597_0_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_30_g59493 ) + ( tex2D( _MainTex, temp_output_597_26_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_28_g59493 ) + ( tex2D( _MainTex, temp_output_597_27_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_29_g59493 ) );
+					#ifdef _STOCHASTICENABLED_ON
+					float4 staticSwitch1001_g59446 = Output_2D293_g59493;
+					#else
+					float4 staticSwitch1001_g59446 = tex2D( _MainTex, UV02420_g59446 );
+					#endif
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g59446 = staticSwitch1001_g59446;
+					#else
+					float4 staticSwitch1549_g59446 = _Color;
+					#endif
+					float White38_g59446 = 1.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g59446 = White38_g59446;
+					#else
+					float staticSwitch1191_g59446 = staticSwitch1549_g59446.a;
+					#endif
 					
 
 					o.Normal = half3( 0, 0, 1 );
 
-					o.Alpha = 1;
+					o.Alpha = staticSwitch1191_g59446;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
 
@@ -3252,6 +3355,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#define ASE_FOG
 				#define ASE_LIGHTING_SIMPLE 1
 				#define ASE_NO_AMBIENT 1
+				#define _SPECULARHIGHLIGHTS_OFF
 				#define ASE_VERSION 19907
 
 				#pragma vertex vert
@@ -3280,7 +3384,11 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#include "UnityPBSLighting.cginc"
 				#include "AutoLight.cginc"
 
-				
+				#define ASE_NEEDS_TEXTURE_COORDINATES0
+				#pragma shader_feature _LIGHTMAPDEBUG
+				#pragma shader_feature_local_fragment _MAINTEX
+				#pragma shader_feature_local _STOCHASTICENABLED_ON
+
 
 				int _ObjectId;
 				int _PassValue;
@@ -3290,7 +3398,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float4 vertex : POSITION;
 					half3 normal : NORMAL;
 					half4 tangent : TANGENT;
-					
+					float4 ase_texcoord : TEXCOORD0;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 				};
 
@@ -3299,7 +3407,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float4 pos : SV_POSITION;
 					float4 worldPos : TEXCOORD0; // xyz = positionWS
 					half3 normalWS : TEXCOORD1;
-					
+					float4 ase_texcoord2 : TEXCOORD2;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 					UNITY_VERTEX_OUTPUT_STEREO
 				};
@@ -3334,6 +3442,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 				uniform float4 _UdonSpecularLightRight[32];
 				uniform float4 _UdonSpecularLightCol[32];
 				uniform float4 _UdonSpecularLightPos[32];
+				uniform half4 _Color;
+				uniform sampler2D _MainTex;
 
 
 				
@@ -3345,7 +3455,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					UNITY_TRANSFER_INSTANCE_ID(v,o);
 					UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-					
+					o.ase_texcoord2 = v.ase_texcoord;
 
 					#ifdef ASE_ABSOLUTE_VERTEX_POS
 						float3 defaultVertexValue = v.vertex.xyz;
@@ -3376,7 +3486,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 				{
 					float4 vertex : INTERNALTESSPOS;
 					half3 normal : NORMAL;
-					
+					float4 ase_texcoord : TEXCOORD0;
+
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 				};
 
@@ -3393,7 +3504,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					UNITY_TRANSFER_INSTANCE_ID(v, o);
 					o.vertex = v.vertex;
 					o.normal = v.normal;
-					
+					o.ase_texcoord = v.ase_texcoord;
 					return o;
 				}
 
@@ -3432,7 +3543,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					appdata o = (appdata) 0;
 					o.vertex = patch[0].vertex * bary.x + patch[1].vertex * bary.y + patch[2].vertex * bary.z;
 					o.normal = patch[0].normal * bary.x + patch[1].normal * bary.y + patch[2].normal * bary.z;
-					
+					o.ase_texcoord = patch[0].ase_texcoord * bary.x + patch[1].ase_texcoord * bary.y + patch[2].ase_texcoord * bary.z;
 					#if defined(ASE_PHONG_TESSELLATION)
 					float3 pp[3];
 					for (int i = 0; i < 3; ++i)
@@ -3462,9 +3573,94 @@ Shader "Meenphie/Standard/Transparent Blend"
 						UNITY_APPLY_DITHER_CROSSFADE(IN.pos.xy);
 					#endif
 
+					float2 texCoord2357_g59446 = IN.ase_texcoord2.xy * float2( 1,1 ) + float2( 0,0 );
+					half2 UV02420_g59446 = texCoord2357_g59446;
+					float2 temp_output_5_0_g59493 = UV02420_g59446;
+					float2 UV633_g59493 = temp_output_5_0_g59493;
+					float2 UV100_g59494 = UV633_g59493;
+					float2 temp_output_51_0_g59494 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g59494 * float2( 3.464,3.464 ) ) );
+					float2 break55_g59494 = frac( temp_output_51_0_g59494 );
+					float temp_output_56_0_g59494 = ( ( 1.0 - break55_g59494.x ) - break55_g59494.y );
+					float2 temp_output_52_0_g59494 = floor( temp_output_51_0_g59494 );
+					float2 temp_output_125_0_g59494 = ( temp_output_52_0_g59494 + float2( 1,1 ) );
+					float2 ifLocalVar87_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar87_g59494 = temp_output_52_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar87_g59494 = temp_output_125_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar87_g59494 = temp_output_125_0_g59494;
+					float3 temp_output_7_0_g59495 = frac( ( (ifLocalVar87_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59495 = dot( temp_output_7_0_g59495 , ( (temp_output_7_0_g59495).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59495 = ( temp_output_7_0_g59495 + dotResult8_g59495 );
+					float2 temp_output_597_0_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59495).xx + (temp_output_12_0_g59495).yz ) * (temp_output_12_0_g59495).zy ) ) );
+					float2 DDX631_g59493 = ddx( temp_output_5_0_g59493 );
+					float2 DDY632_g59493 = ddy( temp_output_5_0_g59493 );
+					float temp_output_65_0_g59494 = ( 0.0 - temp_output_56_0_g59494 );
+					float ifLocalVar59_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar59_g59494 = temp_output_65_0_g59494;
+					else
+					ifLocalVar59_g59494 = temp_output_56_0_g59494;
+					float temp_output_597_30_g59493 = ifLocalVar59_g59494;
+					float2 temp_output_90_0_g59494 = ( temp_output_52_0_g59494 + float2( 0,1 ) );
+					float2 temp_output_123_0_g59494 = ( temp_output_52_0_g59494 + float2( 1,0 ) );
+					float2 ifLocalVar88_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar88_g59494 = temp_output_90_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar88_g59494 = temp_output_123_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar88_g59494 = temp_output_123_0_g59494;
+					float3 temp_output_7_0_g59496 = frac( ( (ifLocalVar88_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59496 = dot( temp_output_7_0_g59496 , ( (temp_output_7_0_g59496).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59496 = ( temp_output_7_0_g59496 + dotResult8_g59496 );
+					float2 temp_output_597_26_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59496).xx + (temp_output_12_0_g59496).yz ) * (temp_output_12_0_g59496).zy ) ) );
+					float temp_output_66_0_g59494 = ( 1.0 - break55_g59494.y );
+					float ifLocalVar60_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar60_g59494 = temp_output_66_0_g59494;
+					else
+					ifLocalVar60_g59494 = break55_g59494.y;
+					float temp_output_597_28_g59493 = ifLocalVar60_g59494;
+					float2 ifLocalVar89_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar89_g59494 = temp_output_123_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar89_g59494 = temp_output_90_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar89_g59494 = temp_output_90_0_g59494;
+					float3 temp_output_7_0_g59497 = frac( ( (ifLocalVar89_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59497 = dot( temp_output_7_0_g59497 , ( (temp_output_7_0_g59497).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59497 = ( temp_output_7_0_g59497 + dotResult8_g59497 );
+					float2 temp_output_597_27_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59497).xx + (temp_output_12_0_g59497).yz ) * (temp_output_12_0_g59497).zy ) ) );
+					float temp_output_67_0_g59494 = ( 1.0 - break55_g59494.x );
+					float ifLocalVar61_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar61_g59494 = temp_output_67_0_g59494;
+					else
+					ifLocalVar61_g59494 = break55_g59494.x;
+					float temp_output_597_29_g59493 = ifLocalVar61_g59494;
+					float4 Output_2D293_g59493 = ( ( tex2D( _MainTex, temp_output_597_0_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_30_g59493 ) + ( tex2D( _MainTex, temp_output_597_26_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_28_g59493 ) + ( tex2D( _MainTex, temp_output_597_27_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_29_g59493 ) );
+					#ifdef _STOCHASTICENABLED_ON
+					float4 staticSwitch1001_g59446 = Output_2D293_g59493;
+					#else
+					float4 staticSwitch1001_g59446 = tex2D( _MainTex, UV02420_g59446 );
+					#endif
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g59446 = staticSwitch1001_g59446;
+					#else
+					float4 staticSwitch1549_g59446 = _Color;
+					#endif
+					float White38_g59446 = 1.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g59446 = White38_g59446;
+					#else
+					float staticSwitch1191_g59446 = staticSwitch1549_g59446.a;
+					#endif
 					
 
-					half Alpha = 1;
+					half Alpha = staticSwitch1191_g59446;
 					half AlphaClipThreshold = 0.5;
 
 					#if defined( ASE_DEPTH_WRITE_ON )
@@ -3503,6 +3699,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#define ASE_FOG
 				#define ASE_LIGHTING_SIMPLE 1
 				#define ASE_NO_AMBIENT 1
+				#define _SPECULARHIGHLIGHTS_OFF
 				#define ASE_VERSION 19907
 
 				#pragma vertex vert
@@ -3531,7 +3728,11 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#include "UnityPBSLighting.cginc"
 				#include "AutoLight.cginc"
 
-				
+				#define ASE_NEEDS_TEXTURE_COORDINATES0
+				#pragma shader_feature _LIGHTMAPDEBUG
+				#pragma shader_feature_local_fragment _MAINTEX
+				#pragma shader_feature_local _STOCHASTICENABLED_ON
+
 
 				float4 _SelectionID;
 
@@ -3540,7 +3741,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float4 vertex : POSITION;
 					half3 normal : NORMAL;
 					half4 tangent : TANGENT;
-					
+					float4 ase_texcoord : TEXCOORD0;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 				};
 
@@ -3549,7 +3750,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float4 pos : SV_POSITION;
 					float4 worldPos : TEXCOORD0; // xyz = positionWS
 					half3 normalWS : TEXCOORD1;
-					
+					float4 ase_texcoord2 : TEXCOORD2;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 					UNITY_VERTEX_OUTPUT_STEREO
 				};
@@ -3584,6 +3785,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 				uniform float4 _UdonSpecularLightRight[32];
 				uniform float4 _UdonSpecularLightCol[32];
 				uniform float4 _UdonSpecularLightPos[32];
+				uniform half4 _Color;
+				uniform sampler2D _MainTex;
 
 
 				
@@ -3595,7 +3798,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					UNITY_TRANSFER_INSTANCE_ID(v,o);
 					UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-					
+					o.ase_texcoord2 = v.ase_texcoord;
 
 					#ifdef ASE_ABSOLUTE_VERTEX_POS
 						float3 defaultVertexValue = v.vertex.xyz;
@@ -3626,7 +3829,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 				{
 					float4 vertex : INTERNALTESSPOS;
 					half3 normal : NORMAL;
-					
+					float4 ase_texcoord : TEXCOORD0;
+
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 				};
 
@@ -3643,7 +3847,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					UNITY_TRANSFER_INSTANCE_ID(v, o);
 					o.vertex = v.vertex;
 					o.normal = v.normal;
-					
+					o.ase_texcoord = v.ase_texcoord;
 					return o;
 				}
 
@@ -3682,7 +3886,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 					appdata o = (appdata) 0;
 					o.vertex = patch[0].vertex * bary.x + patch[1].vertex * bary.y + patch[2].vertex * bary.z;
 					o.normal = patch[0].normal * bary.x + patch[1].normal * bary.y + patch[2].normal * bary.z;
-					
+					o.ase_texcoord = patch[0].ase_texcoord * bary.x + patch[1].ase_texcoord * bary.y + patch[2].ase_texcoord * bary.z;
 					#if defined(ASE_PHONG_TESSELLATION)
 					float3 pp[3];
 					for (int i = 0; i < 3; ++i)
@@ -3712,9 +3916,94 @@ Shader "Meenphie/Standard/Transparent Blend"
 						UNITY_APPLY_DITHER_CROSSFADE(IN.pos.xy);
 					#endif
 
+					float2 texCoord2357_g59446 = IN.ase_texcoord2.xy * float2( 1,1 ) + float2( 0,0 );
+					half2 UV02420_g59446 = texCoord2357_g59446;
+					float2 temp_output_5_0_g59493 = UV02420_g59446;
+					float2 UV633_g59493 = temp_output_5_0_g59493;
+					float2 UV100_g59494 = UV633_g59493;
+					float2 temp_output_51_0_g59494 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g59494 * float2( 3.464,3.464 ) ) );
+					float2 break55_g59494 = frac( temp_output_51_0_g59494 );
+					float temp_output_56_0_g59494 = ( ( 1.0 - break55_g59494.x ) - break55_g59494.y );
+					float2 temp_output_52_0_g59494 = floor( temp_output_51_0_g59494 );
+					float2 temp_output_125_0_g59494 = ( temp_output_52_0_g59494 + float2( 1,1 ) );
+					float2 ifLocalVar87_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar87_g59494 = temp_output_52_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar87_g59494 = temp_output_125_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar87_g59494 = temp_output_125_0_g59494;
+					float3 temp_output_7_0_g59495 = frac( ( (ifLocalVar87_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59495 = dot( temp_output_7_0_g59495 , ( (temp_output_7_0_g59495).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59495 = ( temp_output_7_0_g59495 + dotResult8_g59495 );
+					float2 temp_output_597_0_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59495).xx + (temp_output_12_0_g59495).yz ) * (temp_output_12_0_g59495).zy ) ) );
+					float2 DDX631_g59493 = ddx( temp_output_5_0_g59493 );
+					float2 DDY632_g59493 = ddy( temp_output_5_0_g59493 );
+					float temp_output_65_0_g59494 = ( 0.0 - temp_output_56_0_g59494 );
+					float ifLocalVar59_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar59_g59494 = temp_output_65_0_g59494;
+					else
+					ifLocalVar59_g59494 = temp_output_56_0_g59494;
+					float temp_output_597_30_g59493 = ifLocalVar59_g59494;
+					float2 temp_output_90_0_g59494 = ( temp_output_52_0_g59494 + float2( 0,1 ) );
+					float2 temp_output_123_0_g59494 = ( temp_output_52_0_g59494 + float2( 1,0 ) );
+					float2 ifLocalVar88_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar88_g59494 = temp_output_90_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar88_g59494 = temp_output_123_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar88_g59494 = temp_output_123_0_g59494;
+					float3 temp_output_7_0_g59496 = frac( ( (ifLocalVar88_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59496 = dot( temp_output_7_0_g59496 , ( (temp_output_7_0_g59496).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59496 = ( temp_output_7_0_g59496 + dotResult8_g59496 );
+					float2 temp_output_597_26_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59496).xx + (temp_output_12_0_g59496).yz ) * (temp_output_12_0_g59496).zy ) ) );
+					float temp_output_66_0_g59494 = ( 1.0 - break55_g59494.y );
+					float ifLocalVar60_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar60_g59494 = temp_output_66_0_g59494;
+					else
+					ifLocalVar60_g59494 = break55_g59494.y;
+					float temp_output_597_28_g59493 = ifLocalVar60_g59494;
+					float2 ifLocalVar89_g59494 = 0;
+					if( temp_output_56_0_g59494 > 0.0 )
+					ifLocalVar89_g59494 = temp_output_123_0_g59494;
+					else if( temp_output_56_0_g59494 == 0.0 )
+					ifLocalVar89_g59494 = temp_output_90_0_g59494;
+					else if( temp_output_56_0_g59494 < 0.0 )
+					ifLocalVar89_g59494 = temp_output_90_0_g59494;
+					float3 temp_output_7_0_g59497 = frac( ( (ifLocalVar89_g59494).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g59497 = dot( temp_output_7_0_g59497 , ( (temp_output_7_0_g59497).yzx + 33.33 ) );
+					float3 temp_output_12_0_g59497 = ( temp_output_7_0_g59497 + dotResult8_g59497 );
+					float2 temp_output_597_27_g59493 = ( UV100_g59494 + frac( ( ( (temp_output_12_0_g59497).xx + (temp_output_12_0_g59497).yz ) * (temp_output_12_0_g59497).zy ) ) );
+					float temp_output_67_0_g59494 = ( 1.0 - break55_g59494.x );
+					float ifLocalVar61_g59494 = 0;
+					if( temp_output_56_0_g59494 <= 0.0 )
+					ifLocalVar61_g59494 = temp_output_67_0_g59494;
+					else
+					ifLocalVar61_g59494 = break55_g59494.x;
+					float temp_output_597_29_g59493 = ifLocalVar61_g59494;
+					float4 Output_2D293_g59493 = ( ( tex2D( _MainTex, temp_output_597_0_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_30_g59493 ) + ( tex2D( _MainTex, temp_output_597_26_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_28_g59493 ) + ( tex2D( _MainTex, temp_output_597_27_g59493, DDX631_g59493, DDY632_g59493 ) * temp_output_597_29_g59493 ) );
+					#ifdef _STOCHASTICENABLED_ON
+					float4 staticSwitch1001_g59446 = Output_2D293_g59493;
+					#else
+					float4 staticSwitch1001_g59446 = tex2D( _MainTex, UV02420_g59446 );
+					#endif
+					#ifdef _MAINTEX
+					float4 staticSwitch1549_g59446 = staticSwitch1001_g59446;
+					#else
+					float4 staticSwitch1549_g59446 = _Color;
+					#endif
+					float White38_g59446 = 1.0;
+					#ifdef _LIGHTMAPDEBUG
+					float staticSwitch1191_g59446 = White38_g59446;
+					#else
+					float staticSwitch1191_g59446 = staticSwitch1549_g59446.a;
+					#endif
 					
 
-					half Alpha = 1;
+					half Alpha = staticSwitch1191_g59446;
 					half AlphaClipThreshold = 0.5;
 
 					#if defined( ASE_DEPTH_WRITE_ON )
@@ -3743,7 +4032,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 Version=19907
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-320,0;Inherit;False;Meenphie;0;;59446;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,0;0;5;COLOR;625;FLOAT4;624;FLOAT;156;FLOAT;427;FLOAT3;1024
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;0,0;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2;0,0;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;5;Meenphie/Standard/Transparent Blend;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;1;False;;True;3;False;;False;False;True;3;RenderType=Transparent=RenderType;Queue=Transparent=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;1;5;False;;10;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;3;639073670281448880;Surface;1;639073670302367760;  Blend;0;0;  Dither Shadows;0;639073793954374050;Two Sided;0;639073793987660130;Alpha Clipping;0;0;  Use Shadow Threshold;0;0;Deferred Pass;1;0;Normal Space;0;0;Transmission;0;0;  Transmission Shadow;0.5,False,;0;Translucency;0;0;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;0;Receive Shadows;1;0;Receive Specular;2;0;Receive Reflections;2;0;GPU Instancing;1;0;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;0;639073784690656320;Meta Pass;0;639073784693261280;Add Pass;0;639073784695577680;Override Baked GI;0;0;Write Depth;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;False;True;False;True;False;True;True;True;False;;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2;0,0;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;5;Meenphie/Standard/Transparent Blend;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;1;False;;True;3;False;;False;False;True;3;RenderType=Transparent=RenderType;Queue=Transparent=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;1;5;False;;10;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;3;639073670281448880;Surface;1;639073670302367760;  Blend;0;0;  Dither Shadows;0;639073793954374050;Two Sided;0;639073793987660130;Alpha Clipping;0;0;  Use Shadow Threshold;0;0;Deferred Pass;1;0;Normal Space;0;0;Transmission;0;0;  Transmission Shadow;0.5,False,;0;Translucency;0;0;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;0;Receive Shadows;1;0;Receive Specular;0;639073808757328170;Receive Reflections;1;639073808765822660;GPU Instancing;1;0;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;0;639073784690656320;Meta Pass;0;639073784693261280;Add Pass;0;639073784695577680;Override Baked GI;0;0;Write Depth;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;False;True;False;True;False;True;True;True;False;;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3;0,0;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;5;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;4;0,0;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;5;0,0;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Meta;0;4;Meta;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
@@ -3752,5 +4041,6 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;8;0,0;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ScenePickingPass;0;7;ScenePickingPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=Picking;False;False;0;;0;0;Standard;0;False;0
 WireConnection;2;0;10;625
 WireConnection;2;2;10;624
+WireConnection;2;7;10;156
 ASEEND*/
-//CHKSM=23F4AF46A5CA44B3874F2722B842EC5661D3EFC0
+//CHKSM=8F47F0CA597E7EBD7615F5D00DBDE282EB4B07A7
