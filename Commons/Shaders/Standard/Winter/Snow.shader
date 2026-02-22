@@ -1566,7 +1566,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _STOCHASTICENABLED_ON
 					float staticSwitch1004_g5296 = break31_g59038.a;
 					#else
-					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).a;
+					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).r;
 					#endif
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g5296 = ( 1.0 - staticSwitch1004_g5296 );
@@ -2949,7 +2949,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _STOCHASTICENABLED_ON
 					float staticSwitch1004_g5296 = break31_g59038.a;
 					#else
-					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).a;
+					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).r;
 					#endif
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g5296 = ( 1.0 - staticSwitch1004_g5296 );
@@ -4247,7 +4247,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _STOCHASTICENABLED_ON
 					float staticSwitch1004_g5296 = break31_g59038.a;
 					#else
-					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).a;
+					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).r;
 					#endif
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g5296 = ( 1.0 - staticSwitch1004_g5296 );
@@ -4780,4 +4780,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=C884AAC0709A584F5CD142A1357E234F8FD66E5D
+//CHKSM=8AB09EC3D4E9A61075A31D05816F965EF9638165

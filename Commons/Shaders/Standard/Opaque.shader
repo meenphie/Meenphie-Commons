@@ -1227,7 +1227,7 @@ Shader "Meenphie/Standard/Opaque"
 					#ifdef _STOCHASTICENABLED_ON
 					float staticSwitch1004_g59498 = break31_g59516.a;
 					#else
-					float staticSwitch1004_g59498 = tex2D( _GlossinessMap, UV02420_g59498 ).a;
+					float staticSwitch1004_g59498 = tex2D( _GlossinessMap, UV02420_g59498 ).r;
 					#endif
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g59498 = ( 1.0 - staticSwitch1004_g59498 );
@@ -1917,4 +1917,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;3739;0;5257;625
 WireConnection;3739;2;5257;624
 ASEEND*/
-//CHKSM=B4071BA8A6CF17353E124030966D28EA547796AA
+//CHKSM=08D6E069581301B0193CF779E54372E099980B12

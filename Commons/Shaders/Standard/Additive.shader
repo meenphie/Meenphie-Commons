@@ -1228,7 +1228,7 @@ Shader "Meenphie/Standard/Additive"
 					#ifdef _STOCHASTICENABLED_ON
 					float staticSwitch1004_g59572 = break31_g59590.a;
 					#else
-					float staticSwitch1004_g59572 = tex2D( _GlossinessMap, UV02420_g59572 ).a;
+					float staticSwitch1004_g59572 = tex2D( _GlossinessMap, UV02420_g59572 ).r;
 					#endif
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g59572 = ( 1.0 - staticSwitch1004_g59572 );
@@ -2422,4 +2422,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=E6CCAABEA0F23E72F01013014A92BCA5D7D6ADDB
+//CHKSM=3F715DA0765E6C73C930BCF35080CFF51ECBB1C1
