@@ -60,7 +60,6 @@ public class MeshImporter : AssetPostprocessor
         bool changed = false;
 
         // --- COULEURS & ALPHA ---
-        // On récupère la couleur actuelle (ou blanc par défaut) pour ne pas écraser l'alpha s'il n'y a que la couleur qui change
         Color colorToApply = mat.HasProperty("_Color") ? mat.GetColor("_Color") : Color.white;
         bool updateColor = false;
 
@@ -200,7 +199,7 @@ public static class SimpleJsonParser
     {
         var result = new Dictionary<string, Dictionary<string, string>>();
         string[] materials = json.Split(new string[] { "}," }, System.StringSplitOptions.RemoveEmptyEntries);
-        // Ajout de "AlphaValue" dans la liste des clés reconnues
+        
         string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "SmoothnessValue", "EmissionIntensity", "AlphaValue" };
 
         foreach (var m in materials)
