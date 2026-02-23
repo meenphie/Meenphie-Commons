@@ -3,102 +3,89 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using System.Linq;
 
 public class MeshImporter : AssetPostprocessor
 {
     private const string TAG = "[<color=purple>Meenphie</color>]";
 
     [MenuItem("Meenphie/Materials/Update All")]
-    public static void SyncAll() => Process(true);
+    public static void SyncAll() => Process();
 
-    private static void Process(bool assign)
+    private static void Process()
     {
         string projectRoot = Path.GetDirectoryName(Application.dataPath);
         string jsonPath = Path.Combine(projectRoot, "Blender", "materials_map.json");
 
-        if (!File.Exists(jsonPath)) {
-            Debug.LogError($"{TAG} JSON introuvable : {jsonPath}");
-            return;
-        }
+        if (!File.Exists(jsonPath)) return;
 
         var data = SimpleJsonParser.Parse(File.ReadAllText(jsonPath));
         string[] guids = AssetDatabase.FindAssets("t:Material");
-        int count = 0;
 
-        try {
-            for (int i = 0; i < guids.Length; i++) {
-                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-                if (mat == null || !data.ContainsKey(mat.name)) continue;
+        foreach (var guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
 
-                EditorUtility.DisplayProgressBar("Meenphie Sync", mat.name, (float)i / guids.Length);
+            if (mat != null && data.ContainsKey(mat.name))
+            {
                 Undo.RecordObject(mat, "Meenphie Sync");
-
-                if (Apply(mat, data[mat.name])) {
-                    count++;
+                if (ApplyData(mat, data[mat.name]))
+                {
                     EditorUtility.SetDirty(mat);
-                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                    AssetDatabase.ImportAsset(path);
                 }
             }
         }
-        finally { EditorUtility.ClearProgressBar(); }
         AssetDatabase.SaveAssets();
-        Debug.Log($"{TAG} Terminé. {count} matériaux synchronisés.");
     }
 
-    private static bool Apply(Material mat, Dictionary<string, string> data)
+    private static bool ApplyData(Material mat, Dictionary<string, string> info)
     {
         bool changed = false;
 
-        // --- COULEUR & ALPHA ---
-        Color finalColor = mat.HasProperty("_Color") ? mat.color : Color.white;
-        if (data.ContainsKey("ColorHex") && ColorUtility.TryParseHtmlString("#" + data["ColorHex"], out Color c)) {
-            finalColor.r = c.r; finalColor.g = c.g; finalColor.b = c.b;
+        // 1. Couleurs & Alpha
+        if (info.ContainsKey("ColorHex") && ColorUtility.TryParseHtmlString("#" + info["ColorHex"], out Color c))
+        {
+            float alpha = info.ContainsKey("AlphaValue") ? ParseF(info["AlphaValue"]) : 1.0f;
+            mat.SetColor("_Color", new Color(c.r, c.g, c.b, alpha));
             changed = true;
         }
 
-        if (data.ContainsKey("AlphaValue")) {
-            finalColor.a = ParseF(data["AlphaValue"]);
-            changed = true;
-        }
-        mat.SetColor("_Color", finalColor);
-
-        // --- TRANSPARENCE (MODE) ---
-        if (data.ContainsKey("BlendMode") && data["BlendMode"] != "OPAQUE") {
-            SetupTransparent(mat);
+        // 2. Propriétés de rendu (Transparency & Double Sided)
+        if (info.ContainsKey("BlendMode") && info["BlendMode"] != "OPAQUE")
+        {
+            SetupTransparentMode(mat);
             changed = true;
         }
 
-        // --- METALLIC / SMOOTHNESS ---
-        if (data.ContainsKey("MetallicValue")) { mat.SetFloat("_Metallic", ParseF(data["MetallicValue"])); changed = true; }
-        if (data.ContainsKey("SmoothnessValue")) { mat.SetFloat("_Glossiness", ParseF(data["SmoothnessValue"])); changed = true; }
-
-        // --- EMISSION ---
-        if (data.ContainsKey("EmissionHex") && ColorUtility.TryParseHtmlString("#" + data["EmissionHex"], out Color ec)) {
-            float intensity = data.ContainsKey("EmissionIntensity") ? ParseF(data["EmissionIntensity"]) : 1.0f;
-            mat.SetColor("_EmissionColor", ec * intensity);
-            mat.EnableKeyword("_EMISSION");
+        if (info.ContainsKey("DoubleSided") && info["DoubleSided"].ToLower() == "true")
+        {
+            mat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
             changed = true;
         }
 
-        // --- TEXTURES ---
-        changed |= SetTex(mat, data, "Base Color", "_MainTex");
-        changed |= SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP");
-        changed |= SetTex(mat, data, "Roughness", "_GlossinessMap");
-        changed |= SetTex(mat, data, "Metallic", "_MetallicMap");
-        changed |= SetTex(mat, data, "Emission", "_EmissionMap", "_EMISSION");
+        // 3. Valeurs numériques
+        if (info.ContainsKey("MetallicValue")) mat.SetFloat("_Metallic", ParseF(info["MetallicValue"]));
+        if (info.ContainsKey("SmoothnessValue")) mat.SetFloat("_Glossiness", ParseF(info["SmoothnessValue"]));
+
+        // 4. Textures
+        changed |= SetTex(mat, info, "Base Color", "_MainTex");
+        changed |= SetTex(mat, info, "Normal", "_BumpMap", "_NORMALMAP");
+        changed |= SetTex(mat, info, "Roughness", "_GlossinessMap");
+        changed |= SetTex(mat, info, "Metallic", "_MetallicMap");
+        changed |= SetTex(mat, info, "Occlusion", "_OcclusionMap");
+        changed |= SetTex(mat, info, "Emission", "_EmissionMap", "_EMISSION");
 
         return changed;
     }
 
-    private static void SetupTransparent(Material mat)
+    private static void SetupTransparentMode(Material mat)
     {
-        // Bascule le Standard Shader en mode "Fade" (mieux pour le verre/UI)
-        mat.SetFloat("_Mode", 2); 
+        mat.SetFloat("_Mode", 2); // Fade
         mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
         mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
         mat.SetInt("_ZWrite", 0);
-        mat.DisableKeyword("_ALPHATEST_ON");
         mat.EnableKeyword("_ALPHABLEND_ON");
         mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
     }
@@ -107,7 +94,8 @@ public class MeshImporter : AssetPostprocessor
     {
         if (!data.ContainsKey(key)) return false;
         Texture2D tex = FindTex(data[key]);
-        if (tex != null && mat.GetTexture(prop) != tex) {
+        if (tex != null)
+        {
             mat.SetTexture(prop, tex);
             if (!string.IsNullOrEmpty(keyword)) mat.EnableKeyword(keyword);
             return true;
@@ -115,47 +103,39 @@ public class MeshImporter : AssetPostprocessor
         return false;
     }
 
-    private static Texture2D FindTex(string fileName)
+    private static Texture2D FindTex(string name)
     {
-        string name = Path.GetFileNameWithoutExtension(fileName);
-        string[] guids = AssetDatabase.FindAssets(name + " t:Texture");
-        foreach (var g in guids) {
-            string p = AssetDatabase.GUIDToAssetPath(g);
-            if (Path.GetFileName(p) == fileName) return AssetDatabase.LoadAssetAtPath<Texture2D>(p);
-        }
-        return null;
+        string cleanName = Path.GetFileNameWithoutExtension(name);
+        string guid = AssetDatabase.FindAssets(cleanName + " t:Texture").FirstOrDefault();
+        return guid != null ? AssetDatabase.LoadAssetAtPath<Texture2D>(AssetDatabase.GUIDToAssetPath(guid)) : null;
     }
 
-    private static float ParseF(string s) => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 1.0f;
+    private static float ParseF(string s) => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 0;
 }
 
 public static class SimpleJsonParser
 {
+    // Parser plus générique pour accepter n'importe quelle clé
     public static Dictionary<string, Dictionary<string, string>> Parse(string json)
     {
         var result = new Dictionary<string, Dictionary<string, string>>();
-        string[] materials = json.Split(new string[] { "}," }, System.StringSplitOptions.RemoveEmptyEntries);
-        string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "SmoothnessValue", "EmissionIntensity", "AlphaValue", "BlendMode" };
-
-        foreach (var m in materials) {
-            int s = m.IndexOf('"') + 1;
-            int e = m.IndexOf('"', s);
-            if (s <= 0 || e <= 0) continue;
-            string matName = m.Substring(s, e - s);
+        // Note: Pour un vrai projet, utilise Newtonsoft.Json. 
+        // Ici c'est un parser simplifié par String pour éviter les dépendances.
+        string[] parts = json.Split(new string[] { "}," }, System.StringSplitOptions.None);
+        foreach (var p in parts)
+        {
+            if (!p.Contains(": {")) continue;
+            string matName = p.Split('"')[1];
             var dict = new Dictionary<string, string>();
-            foreach (var k in keys) {
-                string search = $"\"{k}\": ";
-                if (m.Contains(search)) {
-                    int vStart = m.IndexOf(search) + search.Length;
-                    if (m[vStart] == '"') {
-                        vStart++;
-                        dict[k] = m.Substring(vStart, m.IndexOf('"', vStart) - vStart);
-                    } else {
-                        int vEnd = m.IndexOfAny(new char[] { ',', '}', '\n' }, vStart);
-                        if (vEnd == -1) vEnd = m.Length;
-                        dict[k] = m.Substring(vStart, vEnd - vStart).Trim();
-                    }
-                }
+            string content = p.Substring(p.IndexOf("{") + 1);
+            string[] lines = content.Split(',');
+            foreach (var line in lines)
+            {
+                if (!line.Contains(":")) continue;
+                string[] kv = line.Split(':');
+                string key = kv[0].Trim().Replace("\"", "");
+                string val = kv[1].Trim().Replace("\"", "").Replace("}", "");
+                dict[key] = val;
             }
             result[matName] = dict;
         }
