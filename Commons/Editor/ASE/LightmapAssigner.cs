@@ -6,8 +6,8 @@ using System.Collections.Generic;
 public static class LightmapAssigner
 {
     private static readonly string[][] ShaderPropGroups = {
-        new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" }, // Slot 0 = OFF
-        new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }  // Slot 1 = ON
+        new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" },
+        new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }
     };
 
     [MenuItem("Meenphie/Lightmaps/Assign Lightmaps")]
@@ -36,7 +36,7 @@ public static class LightmapAssigner
                 {
                     // 1. On extrait le groupe du nom du matériau : "Shader - Groupe - Nom"
                     string[] nameParts = mat.name.Split(new string[] { " - " }, System.StringSplitOptions.None);
-                    
+
                     // On a besoin d'au moins [Shader] et [Groupe]
                     if (nameParts.Length >= 2)
                     {
@@ -44,7 +44,7 @@ public static class LightmapAssigner
 
                         foreach (var kvp in lightmapGroups)
                         {
-                            string lightmapGroupName = kvp.Key; 
+                            string lightmapGroupName = kvp.Key;
                             string baseLMName = lightmapGroupName.Replace("GI ", "").Replace(" ON", "").Replace(" OFF", "").Trim();
 
                             // 2. Comparaison stricte entre le groupe du mat et le groupe de la lightmap
@@ -67,7 +67,7 @@ public static class LightmapAssigner
                                         mat.SetTexture(prop, tex);
                                         EditorUtility.SetDirty(mat);
                                         touchedTextures.Add(tex);
-                                        
+
                                         Debug.Log($"[<color=green>Assign</color>] Mat: <b>{mat.name}</b> | Slot: {slotIndex} | Groupe: {materialGroupName}");
                                     }
                                 }
@@ -132,69 +132,69 @@ public static class LightmapAssigner
     }
 
     private static Dictionary<string, Texture[]> BuildLightmapGroups()
-{
-    Dictionary<string, Texture[]> lightmapGroups = new Dictionary<string, Texture[]>();
-    
-    // On cherche tous les fichiers RNMX (originaux ou DN)
-    string[] rnmxGuids = AssetDatabase.FindAssets("_RNMX t:Texture");
-
-    foreach (string guid in rnmxGuids)
     {
-        string path = AssetDatabase.GUIDToAssetPath(guid);
-        Texture texX = AssetDatabase.LoadAssetAtPath<Texture>(path);
-        if (texX == null) continue;
+        Dictionary<string, Texture[]> lightmapGroups = new Dictionary<string, Texture[]>();
 
-        // Si le fichier actuel est déjà un _DN, on récupère le nom de base sans le suffixe _DN
-        // Sinon on prend juste le nom de base.
-        string baseName = texX.name.Replace("_RNMX", "").Replace("_DN", "");
+        // On cherche tous les fichiers RNMX (originaux ou DN)
+        string[] rnmxGuids = AssetDatabase.FindAssets("_RNMX t:Texture");
 
-        if (!lightmapGroups.ContainsKey(baseName))
-            lightmapGroups[baseName] = new Texture[3];
-
-        // Pour chaque canal (X, Y, Z), on tente de trouver la version débruitée
-        lightmapGroups[baseName][0] = GetBestTexture(baseName + "_RNMX");
-        lightmapGroups[baseName][1] = GetBestTexture(baseName + "_RNMY");
-        lightmapGroups[baseName][2] = GetBestTexture(baseName + "_RNMZ");
-    }
-    return lightmapGroups;
-}
-
-/// <summary>
-/// Cherche d'abord "Nom_DN", sinon retourne "Nom"
-/// </summary>
-private static Texture GetBestTexture(string textureFullBaseName)
-{
-    // 1. Priorité au Denoised (_DN)
-    string dnPath = FindPath(textureFullBaseName + "_DN");
-    if (!string.IsNullOrEmpty(dnPath))
-    {
-        return AssetDatabase.LoadAssetAtPath<Texture>(dnPath);
-    }
-
-    // 2. Fallback sur l'original
-    string originalPath = FindPath(textureFullBaseName);
-    if (!string.IsNullOrEmpty(originalPath))
-    {
-        return AssetDatabase.LoadAssetAtPath<Texture>(originalPath);
-    }
-
-    return null;
-}
-
-private static string FindPath(string assetName)
-{
-    string[] guids = AssetDatabase.FindAssets(assetName + " t:Texture");
-    foreach (string guid in guids)
-    {
-        string path = AssetDatabase.GUIDToAssetPath(guid);
-        // Vérification stricte du nom pour éviter de trouver "Exit_RNMX_DN" quand on cherche "Exit_RNMX"
-        if (System.IO.Path.GetFileNameWithoutExtension(path) == assetName)
+        foreach (string guid in rnmxGuids)
         {
-            return path;
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Texture texX = AssetDatabase.LoadAssetAtPath<Texture>(path);
+            if (texX == null) continue;
+
+            // Si le fichier actuel est déjà un _DN, on récupère le nom de base sans le suffixe _DN
+            // Sinon on prend juste le nom de base.
+            string baseName = texX.name.Replace("_RNMX", "").Replace("_DN", "");
+
+            if (!lightmapGroups.ContainsKey(baseName))
+                lightmapGroups[baseName] = new Texture[3];
+
+            // Pour chaque canal (X, Y, Z), on tente de trouver la version débruitée
+            lightmapGroups[baseName][0] = GetBestTexture(baseName + "_RNMX");
+            lightmapGroups[baseName][1] = GetBestTexture(baseName + "_RNMY");
+            lightmapGroups[baseName][2] = GetBestTexture(baseName + "_RNMZ");
         }
+        return lightmapGroups;
     }
-    return null;
-}
+
+    /// <summary>
+    /// Cherche d'abord "Nom_DN", sinon retourne "Nom"
+    /// </summary>
+    private static Texture GetBestTexture(string textureFullBaseName)
+    {
+        // 1. Priorité au Denoised (_DN)
+        string dnPath = FindPath(textureFullBaseName + "_DN");
+        if (!string.IsNullOrEmpty(dnPath))
+        {
+            return AssetDatabase.LoadAssetAtPath<Texture>(dnPath);
+        }
+
+        // 2. Fallback sur l'original
+        string originalPath = FindPath(textureFullBaseName);
+        if (!string.IsNullOrEmpty(originalPath))
+        {
+            return AssetDatabase.LoadAssetAtPath<Texture>(originalPath);
+        }
+
+        return null;
+    }
+
+    private static string FindPath(string assetName)
+    {
+        string[] guids = AssetDatabase.FindAssets(assetName + " t:Texture");
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            // Vérification stricte du nom pour éviter de trouver "Exit_RNMX_DN" quand on cherche "Exit_RNMX"
+            if (System.IO.Path.GetFileNameWithoutExtension(path) == assetName)
+            {
+                return path;
+            }
+        }
+        return null;
+    }
 
     private static void ShowProgress(string title, string matName, int index, int total)
     {
