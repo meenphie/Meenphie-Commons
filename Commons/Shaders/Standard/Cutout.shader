@@ -1271,8 +1271,8 @@ Shader "Meenphie/Standard/Cutout"
 					Unity_GlossyEnvironmentData g1392_g59360 = UnityGlossyEnvironmentSetup( Smoothness1399_g59360, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g59360 ), dot( tanToWorld1, tanNormal1392_g59360 ), dot( tanToWorld2, tanNormal1392_g59360 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g59360 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g59360 ), dot( tanToWorld1, tanNormal1392_g59360 ), dot( tanToWorld2, tanNormal1392_g59360 ) ), g1392_g59360 );
 					float4 temp_output_1481_0_g59360 = ( Fresnel1560_g59360 * float4( indirectSpecular1392_g59360 , 0.0 ) );
-					float4 temp_cast_5 = (0.0125).xxxx;
-					float4 temp_cast_6 = (0.3).xxxx;
+					float4 temp_cast_5 = (0.02).xxxx;
+					float4 temp_cast_6 = (0.1).xxxx;
 					float4 smoothstepResult2430_g59360 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g59360);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g59360 = ( temp_output_1481_0_g59360 * smoothstepResult2430_g59360 );
@@ -2023,4 +2023,4 @@ WireConnection;2888;2;2952;624
 WireConnection;2888;7;2952;156
 WireConnection;2888;8;2952;427
 ASEEND*/
-//CHKSM=527933553BC160F6B98F1BC57D1C3F5F2A2196EC
+//CHKSM=FD0769161EC57529165DEC54DED63414FC94D0CA

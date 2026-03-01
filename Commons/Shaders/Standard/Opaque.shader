@@ -1395,7 +1395,7 @@ Shader "Meenphie/Standard/Opaque"
 					float2 Scaled_Blue280_g61187 = ( (Color_Saturate49_g61187).zw * (Scale_Offset208_g61187).z );
 					float2 Shift288_g61187 = floor( Scaled_Blue280_g61187 );
 					float2 Final_X313_g61187 = ( (Adjusted_UV305_g61187).xz + ( Shift288_g61187 * (Scale_Offset208_g61187).y ) );
-					float2 appendResult326_g61187 = (float2(Final_X313_g61187));
+					float2 appendResult326_g61187 = (float2(Final_X313_g61187.x , (Adjusted_UV305_g61187).yz.x));
 					float2 Final_UV325_g61187 = appendResult326_g61187;
 					float2 appendResult338_g61187 = (float2((Scale_Offset208_g61187).y , 0.0));
 					float2 Offset_UV336_g61187 = ( Final_UV325_g61187 + appendResult338_g61187 );
@@ -2415,4 +2415,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5298;625
 WireConnection;5280;2;5298;624
 ASEEND*/
-//CHKSM=12437B7C3638CAB1DFBB7F6E44C1DAACC45E8415
+//CHKSM=33469F8A81FCB58020974E7F667E9A7B618365CB

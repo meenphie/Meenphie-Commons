@@ -1608,8 +1608,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 					Unity_GlossyEnvironmentData g1392_g5296 = UnityGlossyEnvironmentSetup( Smoothness1399_g5296, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g5296 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), g1392_g5296 );
 					float4 temp_output_1481_0_g5296 = ( Fresnel1560_g5296 * float4( indirectSpecular1392_g5296 , 0.0 ) );
-					float4 temp_cast_5 = (0.0125).xxxx;
-					float4 temp_cast_6 = (0.3).xxxx;
+					float4 temp_cast_5 = (0.02).xxxx;
+					float4 temp_cast_6 = (0.1).xxxx;
 					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * smoothstepResult2430_g5296 );
@@ -2994,8 +2994,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 					Unity_GlossyEnvironmentData g1392_g5296 = UnityGlossyEnvironmentSetup( Smoothness1399_g5296, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g5296 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), g1392_g5296 );
 					float4 temp_output_1481_0_g5296 = ( Fresnel1560_g5296 * float4( indirectSpecular1392_g5296 , 0.0 ) );
-					float4 temp_cast_5 = (0.0125).xxxx;
-					float4 temp_cast_6 = (0.3).xxxx;
+					float4 temp_cast_5 = (0.02).xxxx;
+					float4 temp_cast_6 = (0.1).xxxx;
 					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * smoothstepResult2430_g5296 );
@@ -4295,8 +4295,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 					Unity_GlossyEnvironmentData g1392_g5296 = UnityGlossyEnvironmentSetup( Smoothness1399_g5296, ase_viewDirWS, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g5296 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), g1392_g5296 );
 					float4 temp_output_1481_0_g5296 = ( Fresnel1560_g5296 * float4( indirectSpecular1392_g5296 , 0.0 ) );
-					float4 temp_cast_5 = (0.0125).xxxx;
-					float4 temp_cast_6 = (0.3).xxxx;
+					float4 temp_cast_5 = (0.02).xxxx;
+					float4 temp_cast_6 = (0.1).xxxx;
 					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * smoothstepResult2430_g5296 );
@@ -4789,4 +4789,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=4715230A7A308D483232C43A2F2036751B891B52
+//CHKSM=FC8DFD133098A9919F4B01CC01A027CB5927B46E
