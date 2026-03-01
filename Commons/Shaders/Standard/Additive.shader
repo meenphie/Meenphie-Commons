@@ -1271,7 +1271,7 @@ Shader "Meenphie/Standard/Additive"
 					float3 indirectSpecular1392_g59572 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g59572 ), dot( tanToWorld1, tanNormal1392_g59572 ), dot( tanToWorld2, tanNormal1392_g59572 ) ), g1392_g59572 );
 					float4 temp_output_1481_0_g59572 = ( Fresnel1560_g59572 * float4( indirectSpecular1392_g59572 , 0.0 ) );
 					float4 temp_cast_5 = (0.025).xxxx;
-					float4 temp_cast_6 = (0.1).xxxx;
+					float4 temp_cast_6 = (0.25).xxxx;
 					float4 smoothstepResult2430_g59572 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g59572);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g59572 = ( temp_output_1481_0_g59572 * smoothstepResult2430_g59572 );
@@ -2425,4 +2425,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=9D0A4DD4463DB7D94FB6C6C6CACA50F9133D4071
+//CHKSM=660690311C9CCBBFFB2889F78444A2A671CE412B
