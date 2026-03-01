@@ -1267,8 +1267,8 @@ Shader "Meenphie/Standard/Opaque"
 					Unity_GlossyEnvironmentData g1392_g61058 = UnityGlossyEnvironmentSetup( Smoothness1399_g61058, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g61058 ), dot( tanToWorld1, tanNormal1392_g61058 ), dot( tanToWorld2, tanNormal1392_g61058 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g61058 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g61058 ), dot( tanToWorld1, tanNormal1392_g61058 ), dot( tanToWorld2, tanNormal1392_g61058 ) ), g1392_g61058 );
 					float4 temp_output_1481_0_g61058 = ( Fresnel1560_g61058 * float4( indirectSpecular1392_g61058 , 0.0 ) );
-					float4 temp_cast_5 = (0.0125).xxxx;
-					float4 temp_cast_6 = (0.3).xxxx;
+					float4 temp_cast_5 = (0.01).xxxx;
+					float4 temp_cast_6 = (0.1).xxxx;
 					float4 smoothstepResult2430_g61058 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g61058);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g61058 = ( temp_output_1481_0_g61058 * smoothstepResult2430_g61058 );
@@ -2415,4 +2415,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5296;625
 WireConnection;5280;2;5296;624
 ASEEND*/
-//CHKSM=5AF55C6A51FB676D54C1DC13C24F59EFD1B54843
+//CHKSM=BC94A6EFEE152961953FDE189AC588A441E9CEB0
