@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78b2425a2284af743826c689403a4924, type: 3}
+  m_Name: SSR
+  m_EditorClassIdentifier: 
+  m_functionInfo: "// Made with Amplify Shader Editor v1.9.9.7\n// Available at the
+    Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19907\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;21;-896,-80;Inherit;False;worldPos;3;1;False;1;0;FLOAT3;0.02,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-288,-16;Inherit;False;True;True;False;False;1;0;FLOAT4;0,0,0,0;False;1;FLOAT2;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;11;-288,144;Inherit;False;False;False;False;True;1;0;FLOAT4;0,0,0,0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.ScreenColorNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;33;-16,-16;Inherit;False;Global;_GrabScreen0;Grab
+    Screen 0;1;0;Create;True;0;0;0;False;0;False;Object;-1;False;False;False;False;2;0;FLOAT2;0,0;False;1;FLOAT;0;False;5;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3;-928,16;Inherit;False;worldNormal;3;3;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2;-896,96;Inherit;False;viewDir;3;2;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;6;-896,176;Inherit;False;_Steps;1;4;False;1;0;FLOAT;50;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;31;-896,256;Inherit;False;stepSize;1;6;False;1;0;FLOAT;0.5;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;7;-928,336;Inherit;False;_Thickness;1;5;False;1;0;FLOAT;0.02;False;1;FLOAT;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;8;-608,0;Inherit;False;//
+    Calcul des UV \xE9cran pour le Jitter et la profondeur$float2 screenUV = ComputeScreenPos(mul(unity_MatrixVP,
+    float4(worldPos, 1.0))).xy / ComputeScreenPos(mul(unity_MatrixVP, float4(worldPos,
+    1.0))).w@$$float3 V = normalize(viewDir)@$float3 N = normalize(worldNormal)@$float3
+    R = reflect(-V, N)@$$float3 vPos = mul(unity_MatrixV, float4(worldPos, 1.0)).xyz@$float3
+    vDir = mul((float3x3)unity_MatrixV, R)@$vDir = normalize(vDir)@$$// Utilisation
+    du Jitter pour casser les lignes$float noise = frac(sin(dot(screenUV, float2(12.9898,
+    78.233))) * 43758.5453)@$float currentDist = _StepSize + (noise * _StepSize *
+    _Jitter)@$$float4 res = float4(0,0,0,0)@$$for (int i = 0@ i < (int)_Steps@ i++)${$   
+    float3 p = vPos + vDir * currentDist@$    float4 proj = mul(unity_CameraProjection,
+    float4(p, 1.0))@$    float2 uv = (proj.xy / proj.w) * 0.5 + 0.5@$$    // Sortie
+    si hors \xE9cran$    if (uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) break@$$   
+    // Lecture de la profondeur$    float sceneZ = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,
+    uv))@$    float rayZ = -p.z@$$    // \xC9paisseur adaptative (astuce pour \"souder\"
+    les lignes)$    float thickness = _Thickness * (1.0 + currentDist * 0.1)@$$   
+    if (rayZ > sceneZ && rayZ < sceneZ + thickness)$    {$        // On renvoie les
+    UV pour le Grab Screen et 1 dans le W pour le masque$        return float4(uv,
+    0, 1.0)@$    }$$    currentDist += _StepSize@$}$$return res@;4;Create;7;True;worldPos;FLOAT3;0,0,0;In;;Inherit;False;True;worldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;viewDir;FLOAT3;0,0,0;In;;Inherit;False;True;_Steps;FLOAT;0;In;;Inherit;False;True;_StepSize;FLOAT;0.2;In;;Inherit;False;True;_Thickness;FLOAT;0;In;;Inherit;False;True;_Jitter;FLOAT;0.5;In;;Inherit;False;My
+    Custom Expression;True;False;0;;False;7;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT;0;False;4;FLOAT;0.2;False;5;FLOAT;0;False;6;FLOAT;0.5;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.SamplerNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;42;-96,320;Inherit;True;Global;_CameraDepthTexture;_CameraDepthTexture;0;0;Create;True;0;0;0;True;0;False;-1;None;None;True;0;False;black;Auto;False;Object;-1;Auto;Texture2D;False;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;44;-14.11682,-169.8889;Inherit;False;Color;3;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.LerpOp,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;45;336,16;Inherit;False;3;0;COLOR;0,0,0,0;False;1;COLOR;0,0,0,0;False;2;FLOAT;0;False;1;COLOR;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;688,0;Inherit;False;True;-1;Output;0;False;1;0;COLOR;0,0,0,0;False;1;COLOR;0\nWireConnection;10;0;8;0\nWireConnection;11;0;8;0\nWireConnection;33;0;10;0\nWireConnection;8;0;21;0\nWireConnection;8;1;3;0\nWireConnection;8;2;2;0\nWireConnection;8;3;6;0\nWireConnection;8;4;31;0\nWireConnection;8;5;7;0\nWireConnection;45;0;44;0\nWireConnection;45;1;33;0\nWireConnection;45;2;11;0\nWireConnection;0;0;45;0\nASEEND*/\n//CHKSM=1AAD40577B1619E28053434A1421DECD40AA797D"
+  m_functionName: 
+  m_description: 
+  m_additionalIncludes:
+    m_additionalIncludes: []
+    m_outsideIncludes: []
+  m_additionalPragmas:
+    m_additionalPragmas: []
+    m_outsidePragmas: []
+  m_additionalDirectives:
+    m_validData: 0
+    m_isDirty: 0
+    m_moduleName: ' Additional Directives'
+    m_independentModule: 1
+    m_customEdited: 0
+    m_additionalDirectives: []
+    m_shaderFunctionDirectives: []
+    m_nativeDirectives: []
+    m_nativeDirectivesIndex: -1
+    m_nativeDirectivesFoldout: 0
+    m_directivesSaveItems: []
+  m_nodeCategory: 3
+  m_headerStyle: 0
+  m_headerColor: {r: 1, g: 0.4, b: 0, a: 1}
+  m_customNodeCategory: 
+  m_previewPosition: 0
+  m_hidden: 0
+  m_url: 
