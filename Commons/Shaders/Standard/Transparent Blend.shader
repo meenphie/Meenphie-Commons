@@ -1270,8 +1270,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 					Unity_GlossyEnvironmentData g1392_g59553 = UnityGlossyEnvironmentSetup( Smoothness1399_g59553, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g59553 ), dot( tanToWorld1, tanNormal1392_g59553 ), dot( tanToWorld2, tanNormal1392_g59553 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g59553 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g59553 ), dot( tanToWorld1, tanNormal1392_g59553 ), dot( tanToWorld2, tanNormal1392_g59553 ) ), g1392_g59553 );
 					float4 temp_output_1481_0_g59553 = ( Fresnel1560_g59553 * float4( indirectSpecular1392_g59553 , 0.0 ) );
-					float4 temp_cast_5 = (0.01).xxxx;
-					float4 temp_cast_6 = (0.2).xxxx;
+					float4 temp_cast_5 = (0.025).xxxx;
+					float4 temp_cast_6 = (0.1).xxxx;
 					float4 smoothstepResult2430_g59553 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g59553);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g59553 = ( temp_output_1481_0_g59553 * smoothstepResult2430_g59553 );
@@ -2662,8 +2662,8 @@ Shader "Meenphie/Standard/Transparent Blend"
 					Unity_GlossyEnvironmentData g1392_g59553 = UnityGlossyEnvironmentSetup( Smoothness1399_g59553, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g59553 ), dot( tanToWorld1, tanNormal1392_g59553 ), dot( tanToWorld2, tanNormal1392_g59553 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g59553 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g59553 ), dot( tanToWorld1, tanNormal1392_g59553 ), dot( tanToWorld2, tanNormal1392_g59553 ) ), g1392_g59553 );
 					float4 temp_output_1481_0_g59553 = ( Fresnel1560_g59553 * float4( indirectSpecular1392_g59553 , 0.0 ) );
-					float4 temp_cast_5 = (0.01).xxxx;
-					float4 temp_cast_6 = (0.2).xxxx;
+					float4 temp_cast_5 = (0.025).xxxx;
+					float4 temp_cast_6 = (0.1).xxxx;
 					float4 smoothstepResult2430_g59553 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g59553);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g59553 = ( temp_output_1481_0_g59553 * smoothstepResult2430_g59553 );
@@ -4049,4 +4049,4 @@ WireConnection;2;0;12;625
 WireConnection;2;2;12;624
 WireConnection;2;7;12;156
 ASEEND*/
-//CHKSM=1CCCA4BB1046EB97B326C84277C8616A610FA886
+//CHKSM=FC34D83D351DFC1DE2D7B2F9E435C9E7B4207B6B
