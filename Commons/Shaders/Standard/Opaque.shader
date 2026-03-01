@@ -1267,8 +1267,8 @@ Shader "Meenphie/Standard/Opaque"
 					Unity_GlossyEnvironmentData g1392_g60899 = UnityGlossyEnvironmentSetup( Smoothness1399_g60899, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g60899 ), dot( tanToWorld1, tanNormal1392_g60899 ), dot( tanToWorld2, tanNormal1392_g60899 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g60899 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g60899 ), dot( tanToWorld1, tanNormal1392_g60899 ), dot( tanToWorld2, tanNormal1392_g60899 ) ), g1392_g60899 );
 					float4 temp_output_1481_0_g60899 = ( Fresnel1560_g60899 * float4( indirectSpecular1392_g60899 , 0.0 ) );
-					float4 temp_cast_5 = (0.0).xxxx;
-					float4 temp_cast_6 = (0.15).xxxx;
+					float4 temp_cast_5 = (0.01).xxxx;
+					float4 temp_cast_6 = (0.2).xxxx;
 					float4 smoothstepResult2430_g60899 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g60899);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g60899 = ( temp_output_1481_0_g60899 * smoothstepResult2430_g60899 );
@@ -1395,7 +1395,7 @@ Shader "Meenphie/Standard/Opaque"
 					float2 Scaled_Blue280_g60922 = ( (Color_Saturate49_g60922).zw * (Scale_Offset208_g60922).z );
 					float2 Shift288_g60922 = floor( Scaled_Blue280_g60922 );
 					float2 Final_X313_g60922 = ( (Adjusted_UV305_g60922).xz + ( Shift288_g60922 * (Scale_Offset208_g60922).y ) );
-					float2 appendResult326_g60922 = (float2(Final_X313_g60922));
+					float2 appendResult326_g60922 = (float2(Final_X313_g60922.x , (Adjusted_UV305_g60922).yz.x));
 					float2 Final_UV325_g60922 = appendResult326_g60922;
 					float2 appendResult338_g60922 = (float2((Scale_Offset208_g60922).y , 0.0));
 					float2 Offset_UV336_g60922 = ( Final_UV325_g60922 + appendResult338_g60922 );
@@ -2651,8 +2651,8 @@ Shader "Meenphie/Standard/Opaque"
 					Unity_GlossyEnvironmentData g1392_g60899 = UnityGlossyEnvironmentSetup( Smoothness1399_g60899, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g60899 ), dot( tanToWorld1, tanNormal1392_g60899 ), dot( tanToWorld2, tanNormal1392_g60899 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g60899 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g60899 ), dot( tanToWorld1, tanNormal1392_g60899 ), dot( tanToWorld2, tanNormal1392_g60899 ) ), g1392_g60899 );
 					float4 temp_output_1481_0_g60899 = ( Fresnel1560_g60899 * float4( indirectSpecular1392_g60899 , 0.0 ) );
-					float4 temp_cast_5 = (0.0).xxxx;
-					float4 temp_cast_6 = (0.15).xxxx;
+					float4 temp_cast_5 = (0.01).xxxx;
+					float4 temp_cast_6 = (0.2).xxxx;
 					float4 smoothstepResult2430_g60899 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g60899);
 					#ifdef _USELIGHTMAPSPECULAR_ON
 					float4 staticSwitch1469_g60899 = ( temp_output_1481_0_g60899 * smoothstepResult2430_g60899 );
@@ -2779,7 +2779,7 @@ Shader "Meenphie/Standard/Opaque"
 					float2 Scaled_Blue280_g60922 = ( (Color_Saturate49_g60922).zw * (Scale_Offset208_g60922).z );
 					float2 Shift288_g60922 = floor( Scaled_Blue280_g60922 );
 					float2 Final_X313_g60922 = ( (Adjusted_UV305_g60922).xz + ( Shift288_g60922 * (Scale_Offset208_g60922).y ) );
-					float2 appendResult326_g60922 = (float2(Final_X313_g60922));
+					float2 appendResult326_g60922 = (float2(Final_X313_g60922.x , (Adjusted_UV305_g60922).yz.x));
 					float2 Final_UV325_g60922 = appendResult326_g60922;
 					float2 appendResult338_g60922 = (float2((Scale_Offset208_g60922).y , 0.0));
 					float2 Offset_UV336_g60922 = ( Final_UV325_g60922 + appendResult338_g60922 );
@@ -3749,4 +3749,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5293;625
 WireConnection;5280;2;5293;624
 ASEEND*/
-//CHKSM=6BC6993C8F53714A387E2B052E38ED6E2E9A13DE
+//CHKSM=F9DDAA359FA6CE7FA2A6DCBDCDB3D797F6443CF0

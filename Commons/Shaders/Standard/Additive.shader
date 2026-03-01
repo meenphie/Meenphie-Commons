@@ -263,13 +263,13 @@ Shader "Meenphie/Standard/Additive"
 				#define ASE_NEEDS_VERT_NORMAL
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
-				#define ASE_NEEDS_WORLD_POSITION
-				#define ASE_NEEDS_FRAG_WORLD_POSITION
-				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
-				#define ASE_NEEDS_WORLD_TANGENT
-				#define ASE_NEEDS_FRAG_WORLD_TANGENT
 				#define ASE_NEEDS_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
+				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
+				#define ASE_NEEDS_WORLD_POSITION
+				#define ASE_NEEDS_FRAG_WORLD_POSITION
+				#define ASE_NEEDS_WORLD_TANGENT
+				#define ASE_NEEDS_FRAG_WORLD_TANGENT
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _MAINTEX
@@ -1153,6 +1153,12 @@ Shader "Meenphie/Standard/Additive"
 					float4 staticSwitch1014_g59572 = temp_cast_2;
 					#endif
 					float4 Lightmap46_g59572 = staticSwitch1014_g59572;
+					float4 temp_cast_3 = (0.04).xxxx;
+					float4 lerpResult1473_g59572 = lerp( temp_cast_3 , oAlbedo6_g59572 , Metallic1239_g59572);
+					float3 switchResult1501_g59572 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
+					float dotResult1476_g59572 = dot( switchResult1501_g59572 , ViewDirWS );
+					float4 lerpResult1480_g59572 = lerp( lerpResult1473_g59572 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g59572 ) ) , 5.0 ));
+					float4 Fresnel1560_g59572 = lerpResult1480_g59572;
 					float3 tanToWorld0 = float3( TangentWS.x, BitangentWS.x, NormalWS.x );
 					float3 tanToWorld1 = float3( TangentWS.y, BitangentWS.y, NormalWS.y );
 					float3 tanToWorld2 = float3( TangentWS.z, BitangentWS.z, NormalWS.z );
@@ -1263,20 +1269,17 @@ Shader "Meenphie/Standard/Additive"
 					#endif //specdataif1
 					Unity_GlossyEnvironmentData g1392_g59572 = UnityGlossyEnvironmentSetup( Smoothness1399_g59572, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g59572 ), dot( tanToWorld1, tanNormal1392_g59572 ), dot( tanToWorld2, tanNormal1392_g59572 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g59572 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g59572 ), dot( tanToWorld1, tanNormal1392_g59572 ), dot( tanToWorld2, tanNormal1392_g59572 ) ), g1392_g59572 );
-					float4 temp_cast_4 = (0.04).xxxx;
-					float4 lerpResult1473_g59572 = lerp( temp_cast_4 , oAlbedo6_g59572 , Metallic1239_g59572);
-					float3 switchResult1501_g59572 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
-					float dotResult1476_g59572 = dot( switchResult1501_g59572 , ViewDirWS );
-					float4 lerpResult1480_g59572 = lerp( lerpResult1473_g59572 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g59572 ) ) , 5.0 ));
-					float4 Fresnel1560_g59572 = lerpResult1480_g59572;
-					float4 temp_output_1481_0_g59572 = ( float4( indirectSpecular1392_g59572 , 0.0 ) * Fresnel1560_g59572 );
+					float4 temp_output_1481_0_g59572 = ( Fresnel1560_g59572 * float4( indirectSpecular1392_g59572 , 0.0 ) );
+					float4 temp_cast_5 = (0.01).xxxx;
+					float4 temp_cast_6 = (0.2).xxxx;
+					float4 smoothstepResult2430_g59572 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g59572);
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g59572 = ( temp_output_1481_0_g59572 * sqrt( Lightmap46_g59572 ) );
+					float4 staticSwitch1469_g59572 = ( temp_output_1481_0_g59572 * smoothstepResult2430_g59572 );
 					#else
 					float4 staticSwitch1469_g59572 = temp_output_1481_0_g59572;
 					#endif
 					float4 Specular1419_g59572 = staticSwitch1469_g59572;
-					float4 temp_cast_5 = (Black1185_g59572).xxxx;
+					float4 temp_cast_7 = (Black1185_g59572).xxxx;
 					float2 temp_output_5_0_g59584 = UV02420_g59572;
 					float2 UV633_g59584 = temp_output_5_0_g59584;
 					float2 UV100_g59585 = UV633_g59584;
@@ -1359,7 +1362,7 @@ Shader "Meenphie/Standard/Additive"
 					#ifdef _EMISSIONENABLED_ON
 					float4 staticSwitch1017_g59572 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1578_g59572 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g59572 = temp_cast_5;
+					float4 staticSwitch1017_g59572 = temp_cast_7;
 					#endif
 					float4 Emission86_g59572 = staticSwitch1017_g59572;
 					float3 WorldPos97_g59624 = PositionWS;
@@ -2422,4 +2425,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=3F715DA0765E6C73C930BCF35080CFF51ECBB1C1
+//CHKSM=9A4DCE0E737D6DE61426BC5900F6107585F78611

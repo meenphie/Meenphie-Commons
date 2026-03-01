@@ -599,13 +599,13 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#include "UnityStandardUtils.cginc"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
-				#define ASE_NEEDS_WORLD_POSITION
-				#define ASE_NEEDS_FRAG_WORLD_POSITION
-				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
-				#define ASE_NEEDS_WORLD_TANGENT
-				#define ASE_NEEDS_FRAG_WORLD_TANGENT
 				#define ASE_NEEDS_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
+				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
+				#define ASE_NEEDS_WORLD_POSITION
+				#define ASE_NEEDS_FRAG_WORLD_POSITION
+				#define ASE_NEEDS_WORLD_TANGENT
+				#define ASE_NEEDS_FRAG_WORLD_TANGENT
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _MAINTEX
@@ -1491,6 +1491,12 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1014_g5296 = temp_cast_2;
 					#endif
 					float4 Lightmap46_g5296 = staticSwitch1014_g5296;
+					float4 temp_cast_3 = (0.04).xxxx;
+					float4 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
+					float3 switchResult1501_g5296 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
+					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ViewDirWS );
+					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
+					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
 					float3 tanToWorld0 = float3( TangentWS.x, BitangentWS.x, NormalWS.x );
 					float3 tanToWorld1 = float3( TangentWS.y, BitangentWS.y, NormalWS.y );
 					float3 tanToWorld2 = float3( TangentWS.z, BitangentWS.z, NormalWS.z );
@@ -1601,20 +1607,17 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#endif //specdataif1
 					Unity_GlossyEnvironmentData g1392_g5296 = UnityGlossyEnvironmentSetup( Smoothness1399_g5296, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g5296 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), g1392_g5296 );
-					float4 temp_cast_4 = (0.04).xxxx;
-					float4 lerpResult1473_g5296 = lerp( temp_cast_4 , oAlbedo6_g5296 , Metallic1239_g5296);
-					float3 switchResult1501_g5296 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
-					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ViewDirWS );
-					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
-					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
-					float4 temp_output_1481_0_g5296 = ( float4( indirectSpecular1392_g5296 , 0.0 ) * Fresnel1560_g5296 );
+					float4 temp_output_1481_0_g5296 = ( Fresnel1560_g5296 * float4( indirectSpecular1392_g5296 , 0.0 ) );
+					float4 temp_cast_5 = (0.01).xxxx;
+					float4 temp_cast_6 = (0.2).xxxx;
+					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * sqrt( Lightmap46_g5296 ) );
+					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * smoothstepResult2430_g5296 );
 					#else
 					float4 staticSwitch1469_g5296 = temp_output_1481_0_g5296;
 					#endif
 					float4 Specular1419_g5296 = staticSwitch1469_g5296;
-					float4 temp_cast_5 = (Black1185_g5296).xxxx;
+					float4 temp_cast_7 = (Black1185_g5296).xxxx;
 					float2 temp_output_5_0_g58901 = UV02420_g5296;
 					float2 UV633_g58901 = temp_output_5_0_g58901;
 					float2 UV100_g58902 = UV633_g58901;
@@ -1697,7 +1700,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _EMISSIONENABLED_ON
 					float4 staticSwitch1017_g5296 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1578_g5296 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g5296 = temp_cast_5;
+					float4 staticSwitch1017_g5296 = temp_cast_7;
 					#endif
 					float4 Emission86_g5296 = staticSwitch1017_g5296;
 					float3 WorldPos97_g59445 = PositionWS;
@@ -2001,12 +2004,12 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#include "UnityStandardUtils.cginc"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
-				#define ASE_NEEDS_WORLD_POSITION
-				#define ASE_NEEDS_FRAG_WORLD_POSITION
-				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
-				#define ASE_NEEDS_FRAG_WORLD_TANGENT
 				#define ASE_NEEDS_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
+				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
+				#define ASE_NEEDS_WORLD_POSITION
+				#define ASE_NEEDS_FRAG_WORLD_POSITION
+				#define ASE_NEEDS_FRAG_WORLD_TANGENT
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _MAINTEX
@@ -2874,6 +2877,12 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1014_g5296 = temp_cast_2;
 					#endif
 					float4 Lightmap46_g5296 = staticSwitch1014_g5296;
+					float4 temp_cast_3 = (0.04).xxxx;
+					float4 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
+					float3 switchResult1501_g5296 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
+					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ViewDirWS );
+					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
+					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
 					float3 tanToWorld0 = float3( TangentWS.x, BitangentWS.x, NormalWS.x );
 					float3 tanToWorld1 = float3( TangentWS.y, BitangentWS.y, NormalWS.y );
 					float3 tanToWorld2 = float3( TangentWS.z, BitangentWS.z, NormalWS.z );
@@ -2984,20 +2993,17 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#endif //specdataif1
 					Unity_GlossyEnvironmentData g1392_g5296 = UnityGlossyEnvironmentSetup( Smoothness1399_g5296, ViewDirWS, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g5296 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), g1392_g5296 );
-					float4 temp_cast_4 = (0.04).xxxx;
-					float4 lerpResult1473_g5296 = lerp( temp_cast_4 , oAlbedo6_g5296 , Metallic1239_g5296);
-					float3 switchResult1501_g5296 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
-					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ViewDirWS );
-					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
-					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
-					float4 temp_output_1481_0_g5296 = ( float4( indirectSpecular1392_g5296 , 0.0 ) * Fresnel1560_g5296 );
+					float4 temp_output_1481_0_g5296 = ( Fresnel1560_g5296 * float4( indirectSpecular1392_g5296 , 0.0 ) );
+					float4 temp_cast_5 = (0.01).xxxx;
+					float4 temp_cast_6 = (0.2).xxxx;
+					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * sqrt( Lightmap46_g5296 ) );
+					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * smoothstepResult2430_g5296 );
 					#else
 					float4 staticSwitch1469_g5296 = temp_output_1481_0_g5296;
 					#endif
 					float4 Specular1419_g5296 = staticSwitch1469_g5296;
-					float4 temp_cast_5 = (Black1185_g5296).xxxx;
+					float4 temp_cast_7 = (Black1185_g5296).xxxx;
 					float2 temp_output_5_0_g58901 = UV02420_g5296;
 					float2 UV633_g58901 = temp_output_5_0_g58901;
 					float2 UV100_g58902 = UV633_g58901;
@@ -3080,7 +3086,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _EMISSIONENABLED_ON
 					float4 staticSwitch1017_g5296 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1578_g5296 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g5296 = temp_cast_5;
+					float4 staticSwitch1017_g5296 = temp_cast_7;
 					#endif
 					float4 Emission86_g5296 = staticSwitch1017_g5296;
 					float3 WorldPos97_g59445 = PositionWS;
@@ -3324,8 +3330,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 				#include "UnityStandardUtils.cginc"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
-				#define ASE_NEEDS_VERT_TANGENT
 				#define ASE_NEEDS_VERT_NORMAL
+				#define ASE_NEEDS_VERT_TANGENT
 				#pragma shader_feature _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local _STOCHASTICENABLED_ON
@@ -3501,12 +3507,12 @@ Shader "Meenphie/Standard/Winter/Snow"
 					UNITY_TRANSFER_INSTANCE_ID(v,o);
 					UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-					float3 ase_positionWS = mul( unity_ObjectToWorld, float4( ( v.vertex ).xyz, 1 ) ).xyz;
-					o.ase_texcoord3.xyz = ase_positionWS;
-					float3 ase_tangentWS = UnityObjectToWorldDir( v.tangent );
-					o.ase_texcoord4.xyz = ase_tangentWS;
 					float3 ase_normalWS = UnityObjectToWorldNormal( v.normal );
-					o.ase_texcoord5.xyz = ase_normalWS;
+					o.ase_texcoord3.xyz = ase_normalWS;
+					float3 ase_positionWS = mul( unity_ObjectToWorld, float4( ( v.vertex ).xyz, 1 ) ).xyz;
+					o.ase_texcoord4.xyz = ase_positionWS;
+					float3 ase_tangentWS = UnityObjectToWorldDir( v.tangent );
+					o.ase_texcoord5.xyz = ase_tangentWS;
 					float ase_tangentSign = v.tangent.w * ( unity_WorldTransformParams.w >= 0.0 ? 1.0 : -1.0 );
 					float3 ase_bitangentWS = cross( ase_normalWS, ase_tangentWS ) * ase_tangentSign;
 					o.ase_texcoord6.xyz = ase_bitangentWS;
@@ -4166,11 +4172,17 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1014_g5296 = temp_cast_2;
 					#endif
 					float4 Lightmap46_g5296 = staticSwitch1014_g5296;
-					float3 ase_positionWS = IN.ase_texcoord3.xyz;
+					float4 temp_cast_3 = (0.04).xxxx;
+					float4 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
+					float3 ase_normalWS = IN.ase_texcoord3.xyz;
+					float3 switchResult1501_g5296 = (((ase_vface>0)?(ase_normalWS):(-ase_normalWS)));
+					float3 ase_positionWS = IN.ase_texcoord4.xyz;
 					float3 ase_viewVectorWS = ( _WorldSpaceCameraPos.xyz - ase_positionWS );
 					float3 ase_viewDirWS = normalize( ase_viewVectorWS );
-					float3 ase_tangentWS = IN.ase_texcoord4.xyz;
-					float3 ase_normalWS = IN.ase_texcoord5.xyz;
+					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ase_viewDirWS );
+					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
+					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
+					float3 ase_tangentWS = IN.ase_texcoord5.xyz;
 					float3 ase_bitangentWS = IN.ase_texcoord6.xyz;
 					float3 tanToWorld0 = float3( ase_tangentWS.x, ase_bitangentWS.x, ase_normalWS.x );
 					float3 tanToWorld1 = float3( ase_tangentWS.y, ase_bitangentWS.y, ase_normalWS.y );
@@ -4282,20 +4294,17 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#endif //specdataif1
 					Unity_GlossyEnvironmentData g1392_g5296 = UnityGlossyEnvironmentSetup( Smoothness1399_g5296, ase_viewDirWS, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), float3(0,0,0));
 					float3 indirectSpecular1392_g5296 = UnityGI_IndirectSpecular( data, 1.0, float3( dot( tanToWorld0, tanNormal1392_g5296 ), dot( tanToWorld1, tanNormal1392_g5296 ), dot( tanToWorld2, tanNormal1392_g5296 ) ), g1392_g5296 );
-					float4 temp_cast_4 = (0.04).xxxx;
-					float4 lerpResult1473_g5296 = lerp( temp_cast_4 , oAlbedo6_g5296 , Metallic1239_g5296);
-					float3 switchResult1501_g5296 = (((ase_vface>0)?(ase_normalWS):(-ase_normalWS)));
-					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ase_viewDirWS );
-					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
-					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
-					float4 temp_output_1481_0_g5296 = ( float4( indirectSpecular1392_g5296 , 0.0 ) * Fresnel1560_g5296 );
+					float4 temp_output_1481_0_g5296 = ( Fresnel1560_g5296 * float4( indirectSpecular1392_g5296 , 0.0 ) );
+					float4 temp_cast_5 = (0.01).xxxx;
+					float4 temp_cast_6 = (0.2).xxxx;
+					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * sqrt( Lightmap46_g5296 ) );
+					float4 staticSwitch1469_g5296 = ( temp_output_1481_0_g5296 * smoothstepResult2430_g5296 );
 					#else
 					float4 staticSwitch1469_g5296 = temp_output_1481_0_g5296;
 					#endif
 					float4 Specular1419_g5296 = staticSwitch1469_g5296;
-					float4 temp_cast_5 = (Black1185_g5296).xxxx;
+					float4 temp_cast_7 = (Black1185_g5296).xxxx;
 					float2 temp_output_5_0_g58901 = UV02420_g5296;
 					float2 UV633_g58901 = temp_output_5_0_g58901;
 					float2 UV100_g58902 = UV633_g58901;
@@ -4378,7 +4387,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _EMISSIONENABLED_ON
 					float4 staticSwitch1017_g5296 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1578_g5296 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g5296 = temp_cast_5;
+					float4 staticSwitch1017_g5296 = temp_cast_7;
 					#endif
 					float4 Emission86_g5296 = staticSwitch1017_g5296;
 					float3 WorldPos97_g59445 = ase_positionWS;
@@ -4780,4 +4789,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=8AB09EC3D4E9A61075A31D05816F965EF9638165
+//CHKSM=8560E2F0D3A61750106A9EE8300FA279FFE20E67
