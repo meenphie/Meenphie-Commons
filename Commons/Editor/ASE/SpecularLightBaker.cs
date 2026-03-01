@@ -55,50 +55,46 @@ public class SpecularLightBaker : EditorWindow
             // Try to find a group to merge into
             for (int i = 0; i < finalPosRange.Count; i++)
             {
-                if (Vector3.SqrMagnitude((Vector3)finalPosRange[i] - pos) < mergeThresholdSq)
+                // On calcule la distance entre la lumière actuelle et le centre du groupe existant
+                float dist = Vector3.Distance((Vector3)finalPosRange[i], pos);
+
+                if (dist * dist < mergeThresholdSq)
                 {
-                    // 1. SUM the intensity immediately
                     float currentSum = finalColorInt[i].w;
                     float newSum = currentSum + individualIntensity;
 
-                    // 2. Determine if this light is the new "Dominant" source for the group
                     if (individualIntensity > groupMaxIntensity[i])
                     {
-                        // Update Group Position, Orientation, and exact Range
+                        // Nouvelle dominante : on prend sa forme et son orientation
                         finalPosRange[i] = new Vector4(pos.x, pos.y, pos.z, rawRange);
                         finalRightWidth[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, w);
                         finalUpHeight[i] = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, h);
 
-                        // Update dominant color (normalized) but keep the SUMMED intensity in W
                         float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
-                        finalColorInt[i] = new Vector4(
-                            l.color.r / maxRGB,
-                            l.color.g / maxRGB,
-                            l.color.b / maxRGB,
-                            newSum
-                        );
+                        finalColorInt[i] = new Vector4(l.color.r / maxRGB, l.color.g / maxRGB, l.color.b / maxRGB, newSum);
 
                         groupMaxIntensity[i] = individualIntensity;
                     }
                     else
                     {
-                        // Not dominant: Just update the sum and ensure the range/size covers the new light
+                        // Pas la dominante : on ne touche pas à la forme (.w)
+                        // Mais on met à jour l'intensité totale
                         Vector4 c = finalColorInt[i];
                         c.w = newSum;
+
+                        // OPTIONNEL : Mélange de couleur simple (pour ne pas ignorer la couleur des petites lights)
+                        // On fait un lerp léger vers la nouvelle couleur basé sur son importance relative
+                        float weight = individualIntensity / newSum;
+                        c.x = Mathf.Lerp(c.x, l.color.r, weight);
+                        c.y = Mathf.Lerp(c.y, l.color.g, weight);
+                        c.z = Mathf.Lerp(c.z, l.color.b, weight);
+
                         finalColorInt[i] = c;
 
-                        // We keep the largest range/dimensions found in the group
+                        // On étend le Range pour couvrir la nouvelle lumière
                         Vector4 p = finalPosRange[i];
-                        p.w = Mathf.Max(p.w, rawRange);
+                        p.w = Mathf.Max(p.w, dist + rawRange);
                         finalPosRange[i] = p;
-
-                        Vector4 rw = finalRightWidth[i];
-                        rw.w = Mathf.Max(rw.w, w);
-                        finalRightWidth[i] = rw;
-
-                        Vector4 uh = finalUpHeight[i];
-                        uh.w = Mathf.Max(uh.w, h);
-                        finalUpHeight[i] = uh;
                     }
 
                     merged = true;
