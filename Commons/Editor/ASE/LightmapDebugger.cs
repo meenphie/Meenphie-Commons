@@ -4,45 +4,71 @@ using UnityEngine;
 public static class LightmapDebugger
 {
     private const string Keyword = "_LIGHTMAPDEBUG";
+    // On utilise le même nom que dans ton script Udon pour la cohérence
     private const string LIGHTMAPLERP = "_LIGHTMAPLERP";
 
     private static bool isEnabled = false;
-    private static bool isLerpEnabled = false;
 
-    // --- EXISTING MENU ---
     [MenuItem("Meenphie/Lightmaps/Lightmaps Only")]
     public static void ToggleLightmapsOnly()
     {
-        isEnabled = !isEnabled;
+        // On demande DIRECTEMENT au shader son état actuel
+        // Au lieu d'utiliser une variable 'isEnabled' qui peut se réinitialiser
+        bool currentlyActive = Shader.IsKeywordEnabled(Keyword);
 
-        if (isEnabled)
+        if (currentlyActive)
         {
-            Shader.EnableKeyword(Keyword);
+            Shader.DisableKeyword(Keyword);
+            Debug.Log($"[<color=purple>Meenphie</color>] Lightmaps Only: <color=red>OFF</color>");
         }
         else
         {
-            Shader.DisableKeyword(Keyword);
+            Shader.EnableKeyword(Keyword);
+            Debug.Log($"[<color=purple>Meenphie</color>] Lightmaps Only: <color=green>ON</color>");
         }
-
-        string state = isEnabled ? "enabled" : "disabled";
-        Debug.Log($"[<color=purple>Meenphie</color>] Lightmaps Only is {state}");
     }
 
-    // --- NEW MENU ---
     [MenuItem("Meenphie/Lightmaps/Toggle Lightmaps Lerp")]
     public static void ToggleLightmapLerp()
     {
-        // Get current value (default to 0 if not set)
-        float current = Shader.GetGlobalFloat(LIGHTMAPLERP);
+        // On récupère tous les MeshRenderers de la scène
+        MeshRenderer[] renderers = GameObject.FindObjectsOfType<MeshRenderer>();
 
-        // Toggle between 0 and 1
-        float newValue = Mathf.Approximately(current, 0f) ? 1f : 0f;
+        int materialCount = 0;
+        float newValue = 0f;
+        bool valueDetermined = false;
 
-        Shader.SetGlobalFloat(LIGHTMAPLERP, newValue);
+        // 1. On détermine la nouvelle valeur (basée sur le premier trouvé)
+        foreach (var renderer in renderers)
+        {
+            foreach (var mat in renderer.sharedMaterials)
+            {
+                if (mat != null && mat.HasProperty(LIGHTMAPLERP))
+                {
+                    newValue = (mat.GetFloat(LIGHTMAPLERP) > 0.5f) ? 0f : 1f;
+                    valueDetermined = true;
+                    break;
+                }
+            }
+            if (valueDetermined) break;
+        }
 
-        isLerpEnabled = !Mathf.Approximately(newValue, 0f);
+        // 2. On applique et on compte
+        foreach (var renderer in renderers)
+        {
+            foreach (var mat in renderer.sharedMaterials)
+            {
+                if (mat != null && mat.HasProperty(LIGHTMAPLERP))
+                {
+                    mat.SetFloat(LIGHTMAPLERP, newValue);
+                    EditorUtility.SetDirty(mat); // Force l'enregistrement
+                    materialCount++;
+                }
+            }
+        }
 
-        string state = isLerpEnabled ? "enabled" : "disabled";
-        Debug.Log($"[<color=purple>Meenphie</color>] Lightmaps Lerp is {state} (value = {newValue})");
+        // 3. Feedback dans la console
+        string state = (newValue > 0.5f) ? "<color=green>ON</color>" : "<color=red>OFF</color>";
+        Debug.Log($"[<color=purple>Meenphie</color>] {materialCount} matériaux mis à jour. Lightmaps Lerp: {state}");
     }
 }
