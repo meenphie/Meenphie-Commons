@@ -3,13 +3,19 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using System.Linq;
 
 public class MeshImporter : AssetPostprocessor
 {
     private const string TAG = "[<color=purple>Meenphie</color>]";
 
     [MenuItem("Meenphie/Materials/Update All")]
-    public static void SyncAll() => Process(true);
+    public static void SyncAll()
+    {
+        // 1. On force Unity à voir les fichiers modifiés sur le disque (Blender export)
+        AssetDatabase.Refresh();
+        Process(true);
+    }
 
     private static void Process(bool assign)
     {
@@ -25,6 +31,9 @@ public class MeshImporter : AssetPostprocessor
         var data = SimpleJsonParser.Parse(File.ReadAllText(jsonPath));
         string[] guids = AssetDatabase.FindAssets("t:Material");
         int count = 0;
+
+        // Optimisation : On bloque l'importation auto le temps de la boucle
+        AssetDatabase.StartAssetEditing();
 
         try
         {
@@ -44,12 +53,14 @@ public class MeshImporter : AssetPostprocessor
                 {
                     count++;
                     EditorUtility.SetDirty(mat);
-                    // FORCE LA MISE À JOUR ICI :
-                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
                 }
             }
         }
-        finally { EditorUtility.ClearProgressBar(); }
+        finally
+        {
+            AssetDatabase.StopAssetEditing();
+            EditorUtility.ClearProgressBar();
+        }
 
         AssetDatabase.SaveAssets();
         Debug.Log($"{TAG} Terminé. {count} matériaux synchronisés.");
@@ -60,60 +71,29 @@ public class MeshImporter : AssetPostprocessor
         bool changed = false;
 
         // --- COULEURS & ALPHA ---
-        Color colorToApply = mat.HasProperty("_Color") ? mat.GetColor("_Color") : Color.white;
-        bool updateColor = false;
-
         if (data.ContainsKey("ColorHex") && ColorUtility.TryParseHtmlString("#" + data["ColorHex"], out Color c))
         {
-            colorToApply.r = c.r;
-            colorToApply.g = c.g;
-            colorToApply.b = c.b;
-            updateColor = true;
-        }
-
-        if (data.ContainsKey("AlphaValue"))
-        {
-            colorToApply.a = ParseF(data["AlphaValue"]);
-            updateColor = true;
-        }
-
-        if (updateColor)
-        {
-            mat.SetColor("_Color", colorToApply);
+            if (data.ContainsKey("AlphaValue")) c.a = ParseF(data["AlphaValue"]);
+            mat.SetColor("_Color", c);
             changed = true;
         }
 
         // --- VALEURS ---
-        if (data.ContainsKey("MetallicValue"))
-        {
-            mat.SetFloat("_Metallic", ParseF(data["MetallicValue"])); changed = true;
-        }
-        if (data.ContainsKey("SmoothnessValue"))
-        {
-            mat.SetFloat("_Glossiness", ParseF(data["SmoothnessValue"])); changed = true;
-        }
+        if (data.ContainsKey("MetallicValue")) { mat.SetFloat("_Metallic", ParseF(data["MetallicValue"])); changed = true; }
+        if (data.ContainsKey("SmoothnessValue")) { mat.SetFloat("_Glossiness", ParseF(data["SmoothnessValue"])); changed = true; }
 
-        // --- EMISSION (Color HDR + Slider Intensity) ---
+        // --- EMISSION ---
         if (data.ContainsKey("EmissionHex") && ColorUtility.TryParseHtmlString("#" + data["EmissionHex"], out Color ec))
         {
             float intensity = data.ContainsKey("EmissionIntensity") ? ParseF(data["EmissionIntensity"]) : 1.0f;
-
-            // On applique l'intensité sur la couleur (HDR)
             mat.SetColor("_EmissionColor", ec * intensity);
-
-            // Si le shader a un slider spécifique pour l'intensité
-            if (mat.HasProperty("_EmissionIntensity"))
-            {
-                mat.SetFloat("_EmissionIntensity", intensity);
-            }
-
             mat.EnableKeyword("_EMISSION");
             changed = true;
         }
 
-        // --- TEXTURES ---
+        // --- TEXTURES (Le coeur du problème) ---
         changed |= SetTex(mat, data, "Base Color", "_MainTex");
-        changed |= SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP");
+        changed |= SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", true); // On précise que c'est une Normal
         changed |= SetTex(mat, data, "Roughness", "_GlossinessMap");
         changed |= SetTex(mat, data, "Metallic", "_MetallicMap");
         changed |= SetTex(mat, data, "Emission", "_EmissionMap", "_EMISSION");
@@ -121,10 +101,12 @@ public class MeshImporter : AssetPostprocessor
         return changed;
     }
 
-    private static bool SetTex(Material mat, Dictionary<string, string> data, string key, string prop, string keyword = "")
+    private static bool SetTex(Material mat, Dictionary<string, string> data, string key, string prop, string keyword = "", bool isNormal = false)
     {
-        if (!data.ContainsKey(key)) return false;
-        Texture2D tex = FindTex(data[key]);
+        if (!data.ContainsKey(key) || string.IsNullOrEmpty(data[key])) return false;
+
+        Texture2D tex = FindAndFixTex(data[key], isNormal);
+
         if (tex != null && mat.GetTexture(prop) != tex)
         {
             mat.SetTexture(prop, tex);
@@ -132,6 +114,32 @@ public class MeshImporter : AssetPostprocessor
             return true;
         }
         return false;
+    }
+
+    private static Texture2D FindAndFixTex(string fileName, bool isNormal)
+    {
+        string nameOnly = Path.GetFileNameWithoutExtension(fileName);
+        string[] guids = AssetDatabase.FindAssets(nameOnly + " t:Texture");
+
+        foreach (var g in guids)
+        {
+            string p = AssetDatabase.GUIDToAssetPath(g);
+            if (Path.GetFileName(p).Equals(fileName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                // CORRECTION DES NORMAL MAPS
+                if (isNormal)
+                {
+                    TextureImporter importer = AssetImporter.GetAtPath(p) as TextureImporter;
+                    if (importer != null && importer.textureType != TextureImporterType.NormalMap)
+                    {
+                        importer.textureType = TextureImporterType.NormalMap;
+                        importer.SaveAndReimport();
+                    }
+                }
+                return AssetDatabase.LoadAssetAtPath<Texture2D>(p);
+            }
+        }
+        return null;
     }
 
     private static bool Clear(Material mat)
@@ -150,21 +158,9 @@ public class MeshImporter : AssetPostprocessor
         return true;
     }
 
-    private static Texture2D FindTex(string fileName)
-    {
-        string name = Path.GetFileNameWithoutExtension(fileName);
-        string[] guids = AssetDatabase.FindAssets(name + " t:Texture");
-        foreach (var g in guids)
-        {
-            string p = AssetDatabase.GUIDToAssetPath(g);
-            if (Path.GetFileName(p) == fileName) return AssetDatabase.LoadAssetAtPath<Texture2D>(p);
-        }
-        return guids.Length > 0 ? AssetDatabase.LoadAssetAtPath<Texture2D>(AssetDatabase.GUIDToAssetPath(guids[0])) : null;
-    }
-
     private static float ParseF(string s) => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 0;
 
-    // --- PACKING UV ---
+    // --- PACKING UV (Modifié pour être plus robuste) ---
     void OnPostprocessModel(GameObject g)
     {
         foreach (MeshFilter filter in g.GetComponentsInChildren<MeshFilter>())
@@ -172,6 +168,7 @@ public class MeshImporter : AssetPostprocessor
             if (filter.sharedMesh != null) ApplyPacking(filter.sharedMesh);
         }
 
+        // Ajustement de l'intensité des lumières Blender -> Unity
         Light[] lights = g.GetComponentsInChildren<Light>();
         foreach (Light light in lights)
         {
@@ -182,7 +179,9 @@ public class MeshImporter : AssetPostprocessor
     private void ApplyPacking(Mesh mesh)
     {
         List<Vector2> uv0 = new List<Vector2>(), uv1 = new List<Vector2>();
-        mesh.GetUVs(0, uv0); mesh.GetUVs(1, uv1);
+        mesh.GetUVs(0, uv0);
+        mesh.GetUVs(1, uv1);
+
         if (uv0.Count == 0 || uv1.Count != uv0.Count) return;
 
         List<Vector4> packed = new List<Vector4>(uv0.Count);
@@ -190,49 +189,57 @@ public class MeshImporter : AssetPostprocessor
             packed.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
 
         mesh.SetUVs(0, packed);
+        // Note: On garde les UVs d'origine si besoin, ou on peut les vider ici.
     }
 }
 
+// Version plus "safe" du Parser pour éviter les sauts de ligne Blender
 public static class SimpleJsonParser
 {
     public static Dictionary<string, Dictionary<string, string>> Parse(string json)
     {
         var result = new Dictionary<string, Dictionary<string, string>>();
+
+        // On nettoie un peu le JSON pour enlever les retours à la ligne inutiles
+        json = json.Replace("\r", "").Replace("\n", "");
+
         string[] materials = json.Split(new string[] { "}," }, System.StringSplitOptions.RemoveEmptyEntries);
-        
         string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "SmoothnessValue", "EmissionIntensity", "AlphaValue" };
 
         foreach (var m in materials)
         {
-            try
+            int s = m.IndexOf('"') + 1;
+            int e = m.IndexOf('"', s);
+            if (s <= 0 || e <= 0) continue;
+
+            string matName = m.Substring(s, e - s);
+            var dict = new Dictionary<string, string>();
+
+            foreach (var k in keys)
             {
-                int s = m.IndexOf('"') + 1;
-                int e = m.IndexOf('"', s);
-                if (s <= 0 || e <= 0) continue;
-                string matName = m.Substring(s, e - s);
-                var dict = new Dictionary<string, string>();
-                foreach (var k in keys)
+                string search = $"\"{k}\":"; // On enlève l'espace forcé après les deux points
+                int keyIdx = m.IndexOf(search);
+                if (keyIdx != -1)
                 {
-                    string search = $"\"{k}\": ";
-                    if (m.Contains(search))
+                    int vStart = keyIdx + search.Length;
+                    // On avance jusqu'à trouver le début de la valeur (soit " soit un chiffre)
+                    while (vStart < m.Length && (m[vStart] == ' ' || m[vStart] == ':')) vStart++;
+
+                    if (vStart < m.Length && m[vStart] == '"')
                     {
-                        int vStart = m.IndexOf(search) + search.Length;
-                        if (m[vStart] == '"')
-                        {
-                            vStart++;
-                            dict[k] = m.Substring(vStart, m.IndexOf('"', vStart) - vStart);
-                        }
-                        else
-                        {
-                            int vEnd = m.IndexOfAny(new char[] { ',', '}', '\n' }, vStart);
-                            if (vEnd == -1) vEnd = m.Length;
-                            dict[k] = m.Substring(vStart, vEnd - vStart).Trim();
-                        }
+                        vStart++;
+                        int vEnd = m.IndexOf('"', vStart);
+                        dict[k] = m.Substring(vStart, vEnd - vStart);
+                    }
+                    else
+                    {
+                        int vEnd = m.IndexOfAny(new char[] { ',', '}', ' ' }, vStart);
+                        if (vEnd == -1) vEnd = m.Length;
+                        dict[k] = m.Substring(vStart, vEnd - vStart).Trim();
                     }
                 }
-                result[matName] = dict;
             }
-            catch { }
+            result[matName] = dict;
         }
         return result;
     }
