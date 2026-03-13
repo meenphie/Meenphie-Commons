@@ -317,10 +317,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
+				uniform float _UdonSpecularLightCount;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _UdonSpecularLightUp[32];
@@ -682,10 +682,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
+				uniform float _UdonSpecularLightCount;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _UdonSpecularLightUp[32];
@@ -718,7 +718,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _EmissionIntensity;
 
 
-				float3 IndirectGeometricSpecular1_g59547( float3 WorldPos, float3 WorldNormal, float3 ViewDir, float Smoothness, float4 Fresnel, float UseGeometricAA )
+				float3 IndirectGeometricSpecular1_g59563( float3 WorldPos, float3 WorldNormal, float3 ViewDir, float4 Fresnel, float Smoothness, float UseGeometricAA )
 				{
 					// =============================================
 					//  GEOMETRIC SPECULAR AA - MÉTHODE VALVE (GDC 2015)
@@ -756,7 +756,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					return indirectSpec * Fresnel;
 				}
 				
-				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
+				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
 					float LumaStart = 0.05;
@@ -769,17 +769,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
 					float playerDist = distance(_WorldSpaceCameraPos, WorldPos);
 					float radiusFade = 1.0 - saturate((playerDist - RadiusFadeStart) / max(MaxRadius - RadiusFadeStart, 0.0001));
+					// Sortie anticipée si les conditions ne sont pas remplies
 					if (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount == 0 || radiusFade < 0.001) return 0;
 					// --- 3. SETUP OPTIMISÉ ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
-					// Atteint exactement 2.0 (S=0) et 2048.0 (S=1)
+					// Shininess : 2.0 (S=0) à 2048.0 (S=1)
 					float shininess = exp2(10.0 * Smoothness + 1.0);
 					float normalization = (shininess + 2.0) * 0.125;
-					float nv = saturate(dot(N, vDir));
-					float fBase = 1.0 - nv;
-					float f2 = fBase * fBase;
-					float fresnel = 0.04 + 0.96 * (f2 * f2 * fBase); // Pas de pow ici
 					float3 R = reflect(-vDir, N);
 					float3 specAccum = 0.0;
 					// --- 4. BOUCLE ---
@@ -789,12 +786,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    float4 lightPosRange = _UdonSpecularLightPos[i];
 					    float3 L = lightPosRange.xyz - WorldPos;
 					    float3 proj = R * dot(L, R) - L;
+					    // Calcul du point le plus proche sur l'aire de la lumière
 					    float3 closestPoint = lightPosRange.xyz;
 					    closestPoint += _UdonSpecularLightRight[i].xyz * clamp(dot(proj, _UdonSpecularLightRight[i].xyz), -_UdonSpecularLightRight[i].w, _UdonSpecularLightRight[i].w);
 					    closestPoint += _UdonSpecularLightUp[i].xyz * clamp(dot(proj, _UdonSpecularLightUp[i].xyz), -_UdonSpecularLightUp[i].w, _UdonSpecularLightUp[i].w);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
 					    float range = lightPosRange.w;
+					    // Atténuation quadratique
 					    float atten = saturate(1.0 - (distSq / (range * range)));
 					    float falloff = (atten * atten) / (distSq + 0.01);
 					    if (falloff > 0.001)
@@ -805,13 +804,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					        {
 					            float3 H = normalize(lDir + vDir);
 					            float nDotH = saturate(dot(N, H));
-					            // Spéculaire via exp2/log2 (équivalent performant du pow)
+					            // Spéculaire Blinn-Phong optimisée
 					            float spec = exp2(log2(max(nDotH, 0.00001)) * shininess) * normalization;
 					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w * falloff);
 					        }
 					    }
 					}
-					return specAccum * specBoost * fresnel * lmMask * radiusFade;
+					// Utilise ton entrée "Fresnel" externe ici
+					return specAccum * specBoost * Fresnel * lmMask * radiusFade;
 				}
 				
 
@@ -1096,13 +1096,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#else
 					float4 staticSwitch1549_g5296 = _Color;
 					#endif
-					float4 oAlbedo6_g5296 = staticSwitch1549_g5296;
+					float3 temp_output_2532_0_g5296 = (staticSwitch1549_g5296).rgb;
+					float3 oAlbedo6_g5296 = temp_output_2532_0_g5296;
 					float Black1185_g5296 = 0.0;
-					float4 temp_cast_0 = (Black1185_g5296).xxxx;
+					float3 temp_cast_0 = (Black1185_g5296).xxx;
 					#ifdef _LIGHTMAPDEBUG
-					float4 staticSwitch1180_g5296 = temp_cast_0;
+					float3 staticSwitch1180_g5296 = temp_cast_0;
 					#else
-					float4 staticSwitch1180_g5296 = oAlbedo6_g5296;
+					float3 staticSwitch1180_g5296 = oAlbedo6_g5296;
 					#endif
 					
 					float2 temp_output_5_0_g58826 = UV02420_g5296;
@@ -1184,27 +1185,27 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float staticSwitch846_g5296 = _Metallic;
 					#endif
 					float Metallic1239_g5296 = staticSwitch846_g5296;
-					float4 aAlbedo1466_g5296 = ( staticSwitch1549_g5296 * ( 1.0 - Metallic1239_g5296 ) );
+					float3 aAlbedo1466_g5296 = ( temp_output_2532_0_g5296 * ( 1.0 - Metallic1239_g5296 ) );
 					float White38_g5296 = 1.0;
-					float4 temp_cast_2 = (White38_g5296).xxxx;
+					float4 temp_cast_1 = (White38_g5296).xxxx;
 					float4 texCoord2426_g5296 = IN.ase_texcoord6;
 					texCoord2426_g5296.xy = IN.ase_texcoord6.xy * float2( 1,1 ) + float2( 0,0 );
 					half2 UV12361_g5296 = (texCoord2426_g5296).zw;
-					float localBicubicPrepare2_g59432 = ( 0.0 );
-					float2 Input_UV100_g59432 = UV12361_g5296;
-					float2 UV2_g59432 = Input_UV100_g59432;
-					float4 TexelSize2_g59432 = _Lightmap0_TexelSize;
-					float2 UV02_g59432 = float2( 0,0 );
-					float2 UV12_g59432 = float2( 0,0 );
-					float2 UV22_g59432 = float2( 0,0 );
-					float2 UV32_g59432 = float2( 0,0 );
-					float W02_g59432 = 0;
-					float W12_g59432 = 0;
+					float localBicubicPrepare2_g59567 = ( 0.0 );
+					float2 Input_UV100_g59567 = UV12361_g5296;
+					float2 UV2_g59567 = Input_UV100_g59567;
+					float4 TexelSize2_g59567 = _Lightmap0_TexelSize;
+					float2 UV02_g59567 = float2( 0,0 );
+					float2 UV12_g59567 = float2( 0,0 );
+					float2 UV22_g59567 = float2( 0,0 );
+					float2 UV32_g59567 = float2( 0,0 );
+					float W02_g59567 = 0;
+					float W12_g59567 = 0;
 					{
 					{
-					 UV2_g59432 = UV2_g59432 * TexelSize2_g59432.zw - 0.5;
-					    float2 f = frac( UV2_g59432 );
-					    UV2_g59432 -= f;
+					 UV2_g59567 = UV2_g59567 * TexelSize2_g59567.zw - 0.5;
+					    float2 f = frac( UV2_g59567 );
+					    UV2_g59567 -= f;
 					    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 					    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 					    float4 xs = xn * xn * xn;
@@ -1213,25 +1214,25 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 					    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 					 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-					    float4 c = float4( UV2_g59432.x - 0.5, UV2_g59432.x + 1.5, UV2_g59432.y - 0.5, UV2_g59432.y + 1.5 );
+					    float4 c = float4( UV2_g59567.x - 0.5, UV2_g59567.x + 1.5, UV2_g59567.y - 0.5, UV2_g59567.y + 1.5 );
 					    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-					    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g59432.xyxy;
-					    UV02_g59432 = off.xz;
-					    UV12_g59432 = off.yz;
-					    UV22_g59432 = off.xw;
-					    UV32_g59432 = off.yw;
-					    W02_g59432 = s.x / ( s.x + s.y );
-					 W12_g59432 = s.z / ( s.z + s.w );
+					    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g59567.xyxy;
+					    UV02_g59567 = off.xz;
+					    UV12_g59567 = off.yz;
+					    UV22_g59567 = off.xw;
+					    UV32_g59567 = off.yw;
+					    W02_g59567 = s.x / ( s.x + s.y );
+					 W12_g59567 = s.z / ( s.z + s.w );
 					}
 					}
-					float4 lerpResult46_g59432 = lerp( tex2D( _Lightmap0, UV32_g59432 ) , tex2D( _Lightmap0, UV22_g59432 ) , W02_g59432);
-					float4 lerpResult45_g59432 = lerp( tex2D( _Lightmap0, UV12_g59432 ) , tex2D( _Lightmap0, UV02_g59432 ) , W02_g59432);
-					float4 lerpResult44_g59432 = lerp( lerpResult46_g59432 , lerpResult45_g59432 , W12_g59432);
-					float4 Output_2D_Auto131_g59432 = lerpResult44_g59432;
+					float4 lerpResult46_g59567 = lerp( tex2D( _Lightmap0, UV32_g59567 ) , tex2D( _Lightmap0, UV22_g59567 ) , W02_g59567);
+					float4 lerpResult45_g59567 = lerp( tex2D( _Lightmap0, UV12_g59567 ) , tex2D( _Lightmap0, UV02_g59567 ) , W02_g59567);
+					float4 lerpResult44_g59567 = lerp( lerpResult46_g59567 , lerpResult45_g59567 , W12_g59567);
+					float4 Output_2D_Auto131_g59567 = lerpResult44_g59567;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g59432;
+					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g59567;
 					#else
-					float4 staticSwitch1092_g5296 = tex2D( _Lightmap0, UV12361_g5296 );
+					float4 staticSwitch1092_g5296 = float4( tex2D( _Lightmap0, UV12361_g5296 ).rgb , 0.0 );
 					#endif
 					float4 Lightmap_0925_g5296 = staticSwitch1092_g5296;
 					float localBicubicPrepare2_g59430 = ( 0.0 );
@@ -1511,7 +1512,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult953_g5296 = lerp( RNM_0926_g5296 , RNM_11081_g5296 , Lightmap_Lerp_Value969_g5296);
 					float4 RNM_Lerp950_g5296 = lerpResult953_g5296;
 					#if defined( _LIGHTMAPMODE_DISABLED )
-					float4 staticSwitch1014_g5296 = temp_cast_2;
+					float4 staticSwitch1014_g5296 = temp_cast_1;
 					#elif defined( _LIGHTMAPMODE_SIMPLE )
 					float4 staticSwitch1014_g5296 = Lightmap_0925_g5296;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
@@ -1521,17 +1522,27 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g5296 = RNM_Lerp950_g5296;
 					#else
-					float4 staticSwitch1014_g5296 = temp_cast_2;
+					float4 staticSwitch1014_g5296 = temp_cast_1;
 					#endif
-					float4 Lightmap46_g5296 = staticSwitch1014_g5296;
-					float3 WorldPos1_g59547 = PositionWS;
+					float3 Lightmap46_g5296 = (staticSwitch1014_g5296).rgb;
+					float3 World_Position2505_g5296 = PositionWS;
+					float3 WorldPos1_g59563 = World_Position2505_g5296;
 					float3 tanToWorld0 = float3( TangentWS.x, BitangentWS.x, NormalWS.x );
 					float3 tanToWorld1 = float3( TangentWS.y, BitangentWS.y, NormalWS.y );
 					float3 tanToWorld2 = float3( TangentWS.z, BitangentWS.z, NormalWS.z );
-					float3 tanNormal2_g59547 = Normal_Map700_g5296;
-					float3 worldNormal2_g59547 = float3( dot( tanToWorld0, tanNormal2_g59547 ), dot( tanToWorld1, tanNormal2_g59547 ), dot( tanToWorld2, tanNormal2_g59547 ) );
-					float3 WorldNormal1_g59547 = worldNormal2_g59547;
-					float3 ViewDir1_g59547 = ViewDirWS;
+					float3 tanNormal2504_g5296 = Normal_Map700_g5296;
+					float3 worldNormal2504_g5296 = float3( dot( tanToWorld0, tanNormal2504_g5296 ), dot( tanToWorld1, tanNormal2504_g5296 ), dot( tanToWorld2, tanNormal2504_g5296 ) );
+					float3 World_Normal2508_g5296 = worldNormal2504_g5296;
+					float3 WorldNormal1_g59563 = World_Normal2508_g5296;
+					float3 View_Direction2511_g5296 = ViewDirWS;
+					float3 ViewDir1_g59563 = View_Direction2511_g5296;
+					float3 temp_cast_3 = (0.04).xxx;
+					float3 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
+					float3 switchResult1501_g5296 = (((ase_vface>0)?(World_Normal2508_g5296):(-World_Normal2508_g5296)));
+					float dotResult1476_g5296 = dot( switchResult1501_g5296 , View_Direction2511_g5296 );
+					float3 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
+					float3 Fresnel1560_g5296 = lerpResult1480_g5296;
+					float4 Fresnel1_g59563 = float4( Fresnel1560_g5296 , 0.0 );
 					float2 temp_output_5_0_g59038 = UV02420_g5296;
 					float2 UV633_g59038 = temp_output_5_0_g59038;
 					float2 UV100_g59039 = UV633_g59038;
@@ -1611,27 +1622,20 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float staticSwitch845_g5296 = _Glossiness;
 					#endif
 					float Smoothness1399_g5296 = staticSwitch845_g5296;
-					float Smoothness1_g59547 = Smoothness1399_g5296;
-					float4 temp_cast_3 = (0.04).xxxx;
-					float4 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
-					float3 switchResult1501_g5296 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
-					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ViewDirWS );
-					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
-					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
-					float4 Fresnel1_g59547 = Fresnel1560_g5296;
-					float UseGeometricAA1_g59547 = _UseGeometricAA;
-					float3 localIndirectGeometricSpecular1_g59547 = IndirectGeometricSpecular1_g59547( WorldPos1_g59547 , WorldNormal1_g59547 , ViewDir1_g59547 , Smoothness1_g59547 , Fresnel1_g59547 , UseGeometricAA1_g59547 );
-					float3 temp_output_2493_0_g5296 = localIndirectGeometricSpecular1_g59547;
-					float4 temp_cast_7 = (0.02).xxxx;
-					float4 temp_cast_8 = (0.1).xxxx;
-					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_7 , temp_cast_8 , Lightmap46_g5296);
+					float Smoothness1_g59563 = Smoothness1399_g5296;
+					float UseGeometricAA1_g59563 = _UseGeometricAA;
+					float3 localIndirectGeometricSpecular1_g59563 = IndirectGeometricSpecular1_g59563( WorldPos1_g59563 , WorldNormal1_g59563 , ViewDir1_g59563 , Fresnel1_g59563 , Smoothness1_g59563 , UseGeometricAA1_g59563 );
+					float3 temp_output_2519_0_g5296 = localIndirectGeometricSpecular1_g59563;
+					float3 temp_cast_5 = (0.02).xxx;
+					float3 temp_cast_6 = (0.1).xxx;
+					float3 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g5296 = ( float4( temp_output_2493_0_g5296 , 0.0 ) * smoothstepResult2430_g5296 );
+					float3 staticSwitch1469_g5296 = ( temp_output_2519_0_g5296 * smoothstepResult2430_g5296 );
 					#else
-					float4 staticSwitch1469_g5296 = float4( temp_output_2493_0_g5296 , 0.0 );
+					float3 staticSwitch1469_g5296 = temp_output_2519_0_g5296;
 					#endif
-					float4 Specular1419_g5296 = staticSwitch1469_g5296;
-					float4 temp_cast_9 = (Black1185_g5296).xxxx;
+					float3 Specular1419_g5296 = staticSwitch1469_g5296;
+					float4 temp_cast_7 = (Black1185_g5296).xxxx;
 					float2 temp_output_5_0_g58901 = UV02420_g5296;
 					float2 UV633_g58901 = temp_output_5_0_g58901;
 					float2 UV100_g58902 = UV633_g58901;
@@ -1714,75 +1718,74 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _EMISSIONENABLED_ON
 					float4 staticSwitch1017_g5296 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1578_g5296 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g5296 = temp_cast_9;
+					float4 staticSwitch1017_g5296 = temp_cast_7;
 					#endif
-					float4 Emission86_g5296 = staticSwitch1017_g5296;
-					float3 WorldPos97_g59557 = PositionWS;
-					float3 tanNormal85_g59557 = Normal_Map700_g5296;
-					float3 worldNormal85_g59557 = float3( dot( tanToWorld0, tanNormal85_g59557 ), dot( tanToWorld1, tanNormal85_g59557 ), dot( tanToWorld2, tanNormal85_g59557 ) );
-					float3 WorldNormal97_g59557 = worldNormal85_g59557;
-					float Smoothness97_g59557 = Smoothness1399_g5296;
-					float3 LightmapColor97_g59557 = Lightmap46_g5296.rgb;
-					float3 ViewDir97_g59557 = ViewDirWS;
-					float3 localSpecular97_g59557 = Specular( WorldPos97_g59557 , WorldNormal97_g59557 , Smoothness97_g59557 , LightmapColor97_g59557 , ViewDir97_g59557 );
+					float3 Emission86_g5296 = (staticSwitch1017_g5296).rgb;
+					float3 WorldPos97_g59565 = World_Position2505_g5296;
+					float3 WorldNormal97_g59565 = Normal_Map700_g5296;
+					float3 LightmapColor97_g59565 = Lightmap46_g5296;
+					float3 ViewDir97_g59565 = View_Direction2511_g5296;
+					float4 Fresnel97_g59565 = float4( Fresnel1560_g5296 , 0.0 );
+					float Smoothness97_g59565 = Smoothness1399_g5296;
+					float3 localSpecular97_g59565 = Specular( WorldPos97_g59565 , WorldNormal97_g59565 , LightmapColor97_g59565 , ViewDir97_g59565 , Fresnel97_g59565 , Smoothness97_g59565 );
 					#ifdef _LIGHTMAPDEBUG
-					float4 staticSwitch1181_g5296 = Lightmap46_g5296;
+					float3 staticSwitch1181_g5296 = Lightmap46_g5296;
 					#else
-					float4 staticSwitch1181_g5296 = ( ( aAlbedo1466_g5296 * Lightmap46_g5296 ) + Specular1419_g5296 + Emission86_g5296 + float4( localSpecular97_g59557 , 0.0 ) );
+					float3 staticSwitch1181_g5296 = ( ( aAlbedo1466_g5296 * Lightmap46_g5296 ) + Specular1419_g5296 + Emission86_g5296 + localSpecular97_g59565 );
 					#endif
-					float4 temp_output_35_0_g59357 = staticSwitch1181_g5296;
-					float4 Color353_g59357 = temp_output_35_0_g59357;
+					float4 temp_output_35_0_g59568 = float4( staticSwitch1181_g5296 , 0.0 );
+					float4 Color353_g59568 = temp_output_35_0_g59568;
 					#if defined( _LUTMODE_2D )
-					float4 staticSwitch273_g59357 = saturate( temp_output_35_0_g59357 );
+					float4 staticSwitch273_g59568 = saturate( temp_output_35_0_g59568 );
 					#elif defined( _LUTMODE_3D )
-					float4 staticSwitch273_g59357 = temp_output_35_0_g59357;
+					float4 staticSwitch273_g59568 = temp_output_35_0_g59568;
 					#else
-					float4 staticSwitch273_g59357 = temp_output_35_0_g59357;
+					float4 staticSwitch273_g59568 = temp_output_35_0_g59568;
 					#endif
-					float4 Color_Saturate49_g59357 = staticSwitch273_g59357;
-					float Lut_Height213_g59357 = _LUTSize;
-					float Lut_Width216_g59357 = ( _LUTSize * Lut_Height213_g59357 );
-					float3 appendResult214_g59357 = (float3(( 1.0 / Lut_Width216_g59357 ) , ( 1.0 / Lut_Height213_g59357 ) , ( Lut_Height213_g59357 - 1.0 )));
-					float3 Scale_Offset208_g59357 = appendResult214_g59357;
-					float2 Scale_Factor292_g59357 = ( (Scale_Offset208_g59357).xy * (Scale_Offset208_g59357).z );
-					float2 Offset299_g59357 = ( (Scale_Offset208_g59357).xy * 0.5 );
-					float3 Adjusted_UV305_g59357 = ( ( (Color_Saturate49_g59357).xyw * float3( Scale_Factor292_g59357 ,  0.0 ) ) + float3( Offset299_g59357 ,  0.0 ) );
-					float2 Scaled_Blue280_g59357 = ( (Color_Saturate49_g59357).zw * (Scale_Offset208_g59357).z );
-					float2 Shift288_g59357 = floor( Scaled_Blue280_g59357 );
-					float2 Final_X313_g59357 = ( (Adjusted_UV305_g59357).xz + ( Shift288_g59357 * (Scale_Offset208_g59357).y ) );
-					float2 appendResult326_g59357 = (float2(Final_X313_g59357.x , (Adjusted_UV305_g59357).yz.x));
-					float2 Final_UV325_g59357 = appendResult326_g59357;
-					float2 appendResult338_g59357 = (float2((Scale_Offset208_g59357).y , 0.0));
-					float2 Offset_UV336_g59357 = ( Final_UV325_g59357 + appendResult338_g59357 );
-					float3 lerpResult333_g59357 = lerp( tex2D( _2DLut, Final_UV325_g59357 ).rgb , tex2D( _2DLut, Offset_UV336_g59357 ).rgb , float3( ( Scaled_Blue280_g59357 - Shift288_g59357 ) ,  0.0 ));
+					float4 Color_Saturate49_g59568 = staticSwitch273_g59568;
+					float Lut_Height213_g59568 = _LUTSize;
+					float Lut_Width216_g59568 = ( _LUTSize * Lut_Height213_g59568 );
+					float3 appendResult214_g59568 = (float3(( 1.0 / Lut_Width216_g59568 ) , ( 1.0 / Lut_Height213_g59568 ) , ( Lut_Height213_g59568 - 1.0 )));
+					float3 Scale_Offset208_g59568 = appendResult214_g59568;
+					float2 Scale_Factor292_g59568 = ( (Scale_Offset208_g59568).xy * (Scale_Offset208_g59568).z );
+					float2 Offset299_g59568 = ( (Scale_Offset208_g59568).xy * 0.5 );
+					float3 Adjusted_UV305_g59568 = ( ( (Color_Saturate49_g59568).xyw * float3( Scale_Factor292_g59568 ,  0.0 ) ) + float3( Offset299_g59568 ,  0.0 ) );
+					float2 Scaled_Blue280_g59568 = ( (Color_Saturate49_g59568).zw * (Scale_Offset208_g59568).z );
+					float2 Shift288_g59568 = floor( Scaled_Blue280_g59568 );
+					float2 Final_X313_g59568 = ( (Adjusted_UV305_g59568).xz + ( Shift288_g59568 * (Scale_Offset208_g59568).y ) );
+					float2 appendResult326_g59568 = (float2(Final_X313_g59568.x , (Adjusted_UV305_g59568).yz.x));
+					float2 Final_UV325_g59568 = appendResult326_g59568;
+					float2 appendResult338_g59568 = (float2((Scale_Offset208_g59568).y , 0.0));
+					float2 Offset_UV336_g59568 = ( Final_UV325_g59568 + appendResult338_g59568 );
+					float3 lerpResult333_g59568 = lerp( tex2D( _2DLut, Final_UV325_g59568 ).rgb , tex2D( _2DLut, Offset_UV336_g59568 ).rgb , float3( ( Scaled_Blue280_g59568 - Shift288_g59568 ) ,  0.0 ));
 					#ifdef _2DLUT
-					float4 staticSwitch347_g59357 = float4( lerpResult333_g59357 , 0.0 );
+					float4 staticSwitch347_g59568 = float4( lerpResult333_g59568 , 0.0 );
 					#else
-					float4 staticSwitch347_g59357 = Color_Saturate49_g59357;
+					float4 staticSwitch347_g59568 = Color_Saturate49_g59568;
 					#endif
-					float4 TwoD_LUT346_g59357 = staticSwitch347_g59357;
-					float3 RGB16_g59358 = ( ( log10( ( ( Color_Saturate49_g59357.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 TwoD_LUT346_g59568 = staticSwitch347_g59568;
+					float3 RGB16_g59569 = ( ( log10( ( ( Color_Saturate49_g59568.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float4 staticSwitch194_g59357 = tex3D( _3DLut, RGB16_g59358 );
+					float4 staticSwitch194_g59568 = tex3D( _3DLut, RGB16_g59569 );
 					#else
-					float4 staticSwitch194_g59357 = Color_Saturate49_g59357;
+					float4 staticSwitch194_g59568 = Color_Saturate49_g59568;
 					#endif
-					float4 ThreeD_LUT51_g59357 = staticSwitch194_g59357;
+					float4 ThreeD_LUT51_g59568 = staticSwitch194_g59568;
 					#if defined( _LUTMODE_2D )
-					float4 staticSwitch42_g59357 = TwoD_LUT346_g59357;
+					float4 staticSwitch42_g59568 = TwoD_LUT346_g59568;
 					#elif defined( _LUTMODE_3D )
-					float4 staticSwitch42_g59357 = ThreeD_LUT51_g59357;
+					float4 staticSwitch42_g59568 = ThreeD_LUT51_g59568;
 					#else
-					float4 staticSwitch42_g59357 = ThreeD_LUT51_g59357;
+					float4 staticSwitch42_g59568 = ThreeD_LUT51_g59568;
 					#endif
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch41_g59357 = staticSwitch42_g59357;
+					float4 staticSwitch41_g59568 = staticSwitch42_g59568;
 					#else
-					float4 staticSwitch41_g59357 = Color353_g59357;
+					float4 staticSwitch41_g59568 = Color353_g59568;
 					#endif
 					
 
-					o.Albedo = staticSwitch1180_g5296.rgb;
+					o.Albedo = staticSwitch1180_g5296;
 					o.Normal = half3( 0, 0, 1 );
 
 					half3 Specular = half3( 0, 0, 0 );
@@ -1803,7 +1806,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch41_g59357.xyz;
+					o.Emission = staticSwitch41_g59568.xyz;
 					o.Alpha = 1;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
@@ -2098,10 +2101,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
+				uniform float _UdonSpecularLightCount;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _UdonSpecularLightUp[32];
@@ -2134,7 +2137,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _EmissionIntensity;
 
 
-				float3 IndirectGeometricSpecular1_g59547( float3 WorldPos, float3 WorldNormal, float3 ViewDir, float Smoothness, float4 Fresnel, float UseGeometricAA )
+				float3 IndirectGeometricSpecular1_g59563( float3 WorldPos, float3 WorldNormal, float3 ViewDir, float4 Fresnel, float Smoothness, float UseGeometricAA )
 				{
 					// =============================================
 					//  GEOMETRIC SPECULAR AA - MÉTHODE VALVE (GDC 2015)
@@ -2172,7 +2175,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					return indirectSpec * Fresnel;
 				}
 				
-				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
+				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
 					float LumaStart = 0.05;
@@ -2185,17 +2188,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
 					float playerDist = distance(_WorldSpaceCameraPos, WorldPos);
 					float radiusFade = 1.0 - saturate((playerDist - RadiusFadeStart) / max(MaxRadius - RadiusFadeStart, 0.0001));
+					// Sortie anticipée si les conditions ne sont pas remplies
 					if (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount == 0 || radiusFade < 0.001) return 0;
 					// --- 3. SETUP OPTIMISÉ ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
-					// Atteint exactement 2.0 (S=0) et 2048.0 (S=1)
+					// Shininess : 2.0 (S=0) à 2048.0 (S=1)
 					float shininess = exp2(10.0 * Smoothness + 1.0);
 					float normalization = (shininess + 2.0) * 0.125;
-					float nv = saturate(dot(N, vDir));
-					float fBase = 1.0 - nv;
-					float f2 = fBase * fBase;
-					float fresnel = 0.04 + 0.96 * (f2 * f2 * fBase); // Pas de pow ici
 					float3 R = reflect(-vDir, N);
 					float3 specAccum = 0.0;
 					// --- 4. BOUCLE ---
@@ -2205,12 +2205,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    float4 lightPosRange = _UdonSpecularLightPos[i];
 					    float3 L = lightPosRange.xyz - WorldPos;
 					    float3 proj = R * dot(L, R) - L;
+					    // Calcul du point le plus proche sur l'aire de la lumière
 					    float3 closestPoint = lightPosRange.xyz;
 					    closestPoint += _UdonSpecularLightRight[i].xyz * clamp(dot(proj, _UdonSpecularLightRight[i].xyz), -_UdonSpecularLightRight[i].w, _UdonSpecularLightRight[i].w);
 					    closestPoint += _UdonSpecularLightUp[i].xyz * clamp(dot(proj, _UdonSpecularLightUp[i].xyz), -_UdonSpecularLightUp[i].w, _UdonSpecularLightUp[i].w);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
 					    float range = lightPosRange.w;
+					    // Atténuation quadratique
 					    float atten = saturate(1.0 - (distSq / (range * range)));
 					    float falloff = (atten * atten) / (distSq + 0.01);
 					    if (falloff > 0.001)
@@ -2221,13 +2223,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					        {
 					            float3 H = normalize(lDir + vDir);
 					            float nDotH = saturate(dot(N, H));
-					            // Spéculaire via exp2/log2 (équivalent performant du pow)
+					            // Spéculaire Blinn-Phong optimisée
 					            float spec = exp2(log2(max(nDotH, 0.00001)) * shininess) * normalization;
 					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w * falloff);
 					        }
 					    }
 					}
-					return specAccum * specBoost * fresnel * lmMask * radiusFade;
+					// Utilise ton entrée "Fresnel" externe ici
+					return specAccum * specBoost * Fresnel * lmMask * radiusFade;
 				}
 				
 
@@ -2495,13 +2498,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#else
 					float4 staticSwitch1549_g5296 = _Color;
 					#endif
-					float4 oAlbedo6_g5296 = staticSwitch1549_g5296;
+					float3 temp_output_2532_0_g5296 = (staticSwitch1549_g5296).rgb;
+					float3 oAlbedo6_g5296 = temp_output_2532_0_g5296;
 					float Black1185_g5296 = 0.0;
-					float4 temp_cast_0 = (Black1185_g5296).xxxx;
+					float3 temp_cast_0 = (Black1185_g5296).xxx;
 					#ifdef _LIGHTMAPDEBUG
-					float4 staticSwitch1180_g5296 = temp_cast_0;
+					float3 staticSwitch1180_g5296 = temp_cast_0;
 					#else
-					float4 staticSwitch1180_g5296 = oAlbedo6_g5296;
+					float3 staticSwitch1180_g5296 = oAlbedo6_g5296;
 					#endif
 					
 					float2 temp_output_5_0_g58826 = UV02420_g5296;
@@ -2583,27 +2587,27 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float staticSwitch846_g5296 = _Metallic;
 					#endif
 					float Metallic1239_g5296 = staticSwitch846_g5296;
-					float4 aAlbedo1466_g5296 = ( staticSwitch1549_g5296 * ( 1.0 - Metallic1239_g5296 ) );
+					float3 aAlbedo1466_g5296 = ( temp_output_2532_0_g5296 * ( 1.0 - Metallic1239_g5296 ) );
 					float White38_g5296 = 1.0;
-					float4 temp_cast_2 = (White38_g5296).xxxx;
+					float4 temp_cast_1 = (White38_g5296).xxxx;
 					float4 texCoord2426_g5296 = IN.ase_texcoord5;
 					texCoord2426_g5296.xy = IN.ase_texcoord5.xy * float2( 1,1 ) + float2( 0,0 );
 					half2 UV12361_g5296 = (texCoord2426_g5296).zw;
-					float localBicubicPrepare2_g59432 = ( 0.0 );
-					float2 Input_UV100_g59432 = UV12361_g5296;
-					float2 UV2_g59432 = Input_UV100_g59432;
-					float4 TexelSize2_g59432 = _Lightmap0_TexelSize;
-					float2 UV02_g59432 = float2( 0,0 );
-					float2 UV12_g59432 = float2( 0,0 );
-					float2 UV22_g59432 = float2( 0,0 );
-					float2 UV32_g59432 = float2( 0,0 );
-					float W02_g59432 = 0;
-					float W12_g59432 = 0;
+					float localBicubicPrepare2_g59567 = ( 0.0 );
+					float2 Input_UV100_g59567 = UV12361_g5296;
+					float2 UV2_g59567 = Input_UV100_g59567;
+					float4 TexelSize2_g59567 = _Lightmap0_TexelSize;
+					float2 UV02_g59567 = float2( 0,0 );
+					float2 UV12_g59567 = float2( 0,0 );
+					float2 UV22_g59567 = float2( 0,0 );
+					float2 UV32_g59567 = float2( 0,0 );
+					float W02_g59567 = 0;
+					float W12_g59567 = 0;
 					{
 					{
-					 UV2_g59432 = UV2_g59432 * TexelSize2_g59432.zw - 0.5;
-					    float2 f = frac( UV2_g59432 );
-					    UV2_g59432 -= f;
+					 UV2_g59567 = UV2_g59567 * TexelSize2_g59567.zw - 0.5;
+					    float2 f = frac( UV2_g59567 );
+					    UV2_g59567 -= f;
 					    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 					    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 					    float4 xs = xn * xn * xn;
@@ -2612,25 +2616,25 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 					    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 					 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-					    float4 c = float4( UV2_g59432.x - 0.5, UV2_g59432.x + 1.5, UV2_g59432.y - 0.5, UV2_g59432.y + 1.5 );
+					    float4 c = float4( UV2_g59567.x - 0.5, UV2_g59567.x + 1.5, UV2_g59567.y - 0.5, UV2_g59567.y + 1.5 );
 					    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-					    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g59432.xyxy;
-					    UV02_g59432 = off.xz;
-					    UV12_g59432 = off.yz;
-					    UV22_g59432 = off.xw;
-					    UV32_g59432 = off.yw;
-					    W02_g59432 = s.x / ( s.x + s.y );
-					 W12_g59432 = s.z / ( s.z + s.w );
+					    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g59567.xyxy;
+					    UV02_g59567 = off.xz;
+					    UV12_g59567 = off.yz;
+					    UV22_g59567 = off.xw;
+					    UV32_g59567 = off.yw;
+					    W02_g59567 = s.x / ( s.x + s.y );
+					 W12_g59567 = s.z / ( s.z + s.w );
 					}
 					}
-					float4 lerpResult46_g59432 = lerp( tex2D( _Lightmap0, UV32_g59432 ) , tex2D( _Lightmap0, UV22_g59432 ) , W02_g59432);
-					float4 lerpResult45_g59432 = lerp( tex2D( _Lightmap0, UV12_g59432 ) , tex2D( _Lightmap0, UV02_g59432 ) , W02_g59432);
-					float4 lerpResult44_g59432 = lerp( lerpResult46_g59432 , lerpResult45_g59432 , W12_g59432);
-					float4 Output_2D_Auto131_g59432 = lerpResult44_g59432;
+					float4 lerpResult46_g59567 = lerp( tex2D( _Lightmap0, UV32_g59567 ) , tex2D( _Lightmap0, UV22_g59567 ) , W02_g59567);
+					float4 lerpResult45_g59567 = lerp( tex2D( _Lightmap0, UV12_g59567 ) , tex2D( _Lightmap0, UV02_g59567 ) , W02_g59567);
+					float4 lerpResult44_g59567 = lerp( lerpResult46_g59567 , lerpResult45_g59567 , W12_g59567);
+					float4 Output_2D_Auto131_g59567 = lerpResult44_g59567;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g59432;
+					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g59567;
 					#else
-					float4 staticSwitch1092_g5296 = tex2D( _Lightmap0, UV12361_g5296 );
+					float4 staticSwitch1092_g5296 = float4( tex2D( _Lightmap0, UV12361_g5296 ).rgb , 0.0 );
 					#endif
 					float4 Lightmap_0925_g5296 = staticSwitch1092_g5296;
 					float localBicubicPrepare2_g59430 = ( 0.0 );
@@ -2910,7 +2914,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult953_g5296 = lerp( RNM_0926_g5296 , RNM_11081_g5296 , Lightmap_Lerp_Value969_g5296);
 					float4 RNM_Lerp950_g5296 = lerpResult953_g5296;
 					#if defined( _LIGHTMAPMODE_DISABLED )
-					float4 staticSwitch1014_g5296 = temp_cast_2;
+					float4 staticSwitch1014_g5296 = temp_cast_1;
 					#elif defined( _LIGHTMAPMODE_SIMPLE )
 					float4 staticSwitch1014_g5296 = Lightmap_0925_g5296;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
@@ -2920,17 +2924,27 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g5296 = RNM_Lerp950_g5296;
 					#else
-					float4 staticSwitch1014_g5296 = temp_cast_2;
+					float4 staticSwitch1014_g5296 = temp_cast_1;
 					#endif
-					float4 Lightmap46_g5296 = staticSwitch1014_g5296;
-					float3 WorldPos1_g59547 = PositionWS;
+					float3 Lightmap46_g5296 = (staticSwitch1014_g5296).rgb;
+					float3 World_Position2505_g5296 = PositionWS;
+					float3 WorldPos1_g59563 = World_Position2505_g5296;
 					float3 tanToWorld0 = float3( TangentWS.x, BitangentWS.x, NormalWS.x );
 					float3 tanToWorld1 = float3( TangentWS.y, BitangentWS.y, NormalWS.y );
 					float3 tanToWorld2 = float3( TangentWS.z, BitangentWS.z, NormalWS.z );
-					float3 tanNormal2_g59547 = Normal_Map700_g5296;
-					float3 worldNormal2_g59547 = float3( dot( tanToWorld0, tanNormal2_g59547 ), dot( tanToWorld1, tanNormal2_g59547 ), dot( tanToWorld2, tanNormal2_g59547 ) );
-					float3 WorldNormal1_g59547 = worldNormal2_g59547;
-					float3 ViewDir1_g59547 = ViewDirWS;
+					float3 tanNormal2504_g5296 = Normal_Map700_g5296;
+					float3 worldNormal2504_g5296 = float3( dot( tanToWorld0, tanNormal2504_g5296 ), dot( tanToWorld1, tanNormal2504_g5296 ), dot( tanToWorld2, tanNormal2504_g5296 ) );
+					float3 World_Normal2508_g5296 = worldNormal2504_g5296;
+					float3 WorldNormal1_g59563 = World_Normal2508_g5296;
+					float3 View_Direction2511_g5296 = ViewDirWS;
+					float3 ViewDir1_g59563 = View_Direction2511_g5296;
+					float3 temp_cast_3 = (0.04).xxx;
+					float3 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
+					float3 switchResult1501_g5296 = (((ase_vface>0)?(World_Normal2508_g5296):(-World_Normal2508_g5296)));
+					float dotResult1476_g5296 = dot( switchResult1501_g5296 , View_Direction2511_g5296 );
+					float3 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
+					float3 Fresnel1560_g5296 = lerpResult1480_g5296;
+					float4 Fresnel1_g59563 = float4( Fresnel1560_g5296 , 0.0 );
 					float2 temp_output_5_0_g59038 = UV02420_g5296;
 					float2 UV633_g59038 = temp_output_5_0_g59038;
 					float2 UV100_g59039 = UV633_g59038;
@@ -3010,27 +3024,20 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float staticSwitch845_g5296 = _Glossiness;
 					#endif
 					float Smoothness1399_g5296 = staticSwitch845_g5296;
-					float Smoothness1_g59547 = Smoothness1399_g5296;
-					float4 temp_cast_3 = (0.04).xxxx;
-					float4 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
-					float3 switchResult1501_g5296 = (((ase_vface>0)?(NormalWS):(-NormalWS)));
-					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ViewDirWS );
-					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
-					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
-					float4 Fresnel1_g59547 = Fresnel1560_g5296;
-					float UseGeometricAA1_g59547 = _UseGeometricAA;
-					float3 localIndirectGeometricSpecular1_g59547 = IndirectGeometricSpecular1_g59547( WorldPos1_g59547 , WorldNormal1_g59547 , ViewDir1_g59547 , Smoothness1_g59547 , Fresnel1_g59547 , UseGeometricAA1_g59547 );
-					float3 temp_output_2493_0_g5296 = localIndirectGeometricSpecular1_g59547;
-					float4 temp_cast_7 = (0.02).xxxx;
-					float4 temp_cast_8 = (0.1).xxxx;
-					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_7 , temp_cast_8 , Lightmap46_g5296);
+					float Smoothness1_g59563 = Smoothness1399_g5296;
+					float UseGeometricAA1_g59563 = _UseGeometricAA;
+					float3 localIndirectGeometricSpecular1_g59563 = IndirectGeometricSpecular1_g59563( WorldPos1_g59563 , WorldNormal1_g59563 , ViewDir1_g59563 , Fresnel1_g59563 , Smoothness1_g59563 , UseGeometricAA1_g59563 );
+					float3 temp_output_2519_0_g5296 = localIndirectGeometricSpecular1_g59563;
+					float3 temp_cast_5 = (0.02).xxx;
+					float3 temp_cast_6 = (0.1).xxx;
+					float3 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g5296 = ( float4( temp_output_2493_0_g5296 , 0.0 ) * smoothstepResult2430_g5296 );
+					float3 staticSwitch1469_g5296 = ( temp_output_2519_0_g5296 * smoothstepResult2430_g5296 );
 					#else
-					float4 staticSwitch1469_g5296 = float4( temp_output_2493_0_g5296 , 0.0 );
+					float3 staticSwitch1469_g5296 = temp_output_2519_0_g5296;
 					#endif
-					float4 Specular1419_g5296 = staticSwitch1469_g5296;
-					float4 temp_cast_9 = (Black1185_g5296).xxxx;
+					float3 Specular1419_g5296 = staticSwitch1469_g5296;
+					float4 temp_cast_7 = (Black1185_g5296).xxxx;
 					float2 temp_output_5_0_g58901 = UV02420_g5296;
 					float2 UV633_g58901 = temp_output_5_0_g58901;
 					float2 UV100_g58902 = UV633_g58901;
@@ -3113,75 +3120,74 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _EMISSIONENABLED_ON
 					float4 staticSwitch1017_g5296 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1578_g5296 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g5296 = temp_cast_9;
+					float4 staticSwitch1017_g5296 = temp_cast_7;
 					#endif
-					float4 Emission86_g5296 = staticSwitch1017_g5296;
-					float3 WorldPos97_g59557 = PositionWS;
-					float3 tanNormal85_g59557 = Normal_Map700_g5296;
-					float3 worldNormal85_g59557 = float3( dot( tanToWorld0, tanNormal85_g59557 ), dot( tanToWorld1, tanNormal85_g59557 ), dot( tanToWorld2, tanNormal85_g59557 ) );
-					float3 WorldNormal97_g59557 = worldNormal85_g59557;
-					float Smoothness97_g59557 = Smoothness1399_g5296;
-					float3 LightmapColor97_g59557 = Lightmap46_g5296.rgb;
-					float3 ViewDir97_g59557 = ViewDirWS;
-					float3 localSpecular97_g59557 = Specular( WorldPos97_g59557 , WorldNormal97_g59557 , Smoothness97_g59557 , LightmapColor97_g59557 , ViewDir97_g59557 );
+					float3 Emission86_g5296 = (staticSwitch1017_g5296).rgb;
+					float3 WorldPos97_g59565 = World_Position2505_g5296;
+					float3 WorldNormal97_g59565 = Normal_Map700_g5296;
+					float3 LightmapColor97_g59565 = Lightmap46_g5296;
+					float3 ViewDir97_g59565 = View_Direction2511_g5296;
+					float4 Fresnel97_g59565 = float4( Fresnel1560_g5296 , 0.0 );
+					float Smoothness97_g59565 = Smoothness1399_g5296;
+					float3 localSpecular97_g59565 = Specular( WorldPos97_g59565 , WorldNormal97_g59565 , LightmapColor97_g59565 , ViewDir97_g59565 , Fresnel97_g59565 , Smoothness97_g59565 );
 					#ifdef _LIGHTMAPDEBUG
-					float4 staticSwitch1181_g5296 = Lightmap46_g5296;
+					float3 staticSwitch1181_g5296 = Lightmap46_g5296;
 					#else
-					float4 staticSwitch1181_g5296 = ( ( aAlbedo1466_g5296 * Lightmap46_g5296 ) + Specular1419_g5296 + Emission86_g5296 + float4( localSpecular97_g59557 , 0.0 ) );
+					float3 staticSwitch1181_g5296 = ( ( aAlbedo1466_g5296 * Lightmap46_g5296 ) + Specular1419_g5296 + Emission86_g5296 + localSpecular97_g59565 );
 					#endif
-					float4 temp_output_35_0_g59357 = staticSwitch1181_g5296;
-					float4 Color353_g59357 = temp_output_35_0_g59357;
+					float4 temp_output_35_0_g59568 = float4( staticSwitch1181_g5296 , 0.0 );
+					float4 Color353_g59568 = temp_output_35_0_g59568;
 					#if defined( _LUTMODE_2D )
-					float4 staticSwitch273_g59357 = saturate( temp_output_35_0_g59357 );
+					float4 staticSwitch273_g59568 = saturate( temp_output_35_0_g59568 );
 					#elif defined( _LUTMODE_3D )
-					float4 staticSwitch273_g59357 = temp_output_35_0_g59357;
+					float4 staticSwitch273_g59568 = temp_output_35_0_g59568;
 					#else
-					float4 staticSwitch273_g59357 = temp_output_35_0_g59357;
+					float4 staticSwitch273_g59568 = temp_output_35_0_g59568;
 					#endif
-					float4 Color_Saturate49_g59357 = staticSwitch273_g59357;
-					float Lut_Height213_g59357 = _LUTSize;
-					float Lut_Width216_g59357 = ( _LUTSize * Lut_Height213_g59357 );
-					float3 appendResult214_g59357 = (float3(( 1.0 / Lut_Width216_g59357 ) , ( 1.0 / Lut_Height213_g59357 ) , ( Lut_Height213_g59357 - 1.0 )));
-					float3 Scale_Offset208_g59357 = appendResult214_g59357;
-					float2 Scale_Factor292_g59357 = ( (Scale_Offset208_g59357).xy * (Scale_Offset208_g59357).z );
-					float2 Offset299_g59357 = ( (Scale_Offset208_g59357).xy * 0.5 );
-					float3 Adjusted_UV305_g59357 = ( ( (Color_Saturate49_g59357).xyw * float3( Scale_Factor292_g59357 ,  0.0 ) ) + float3( Offset299_g59357 ,  0.0 ) );
-					float2 Scaled_Blue280_g59357 = ( (Color_Saturate49_g59357).zw * (Scale_Offset208_g59357).z );
-					float2 Shift288_g59357 = floor( Scaled_Blue280_g59357 );
-					float2 Final_X313_g59357 = ( (Adjusted_UV305_g59357).xz + ( Shift288_g59357 * (Scale_Offset208_g59357).y ) );
-					float2 appendResult326_g59357 = (float2(Final_X313_g59357.x , (Adjusted_UV305_g59357).yz.x));
-					float2 Final_UV325_g59357 = appendResult326_g59357;
-					float2 appendResult338_g59357 = (float2((Scale_Offset208_g59357).y , 0.0));
-					float2 Offset_UV336_g59357 = ( Final_UV325_g59357 + appendResult338_g59357 );
-					float3 lerpResult333_g59357 = lerp( tex2D( _2DLut, Final_UV325_g59357 ).rgb , tex2D( _2DLut, Offset_UV336_g59357 ).rgb , float3( ( Scaled_Blue280_g59357 - Shift288_g59357 ) ,  0.0 ));
+					float4 Color_Saturate49_g59568 = staticSwitch273_g59568;
+					float Lut_Height213_g59568 = _LUTSize;
+					float Lut_Width216_g59568 = ( _LUTSize * Lut_Height213_g59568 );
+					float3 appendResult214_g59568 = (float3(( 1.0 / Lut_Width216_g59568 ) , ( 1.0 / Lut_Height213_g59568 ) , ( Lut_Height213_g59568 - 1.0 )));
+					float3 Scale_Offset208_g59568 = appendResult214_g59568;
+					float2 Scale_Factor292_g59568 = ( (Scale_Offset208_g59568).xy * (Scale_Offset208_g59568).z );
+					float2 Offset299_g59568 = ( (Scale_Offset208_g59568).xy * 0.5 );
+					float3 Adjusted_UV305_g59568 = ( ( (Color_Saturate49_g59568).xyw * float3( Scale_Factor292_g59568 ,  0.0 ) ) + float3( Offset299_g59568 ,  0.0 ) );
+					float2 Scaled_Blue280_g59568 = ( (Color_Saturate49_g59568).zw * (Scale_Offset208_g59568).z );
+					float2 Shift288_g59568 = floor( Scaled_Blue280_g59568 );
+					float2 Final_X313_g59568 = ( (Adjusted_UV305_g59568).xz + ( Shift288_g59568 * (Scale_Offset208_g59568).y ) );
+					float2 appendResult326_g59568 = (float2(Final_X313_g59568.x , (Adjusted_UV305_g59568).yz.x));
+					float2 Final_UV325_g59568 = appendResult326_g59568;
+					float2 appendResult338_g59568 = (float2((Scale_Offset208_g59568).y , 0.0));
+					float2 Offset_UV336_g59568 = ( Final_UV325_g59568 + appendResult338_g59568 );
+					float3 lerpResult333_g59568 = lerp( tex2D( _2DLut, Final_UV325_g59568 ).rgb , tex2D( _2DLut, Offset_UV336_g59568 ).rgb , float3( ( Scaled_Blue280_g59568 - Shift288_g59568 ) ,  0.0 ));
 					#ifdef _2DLUT
-					float4 staticSwitch347_g59357 = float4( lerpResult333_g59357 , 0.0 );
+					float4 staticSwitch347_g59568 = float4( lerpResult333_g59568 , 0.0 );
 					#else
-					float4 staticSwitch347_g59357 = Color_Saturate49_g59357;
+					float4 staticSwitch347_g59568 = Color_Saturate49_g59568;
 					#endif
-					float4 TwoD_LUT346_g59357 = staticSwitch347_g59357;
-					float3 RGB16_g59358 = ( ( log10( ( ( Color_Saturate49_g59357.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 TwoD_LUT346_g59568 = staticSwitch347_g59568;
+					float3 RGB16_g59569 = ( ( log10( ( ( Color_Saturate49_g59568.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float4 staticSwitch194_g59357 = tex3D( _3DLut, RGB16_g59358 );
+					float4 staticSwitch194_g59568 = tex3D( _3DLut, RGB16_g59569 );
 					#else
-					float4 staticSwitch194_g59357 = Color_Saturate49_g59357;
+					float4 staticSwitch194_g59568 = Color_Saturate49_g59568;
 					#endif
-					float4 ThreeD_LUT51_g59357 = staticSwitch194_g59357;
+					float4 ThreeD_LUT51_g59568 = staticSwitch194_g59568;
 					#if defined( _LUTMODE_2D )
-					float4 staticSwitch42_g59357 = TwoD_LUT346_g59357;
+					float4 staticSwitch42_g59568 = TwoD_LUT346_g59568;
 					#elif defined( _LUTMODE_3D )
-					float4 staticSwitch42_g59357 = ThreeD_LUT51_g59357;
+					float4 staticSwitch42_g59568 = ThreeD_LUT51_g59568;
 					#else
-					float4 staticSwitch42_g59357 = ThreeD_LUT51_g59357;
+					float4 staticSwitch42_g59568 = ThreeD_LUT51_g59568;
 					#endif
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch41_g59357 = staticSwitch42_g59357;
+					float4 staticSwitch41_g59568 = staticSwitch42_g59568;
 					#else
-					float4 staticSwitch41_g59357 = Color353_g59357;
+					float4 staticSwitch41_g59568 = Color353_g59568;
 					#endif
 					
 
-					o.Albedo = staticSwitch1180_g5296.rgb;
+					o.Albedo = staticSwitch1180_g5296;
 					o.Normal = half3( 0, 0, 1 );
 
 					half3 Specular = half3( 0, 0, 0 );
@@ -3202,7 +3208,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch41_g59357.xyz;
+					o.Emission = staticSwitch41_g59568.xyz;
 					o.Alpha = 1;
 					half AlphaClipThreshold = 0.5;
 					half3 Transmission = 1;
@@ -3425,10 +3431,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
+				uniform float _UdonSpecularLightCount;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _UdonSpecularLightUp[32];
@@ -3461,7 +3467,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _EmissionIntensity;
 
 
-				float3 IndirectGeometricSpecular1_g59547( float3 WorldPos, float3 WorldNormal, float3 ViewDir, float Smoothness, float4 Fresnel, float UseGeometricAA )
+				float3 IndirectGeometricSpecular1_g59563( float3 WorldPos, float3 WorldNormal, float3 ViewDir, float4 Fresnel, float Smoothness, float UseGeometricAA )
 				{
 					// =============================================
 					//  GEOMETRIC SPECULAR AA - MÉTHODE VALVE (GDC 2015)
@@ -3499,7 +3505,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					return indirectSpec * Fresnel;
 				}
 				
-				float3 Specular( float3 WorldPos, float3 WorldNormal, float Smoothness, float3 LightmapColor, float3 ViewDir )
+				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
 					float LumaStart = 0.05;
@@ -3512,17 +3518,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
 					float playerDist = distance(_WorldSpaceCameraPos, WorldPos);
 					float radiusFade = 1.0 - saturate((playerDist - RadiusFadeStart) / max(MaxRadius - RadiusFadeStart, 0.0001));
+					// Sortie anticipée si les conditions ne sont pas remplies
 					if (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount == 0 || radiusFade < 0.001) return 0;
 					// --- 3. SETUP OPTIMISÉ ---
 					float3 vDir = normalize(ViewDir);
 					float3 N = normalize(WorldNormal);
-					// Atteint exactement 2.0 (S=0) et 2048.0 (S=1)
+					// Shininess : 2.0 (S=0) à 2048.0 (S=1)
 					float shininess = exp2(10.0 * Smoothness + 1.0);
 					float normalization = (shininess + 2.0) * 0.125;
-					float nv = saturate(dot(N, vDir));
-					float fBase = 1.0 - nv;
-					float f2 = fBase * fBase;
-					float fresnel = 0.04 + 0.96 * (f2 * f2 * fBase); // Pas de pow ici
 					float3 R = reflect(-vDir, N);
 					float3 specAccum = 0.0;
 					// --- 4. BOUCLE ---
@@ -3532,12 +3535,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    float4 lightPosRange = _UdonSpecularLightPos[i];
 					    float3 L = lightPosRange.xyz - WorldPos;
 					    float3 proj = R * dot(L, R) - L;
+					    // Calcul du point le plus proche sur l'aire de la lumière
 					    float3 closestPoint = lightPosRange.xyz;
 					    closestPoint += _UdonSpecularLightRight[i].xyz * clamp(dot(proj, _UdonSpecularLightRight[i].xyz), -_UdonSpecularLightRight[i].w, _UdonSpecularLightRight[i].w);
 					    closestPoint += _UdonSpecularLightUp[i].xyz * clamp(dot(proj, _UdonSpecularLightUp[i].xyz), -_UdonSpecularLightUp[i].w, _UdonSpecularLightUp[i].w);
 					    float3 diff = closestPoint - WorldPos;
 					    float distSq = dot(diff, diff);
 					    float range = lightPosRange.w;
+					    // Atténuation quadratique
 					    float atten = saturate(1.0 - (distSq / (range * range)));
 					    float falloff = (atten * atten) / (distSq + 0.01);
 					    if (falloff > 0.001)
@@ -3548,13 +3553,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					        {
 					            float3 H = normalize(lDir + vDir);
 					            float nDotH = saturate(dot(N, H));
-					            // Spéculaire via exp2/log2 (équivalent performant du pow)
+					            // Spéculaire Blinn-Phong optimisée
 					            float spec = exp2(log2(max(nDotH, 0.00001)) * shininess) * normalization;
 					            specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w * falloff);
 					        }
 					    }
 					}
-					return specAccum * specBoost * fresnel * lmMask * radiusFade;
+					// Utilise ton entrée "Fresnel" externe ici
+					return specAccum * specBoost * Fresnel * lmMask * radiusFade;
 				}
 				
 
@@ -3803,13 +3809,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#else
 					float4 staticSwitch1549_g5296 = _Color;
 					#endif
-					float4 oAlbedo6_g5296 = staticSwitch1549_g5296;
+					float3 temp_output_2532_0_g5296 = (staticSwitch1549_g5296).rgb;
+					float3 oAlbedo6_g5296 = temp_output_2532_0_g5296;
 					float Black1185_g5296 = 0.0;
-					float4 temp_cast_0 = (Black1185_g5296).xxxx;
+					float3 temp_cast_0 = (Black1185_g5296).xxx;
 					#ifdef _LIGHTMAPDEBUG
-					float4 staticSwitch1180_g5296 = temp_cast_0;
+					float3 staticSwitch1180_g5296 = temp_cast_0;
 					#else
-					float4 staticSwitch1180_g5296 = oAlbedo6_g5296;
+					float3 staticSwitch1180_g5296 = oAlbedo6_g5296;
 					#endif
 					
 					float2 temp_output_5_0_g58826 = UV02420_g5296;
@@ -3891,27 +3898,27 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float staticSwitch846_g5296 = _Metallic;
 					#endif
 					float Metallic1239_g5296 = staticSwitch846_g5296;
-					float4 aAlbedo1466_g5296 = ( staticSwitch1549_g5296 * ( 1.0 - Metallic1239_g5296 ) );
+					float3 aAlbedo1466_g5296 = ( temp_output_2532_0_g5296 * ( 1.0 - Metallic1239_g5296 ) );
 					float White38_g5296 = 1.0;
-					float4 temp_cast_2 = (White38_g5296).xxxx;
+					float4 temp_cast_1 = (White38_g5296).xxxx;
 					float4 texCoord2426_g5296 = IN.ase_texcoord2;
 					texCoord2426_g5296.xy = IN.ase_texcoord2.xy * float2( 1,1 ) + float2( 0,0 );
 					half2 UV12361_g5296 = (texCoord2426_g5296).zw;
-					float localBicubicPrepare2_g59432 = ( 0.0 );
-					float2 Input_UV100_g59432 = UV12361_g5296;
-					float2 UV2_g59432 = Input_UV100_g59432;
-					float4 TexelSize2_g59432 = _Lightmap0_TexelSize;
-					float2 UV02_g59432 = float2( 0,0 );
-					float2 UV12_g59432 = float2( 0,0 );
-					float2 UV22_g59432 = float2( 0,0 );
-					float2 UV32_g59432 = float2( 0,0 );
-					float W02_g59432 = 0;
-					float W12_g59432 = 0;
+					float localBicubicPrepare2_g59567 = ( 0.0 );
+					float2 Input_UV100_g59567 = UV12361_g5296;
+					float2 UV2_g59567 = Input_UV100_g59567;
+					float4 TexelSize2_g59567 = _Lightmap0_TexelSize;
+					float2 UV02_g59567 = float2( 0,0 );
+					float2 UV12_g59567 = float2( 0,0 );
+					float2 UV22_g59567 = float2( 0,0 );
+					float2 UV32_g59567 = float2( 0,0 );
+					float W02_g59567 = 0;
+					float W12_g59567 = 0;
 					{
 					{
-					 UV2_g59432 = UV2_g59432 * TexelSize2_g59432.zw - 0.5;
-					    float2 f = frac( UV2_g59432 );
-					    UV2_g59432 -= f;
+					 UV2_g59567 = UV2_g59567 * TexelSize2_g59567.zw - 0.5;
+					    float2 f = frac( UV2_g59567 );
+					    UV2_g59567 -= f;
 					    float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 					    float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 					    float4 xs = xn * xn * xn;
@@ -3920,25 +3927,25 @@ Shader "Meenphie/Standard/Winter/Snow"
 					    float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 					    float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 					 float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-					    float4 c = float4( UV2_g59432.x - 0.5, UV2_g59432.x + 1.5, UV2_g59432.y - 0.5, UV2_g59432.y + 1.5 );
+					    float4 c = float4( UV2_g59567.x - 0.5, UV2_g59567.x + 1.5, UV2_g59567.y - 0.5, UV2_g59567.y + 1.5 );
 					    float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
-					    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g59432.xyxy;
-					    UV02_g59432 = off.xz;
-					    UV12_g59432 = off.yz;
-					    UV22_g59432 = off.xw;
-					    UV32_g59432 = off.yw;
-					    W02_g59432 = s.x / ( s.x + s.y );
-					 W12_g59432 = s.z / ( s.z + s.w );
+					    float4 off = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g59567.xyxy;
+					    UV02_g59567 = off.xz;
+					    UV12_g59567 = off.yz;
+					    UV22_g59567 = off.xw;
+					    UV32_g59567 = off.yw;
+					    W02_g59567 = s.x / ( s.x + s.y );
+					 W12_g59567 = s.z / ( s.z + s.w );
 					}
 					}
-					float4 lerpResult46_g59432 = lerp( tex2D( _Lightmap0, UV32_g59432 ) , tex2D( _Lightmap0, UV22_g59432 ) , W02_g59432);
-					float4 lerpResult45_g59432 = lerp( tex2D( _Lightmap0, UV12_g59432 ) , tex2D( _Lightmap0, UV02_g59432 ) , W02_g59432);
-					float4 lerpResult44_g59432 = lerp( lerpResult46_g59432 , lerpResult45_g59432 , W12_g59432);
-					float4 Output_2D_Auto131_g59432 = lerpResult44_g59432;
+					float4 lerpResult46_g59567 = lerp( tex2D( _Lightmap0, UV32_g59567 ) , tex2D( _Lightmap0, UV22_g59567 ) , W02_g59567);
+					float4 lerpResult45_g59567 = lerp( tex2D( _Lightmap0, UV12_g59567 ) , tex2D( _Lightmap0, UV02_g59567 ) , W02_g59567);
+					float4 lerpResult44_g59567 = lerp( lerpResult46_g59567 , lerpResult45_g59567 , W12_g59567);
+					float4 Output_2D_Auto131_g59567 = lerpResult44_g59567;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g59432;
+					float4 staticSwitch1092_g5296 = Output_2D_Auto131_g59567;
 					#else
-					float4 staticSwitch1092_g5296 = tex2D( _Lightmap0, UV12361_g5296 );
+					float4 staticSwitch1092_g5296 = float4( tex2D( _Lightmap0, UV12361_g5296 ).rgb , 0.0 );
 					#endif
 					float4 Lightmap_0925_g5296 = staticSwitch1092_g5296;
 					float localBicubicPrepare2_g59430 = ( 0.0 );
@@ -4218,7 +4225,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 lerpResult953_g5296 = lerp( RNM_0926_g5296 , RNM_11081_g5296 , Lightmap_Lerp_Value969_g5296);
 					float4 RNM_Lerp950_g5296 = lerpResult953_g5296;
 					#if defined( _LIGHTMAPMODE_DISABLED )
-					float4 staticSwitch1014_g5296 = temp_cast_2;
+					float4 staticSwitch1014_g5296 = temp_cast_1;
 					#elif defined( _LIGHTMAPMODE_SIMPLE )
 					float4 staticSwitch1014_g5296 = Lightmap_0925_g5296;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
@@ -4228,23 +4235,33 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g5296 = RNM_Lerp950_g5296;
 					#else
-					float4 staticSwitch1014_g5296 = temp_cast_2;
+					float4 staticSwitch1014_g5296 = temp_cast_1;
 					#endif
-					float4 Lightmap46_g5296 = staticSwitch1014_g5296;
+					float3 Lightmap46_g5296 = (staticSwitch1014_g5296).rgb;
 					float3 ase_positionWS = IN.ase_texcoord3.xyz;
-					float3 WorldPos1_g59547 = ase_positionWS;
+					float3 World_Position2505_g5296 = ase_positionWS;
+					float3 WorldPos1_g59563 = World_Position2505_g5296;
 					float3 ase_tangentWS = IN.ase_texcoord4.xyz;
 					float3 ase_normalWS = IN.ase_texcoord5.xyz;
 					float3 ase_bitangentWS = IN.ase_texcoord6.xyz;
 					float3 tanToWorld0 = float3( ase_tangentWS.x, ase_bitangentWS.x, ase_normalWS.x );
 					float3 tanToWorld1 = float3( ase_tangentWS.y, ase_bitangentWS.y, ase_normalWS.y );
 					float3 tanToWorld2 = float3( ase_tangentWS.z, ase_bitangentWS.z, ase_normalWS.z );
-					float3 tanNormal2_g59547 = Normal_Map700_g5296;
-					float3 worldNormal2_g59547 = float3( dot( tanToWorld0, tanNormal2_g59547 ), dot( tanToWorld1, tanNormal2_g59547 ), dot( tanToWorld2, tanNormal2_g59547 ) );
-					float3 WorldNormal1_g59547 = worldNormal2_g59547;
+					float3 tanNormal2504_g5296 = Normal_Map700_g5296;
+					float3 worldNormal2504_g5296 = float3( dot( tanToWorld0, tanNormal2504_g5296 ), dot( tanToWorld1, tanNormal2504_g5296 ), dot( tanToWorld2, tanNormal2504_g5296 ) );
+					float3 World_Normal2508_g5296 = worldNormal2504_g5296;
+					float3 WorldNormal1_g59563 = World_Normal2508_g5296;
 					float3 ase_viewVectorWS = ( _WorldSpaceCameraPos.xyz - ase_positionWS );
 					float3 ase_viewDirWS = normalize( ase_viewVectorWS );
-					float3 ViewDir1_g59547 = ase_viewDirWS;
+					float3 View_Direction2511_g5296 = ase_viewDirWS;
+					float3 ViewDir1_g59563 = View_Direction2511_g5296;
+					float3 temp_cast_3 = (0.04).xxx;
+					float3 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
+					float3 switchResult1501_g5296 = (((ase_vface>0)?(World_Normal2508_g5296):(-World_Normal2508_g5296)));
+					float dotResult1476_g5296 = dot( switchResult1501_g5296 , View_Direction2511_g5296 );
+					float3 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
+					float3 Fresnel1560_g5296 = lerpResult1480_g5296;
+					float4 Fresnel1_g59563 = float4( Fresnel1560_g5296 , 0.0 );
 					float2 temp_output_5_0_g59038 = UV02420_g5296;
 					float2 UV633_g59038 = temp_output_5_0_g59038;
 					float2 UV100_g59039 = UV633_g59038;
@@ -4324,27 +4341,20 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float staticSwitch845_g5296 = _Glossiness;
 					#endif
 					float Smoothness1399_g5296 = staticSwitch845_g5296;
-					float Smoothness1_g59547 = Smoothness1399_g5296;
-					float4 temp_cast_3 = (0.04).xxxx;
-					float4 lerpResult1473_g5296 = lerp( temp_cast_3 , oAlbedo6_g5296 , Metallic1239_g5296);
-					float3 switchResult1501_g5296 = (((ase_vface>0)?(ase_normalWS):(-ase_normalWS)));
-					float dotResult1476_g5296 = dot( switchResult1501_g5296 , ase_viewDirWS );
-					float4 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float4( 1,1,1,0 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
-					float4 Fresnel1560_g5296 = lerpResult1480_g5296;
-					float4 Fresnel1_g59547 = Fresnel1560_g5296;
-					float UseGeometricAA1_g59547 = _UseGeometricAA;
-					float3 localIndirectGeometricSpecular1_g59547 = IndirectGeometricSpecular1_g59547( WorldPos1_g59547 , WorldNormal1_g59547 , ViewDir1_g59547 , Smoothness1_g59547 , Fresnel1_g59547 , UseGeometricAA1_g59547 );
-					float3 temp_output_2493_0_g5296 = localIndirectGeometricSpecular1_g59547;
-					float4 temp_cast_7 = (0.02).xxxx;
-					float4 temp_cast_8 = (0.1).xxxx;
-					float4 smoothstepResult2430_g5296 = smoothstep( temp_cast_7 , temp_cast_8 , Lightmap46_g5296);
+					float Smoothness1_g59563 = Smoothness1399_g5296;
+					float UseGeometricAA1_g59563 = _UseGeometricAA;
+					float3 localIndirectGeometricSpecular1_g59563 = IndirectGeometricSpecular1_g59563( WorldPos1_g59563 , WorldNormal1_g59563 , ViewDir1_g59563 , Fresnel1_g59563 , Smoothness1_g59563 , UseGeometricAA1_g59563 );
+					float3 temp_output_2519_0_g5296 = localIndirectGeometricSpecular1_g59563;
+					float3 temp_cast_5 = (0.02).xxx;
+					float3 temp_cast_6 = (0.1).xxx;
+					float3 smoothstepResult2430_g5296 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g5296);
 					#ifdef _USELIGHTMAPSPECULAR_ON
-					float4 staticSwitch1469_g5296 = ( float4( temp_output_2493_0_g5296 , 0.0 ) * smoothstepResult2430_g5296 );
+					float3 staticSwitch1469_g5296 = ( temp_output_2519_0_g5296 * smoothstepResult2430_g5296 );
 					#else
-					float4 staticSwitch1469_g5296 = float4( temp_output_2493_0_g5296 , 0.0 );
+					float3 staticSwitch1469_g5296 = temp_output_2519_0_g5296;
 					#endif
-					float4 Specular1419_g5296 = staticSwitch1469_g5296;
-					float4 temp_cast_9 = (Black1185_g5296).xxxx;
+					float3 Specular1419_g5296 = staticSwitch1469_g5296;
+					float4 temp_cast_7 = (Black1185_g5296).xxxx;
 					float2 temp_output_5_0_g58901 = UV02420_g5296;
 					float2 UV633_g58901 = temp_output_5_0_g58901;
 					float2 UV100_g58902 = UV633_g58901;
@@ -4427,77 +4437,76 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#ifdef _EMISSIONENABLED_ON
 					float4 staticSwitch1017_g5296 = ( float4( _EmissionColor , 0.0 ) * staticSwitch1578_g5296 * _EmissionIntensity );
 					#else
-					float4 staticSwitch1017_g5296 = temp_cast_9;
+					float4 staticSwitch1017_g5296 = temp_cast_7;
 					#endif
-					float4 Emission86_g5296 = staticSwitch1017_g5296;
-					float3 WorldPos97_g59557 = ase_positionWS;
-					float3 tanNormal85_g59557 = Normal_Map700_g5296;
-					float3 worldNormal85_g59557 = float3( dot( tanToWorld0, tanNormal85_g59557 ), dot( tanToWorld1, tanNormal85_g59557 ), dot( tanToWorld2, tanNormal85_g59557 ) );
-					float3 WorldNormal97_g59557 = worldNormal85_g59557;
-					float Smoothness97_g59557 = Smoothness1399_g5296;
-					float3 LightmapColor97_g59557 = Lightmap46_g5296.rgb;
-					float3 ViewDir97_g59557 = ase_viewDirWS;
-					float3 localSpecular97_g59557 = Specular( WorldPos97_g59557 , WorldNormal97_g59557 , Smoothness97_g59557 , LightmapColor97_g59557 , ViewDir97_g59557 );
+					float3 Emission86_g5296 = (staticSwitch1017_g5296).rgb;
+					float3 WorldPos97_g59565 = World_Position2505_g5296;
+					float3 WorldNormal97_g59565 = Normal_Map700_g5296;
+					float3 LightmapColor97_g59565 = Lightmap46_g5296;
+					float3 ViewDir97_g59565 = View_Direction2511_g5296;
+					float4 Fresnel97_g59565 = float4( Fresnel1560_g5296 , 0.0 );
+					float Smoothness97_g59565 = Smoothness1399_g5296;
+					float3 localSpecular97_g59565 = Specular( WorldPos97_g59565 , WorldNormal97_g59565 , LightmapColor97_g59565 , ViewDir97_g59565 , Fresnel97_g59565 , Smoothness97_g59565 );
 					#ifdef _LIGHTMAPDEBUG
-					float4 staticSwitch1181_g5296 = Lightmap46_g5296;
+					float3 staticSwitch1181_g5296 = Lightmap46_g5296;
 					#else
-					float4 staticSwitch1181_g5296 = ( ( aAlbedo1466_g5296 * Lightmap46_g5296 ) + Specular1419_g5296 + Emission86_g5296 + float4( localSpecular97_g59557 , 0.0 ) );
+					float3 staticSwitch1181_g5296 = ( ( aAlbedo1466_g5296 * Lightmap46_g5296 ) + Specular1419_g5296 + Emission86_g5296 + localSpecular97_g59565 );
 					#endif
-					float4 temp_output_35_0_g59357 = staticSwitch1181_g5296;
-					float4 Color353_g59357 = temp_output_35_0_g59357;
+					float4 temp_output_35_0_g59568 = float4( staticSwitch1181_g5296 , 0.0 );
+					float4 Color353_g59568 = temp_output_35_0_g59568;
 					#if defined( _LUTMODE_2D )
-					float4 staticSwitch273_g59357 = saturate( temp_output_35_0_g59357 );
+					float4 staticSwitch273_g59568 = saturate( temp_output_35_0_g59568 );
 					#elif defined( _LUTMODE_3D )
-					float4 staticSwitch273_g59357 = temp_output_35_0_g59357;
+					float4 staticSwitch273_g59568 = temp_output_35_0_g59568;
 					#else
-					float4 staticSwitch273_g59357 = temp_output_35_0_g59357;
+					float4 staticSwitch273_g59568 = temp_output_35_0_g59568;
 					#endif
-					float4 Color_Saturate49_g59357 = staticSwitch273_g59357;
-					float Lut_Height213_g59357 = _LUTSize;
-					float Lut_Width216_g59357 = ( _LUTSize * Lut_Height213_g59357 );
-					float3 appendResult214_g59357 = (float3(( 1.0 / Lut_Width216_g59357 ) , ( 1.0 / Lut_Height213_g59357 ) , ( Lut_Height213_g59357 - 1.0 )));
-					float3 Scale_Offset208_g59357 = appendResult214_g59357;
-					float2 Scale_Factor292_g59357 = ( (Scale_Offset208_g59357).xy * (Scale_Offset208_g59357).z );
-					float2 Offset299_g59357 = ( (Scale_Offset208_g59357).xy * 0.5 );
-					float3 Adjusted_UV305_g59357 = ( ( (Color_Saturate49_g59357).xyw * float3( Scale_Factor292_g59357 ,  0.0 ) ) + float3( Offset299_g59357 ,  0.0 ) );
-					float2 Scaled_Blue280_g59357 = ( (Color_Saturate49_g59357).zw * (Scale_Offset208_g59357).z );
-					float2 Shift288_g59357 = floor( Scaled_Blue280_g59357 );
-					float2 Final_X313_g59357 = ( (Adjusted_UV305_g59357).xz + ( Shift288_g59357 * (Scale_Offset208_g59357).y ) );
-					float2 appendResult326_g59357 = (float2(Final_X313_g59357.x , (Adjusted_UV305_g59357).yz.x));
-					float2 Final_UV325_g59357 = appendResult326_g59357;
-					float2 appendResult338_g59357 = (float2((Scale_Offset208_g59357).y , 0.0));
-					float2 Offset_UV336_g59357 = ( Final_UV325_g59357 + appendResult338_g59357 );
-					float3 lerpResult333_g59357 = lerp( tex2D( _2DLut, Final_UV325_g59357 ).rgb , tex2D( _2DLut, Offset_UV336_g59357 ).rgb , float3( ( Scaled_Blue280_g59357 - Shift288_g59357 ) ,  0.0 ));
+					float4 Color_Saturate49_g59568 = staticSwitch273_g59568;
+					float Lut_Height213_g59568 = _LUTSize;
+					float Lut_Width216_g59568 = ( _LUTSize * Lut_Height213_g59568 );
+					float3 appendResult214_g59568 = (float3(( 1.0 / Lut_Width216_g59568 ) , ( 1.0 / Lut_Height213_g59568 ) , ( Lut_Height213_g59568 - 1.0 )));
+					float3 Scale_Offset208_g59568 = appendResult214_g59568;
+					float2 Scale_Factor292_g59568 = ( (Scale_Offset208_g59568).xy * (Scale_Offset208_g59568).z );
+					float2 Offset299_g59568 = ( (Scale_Offset208_g59568).xy * 0.5 );
+					float3 Adjusted_UV305_g59568 = ( ( (Color_Saturate49_g59568).xyw * float3( Scale_Factor292_g59568 ,  0.0 ) ) + float3( Offset299_g59568 ,  0.0 ) );
+					float2 Scaled_Blue280_g59568 = ( (Color_Saturate49_g59568).zw * (Scale_Offset208_g59568).z );
+					float2 Shift288_g59568 = floor( Scaled_Blue280_g59568 );
+					float2 Final_X313_g59568 = ( (Adjusted_UV305_g59568).xz + ( Shift288_g59568 * (Scale_Offset208_g59568).y ) );
+					float2 appendResult326_g59568 = (float2(Final_X313_g59568.x , (Adjusted_UV305_g59568).yz.x));
+					float2 Final_UV325_g59568 = appendResult326_g59568;
+					float2 appendResult338_g59568 = (float2((Scale_Offset208_g59568).y , 0.0));
+					float2 Offset_UV336_g59568 = ( Final_UV325_g59568 + appendResult338_g59568 );
+					float3 lerpResult333_g59568 = lerp( tex2D( _2DLut, Final_UV325_g59568 ).rgb , tex2D( _2DLut, Offset_UV336_g59568 ).rgb , float3( ( Scaled_Blue280_g59568 - Shift288_g59568 ) ,  0.0 ));
 					#ifdef _2DLUT
-					float4 staticSwitch347_g59357 = float4( lerpResult333_g59357 , 0.0 );
+					float4 staticSwitch347_g59568 = float4( lerpResult333_g59568 , 0.0 );
 					#else
-					float4 staticSwitch347_g59357 = Color_Saturate49_g59357;
+					float4 staticSwitch347_g59568 = Color_Saturate49_g59568;
 					#endif
-					float4 TwoD_LUT346_g59357 = staticSwitch347_g59357;
-					float3 RGB16_g59358 = ( ( log10( ( ( Color_Saturate49_g59357.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 TwoD_LUT346_g59568 = staticSwitch347_g59568;
+					float3 RGB16_g59569 = ( ( log10( ( ( Color_Saturate49_g59568.xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float4 staticSwitch194_g59357 = tex3D( _3DLut, RGB16_g59358 );
+					float4 staticSwitch194_g59568 = tex3D( _3DLut, RGB16_g59569 );
 					#else
-					float4 staticSwitch194_g59357 = Color_Saturate49_g59357;
+					float4 staticSwitch194_g59568 = Color_Saturate49_g59568;
 					#endif
-					float4 ThreeD_LUT51_g59357 = staticSwitch194_g59357;
+					float4 ThreeD_LUT51_g59568 = staticSwitch194_g59568;
 					#if defined( _LUTMODE_2D )
-					float4 staticSwitch42_g59357 = TwoD_LUT346_g59357;
+					float4 staticSwitch42_g59568 = TwoD_LUT346_g59568;
 					#elif defined( _LUTMODE_3D )
-					float4 staticSwitch42_g59357 = ThreeD_LUT51_g59357;
+					float4 staticSwitch42_g59568 = ThreeD_LUT51_g59568;
 					#else
-					float4 staticSwitch42_g59357 = ThreeD_LUT51_g59357;
+					float4 staticSwitch42_g59568 = ThreeD_LUT51_g59568;
 					#endif
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch41_g59357 = staticSwitch42_g59357;
+					float4 staticSwitch41_g59568 = staticSwitch42_g59568;
 					#else
-					float4 staticSwitch41_g59357 = Color353_g59357;
+					float4 staticSwitch41_g59568 = Color353_g59568;
 					#endif
 					
 
-					o.Albedo = staticSwitch1180_g5296.rgb;
+					o.Albedo = staticSwitch1180_g5296;
 					o.Normal = half3( 0, 0, 1 );
-					o.Emission = staticSwitch41_g59357.xyz;
+					o.Emission = staticSwitch41_g59568.xyz;
 					o.Alpha = 1;
 					half AlphaClipThreshold = 0.5;
 
@@ -4608,10 +4617,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
+				uniform float _UdonSpecularLightCount;
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSNOW;
 				uniform float _CATEGORYSPACESNOW;
 				uniform float4 _UdonSpecularLightUp[32];
@@ -4813,9 +4822,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 }
 /*ASEBEGIN
 Version=19907
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2930;160,-1408;Inherit;False;Meenphie Outline;49;;1551;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;FLOAT3;0
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3034;192,-1200;Inherit;False;Meenphie;0;;5296;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,0;0;5;COLOR;625;FLOAT4;624;FLOAT;156;FLOAT;427;FLOAT3;1024
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3035;224,-928;Inherit;False;Snow Particles;55;;59558;5e2d84d094b538e50a87a98a44c75956;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2930;160,-1408;Inherit;False;Meenphie Outline;46;;1551;d39aa08508dd494aeb2901b7a0739759;0;0;2;FLOAT3;17;FLOAT3;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3034;192,-1200;Inherit;False;Meenphie;0;;5296;b3ba55a08dd6b49c7be16c6f35cf2033;1,1008,0;0;5;FLOAT3;625;FLOAT4;624;FLOAT;156;FLOAT;427;FLOAT3;1024
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3035;224,-928;Inherit;False;Snow Particles;52;;59570;5e2d84d094b538e50a87a98a44c75956;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2889;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2890;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2891;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Meta;0;4;Meta;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
@@ -4829,4 +4838,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=1FBF4F445688A118D243AD844FDD87C3A8CFB676
+//CHKSM=00DA3193552E32B5B9F34BABA46B2AD1A2F8F66D
