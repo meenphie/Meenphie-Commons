@@ -8,7 +8,8 @@ public class SpecularLightManager : UdonSharpBehaviour
     [Header("Settings")]
     public bool isEnabled = true;
     public float activationRadius = 16f;
-    public int updateIntervalFrames = 5;
+    [Tooltip("Intervalle de frames entre les calculs (1 = chaque frame)")]
+    public int updateIntervalFrames = 10;
 
     private const int MAX_LIGHTS = 32;
     [Range(1, MAX_LIGHTS)] public int activeLightCount = MAX_LIGHTS;
@@ -19,7 +20,7 @@ public class SpecularLightManager : UdonSharpBehaviour
     public Vector4[] bakedRight;
     public Vector4[] bakedUp;
 
-    [Header("Debug")]
+    [Header("Debug Info")]
     public int currentActiveCount;
     public bool shaderWasUpdated;
 
@@ -28,10 +29,8 @@ public class SpecularLightManager : UdonSharpBehaviour
     private Vector4[] _shaderRightBuffer = new Vector4[MAX_LIGHTS];
     private Vector4[] _shaderUpBuffer = new Vector4[MAX_LIGHTS];
 
-    private float[] _distances = new float[256];
-    private int[] _indices = new int[256];
+    private int[] _indices = new int[MAX_LIGHTS];
     private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
-    private int[] _compareBuffer = new int[MAX_LIGHTS];
 
     private int _posID, _colID, _rightID, _upID, _countID;
     private VRCPlayerApi _localPlayer;
@@ -46,6 +45,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
         _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 
+        // Initialisation du cache des index
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
 
         UpdateNearestLights();
@@ -61,69 +61,52 @@ public class SpecularLightManager : UdonSharpBehaviour
             currentActiveCount = 0;
             for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
         }
-        else UpdateNearestLights();
     }
 
     public void UpdateNearestLights()
     {
-        if (!isEnabled || _localPlayer == null) return;
+        if (!isEnabled || _localPlayer == null) 
+        {
+            SendCustomEventDelayedFrames(nameof(UpdateNearestLights), updateIntervalFrames);
+            return;
+        }
 
         Vector3 playerPos = _localPlayer.GetPosition();
         float radiusSq = activationRadius * activationRadius;
         int candidateCount = 0;
+        int totalBaked = bakedPositions.Length;
 
-        for (int i = 0; i < bakedPositions.Length; i++)
+        // 1. Culling rapide (Sans tri car total sources <= 32)
+        for (int i = 0; i < totalBaked; i++)
         {
-            if (bakedPositions[i].w <= 0.0001f) continue;
+            // Rayon d'activation
             float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
             if (distSq < radiusSq)
             {
-                _distances[candidateCount] = distSq;
                 _indices[candidateCount] = i;
                 candidateCount++;
-                if (candidateCount >= 256) break;
+                if (candidateCount >= activeLightCount) break;
             }
         }
 
-        // Tri par distance (Bulles)
-        for (int i = 0; i < candidateCount - 1; i++)
-        {
-            for (int j = 0; j < candidateCount - i - 1; j++)
-            {
-                if (_distances[j] > _distances[j + 1])
-                {
-                    float tempD = _distances[j]; _distances[j] = _distances[j + 1]; _distances[j + 1] = tempD;
-                    int tempI = _indices[j]; _indices[j] = _indices[j + 1]; _indices[j + 1] = tempI;
-                }
-            }
-        }
-
-        int finalCount = Mathf.Min(candidateCount, activeLightCount);
+        int finalCount = candidateCount;
         currentActiveCount = finalCount;
 
-        for (int i = 0; i < finalCount; i++) _compareBuffer[i] = _indices[i];
-
-        for (int i = 0; i < finalCount - 1; i++)
-        {
-            for (int j = 0; j < finalCount - i - 1; j++)
-            {
-                if (_compareBuffer[j] > _compareBuffer[j + 1])
-                {
-                    int temp = _compareBuffer[j]; _compareBuffer[j] = _compareBuffer[j + 1]; _compareBuffer[j + 1] = temp;
-                }
-            }
-        }
-
-        bool isDirty = false;
-        if (finalCount != _lastFinalCount) isDirty = true;
-        else
+        // 2. Dirty Check simplifié
+        bool isDirty = finalCount != _lastFinalCount;
+        if (!isDirty)
         {
             for (int i = 0; i < finalCount; i++)
             {
-                if (_compareBuffer[i] != _lastIndicesSorted[i]) { isDirty = true; break; }
+                if (_indices[i] != _lastIndicesSorted[i])
+                {
+                    isDirty = true;
+                    break;
+                }
             }
         }
 
+        // 3. Mise à jour des Buffers si changement détecté
         if (isDirty)
         {
             shaderWasUpdated = true;
@@ -134,17 +117,21 @@ public class SpecularLightManager : UdonSharpBehaviour
                     int idx = _indices[i];
                     _shaderPosBuffer[i] = bakedPositions[idx];
                     _shaderColBuffer[i] = bakedColors[idx];
-                    _shaderRightBuffer[i] = bakedRight[idx]; // Nouveau
-                    _shaderUpBuffer[i] = bakedUp[idx];       // Nouveau
-                    _lastIndicesSorted[i] = _compareBuffer[i];
+                    _shaderRightBuffer[i] = bakedRight[idx];
+                    _shaderUpBuffer[i] = bakedUp[idx];
+                    _lastIndicesSorted[i] = idx;
                 }
                 else
                 {
-                    _shaderPosBuffer[i] = Vector4.zero;
-                    _shaderColBuffer[i] = Vector4.zero;
-                    _shaderRightBuffer[i] = Vector4.zero;
-                    _shaderUpBuffer[i] = Vector4.zero;
-                    _lastIndicesSorted[i] = -1;
+                    // Nettoyage des slots vides
+                    if (_lastIndicesSorted[i] != -1)
+                    {
+                        _shaderPosBuffer[i] = Vector4.zero;
+                        _shaderColBuffer[i] = Vector4.zero;
+                        _shaderRightBuffer[i] = Vector4.zero;
+                        _shaderUpBuffer[i] = Vector4.zero;
+                        _lastIndicesSorted[i] = -1;
+                    }
                 }
             }
             ApplyToShader(finalCount);
@@ -158,7 +145,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         SendCustomEventDelayedFrames(nameof(UpdateNearestLights), updateIntervalFrames);
     }
 
-    public void ApplyToShader(int count)
+    private void ApplyToShader(int count)
     {
         VRCShader.SetGlobalVectorArray(_posID, _shaderPosBuffer);
         VRCShader.SetGlobalVectorArray(_colID, _shaderColBuffer);

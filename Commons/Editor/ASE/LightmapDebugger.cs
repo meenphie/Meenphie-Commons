@@ -7,6 +7,7 @@ public static class LightmapDebugger
     // On utilise le même nom que dans ton script Udon pour la cohérence
     private const string LIGHTMAPLERP = "_LIGHTMAPLERP";
 
+    private static bool isEnabled = false;
 
     [MenuItem("Meenphie/Lightmaps/Lightmaps Only")]
     public static void ToggleLightmapsOnly()
