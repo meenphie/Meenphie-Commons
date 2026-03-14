@@ -19,6 +19,7 @@ public class SpecularLightManager : UdonSharpBehaviour
     public Vector4[] bakedColors;
     public Vector4[] bakedRight;
     public Vector4[] bakedUp;
+    public Vector4[] bakedDirections; // NOUVEAU : XYZ = Forward, W = cosOuter
 
     [Header("Debug Info")]
     public int currentActiveCount;
@@ -28,11 +29,12 @@ public class SpecularLightManager : UdonSharpBehaviour
     private Vector4[] _shaderColBuffer = new Vector4[MAX_LIGHTS];
     private Vector4[] _shaderRightBuffer = new Vector4[MAX_LIGHTS];
     private Vector4[] _shaderUpBuffer = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderDirBuffer = new Vector4[MAX_LIGHTS]; // NOUVEAU
 
     private int[] _indices = new int[MAX_LIGHTS];
     private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
 
-    private int _posID, _colID, _rightID, _upID, _countID;
+    private int _posID, _colID, _rightID, _upID, _dirID, _countID;
     private VRCPlayerApi _localPlayer;
     private int _lastFinalCount = -1;
 
@@ -43,6 +45,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         _colID = VRCShader.PropertyToID("_UdonSpecularLightCol");
         _rightID = VRCShader.PropertyToID("_UdonSpecularLightRight");
         _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
+        _dirID = VRCShader.PropertyToID("_UdonSpecularLightDir"); // NOUVEAU
         _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 
         // Initialisation du cache des index
@@ -76,10 +79,9 @@ public class SpecularLightManager : UdonSharpBehaviour
         int candidateCount = 0;
         int totalBaked = bakedPositions.Length;
 
-        // 1. Culling rapide (Sans tri car total sources <= 32)
+        // 1. Culling rapide
         for (int i = 0; i < totalBaked; i++)
         {
-            // Rayon d'activation
             float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
             if (distSq < radiusSq)
             {
@@ -92,7 +94,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         int finalCount = candidateCount;
         currentActiveCount = finalCount;
 
-        // 2. Dirty Check simplifié
+        // 2. Dirty Check
         bool isDirty = finalCount != _lastFinalCount;
         if (!isDirty)
         {
@@ -106,7 +108,7 @@ public class SpecularLightManager : UdonSharpBehaviour
             }
         }
 
-        // 3. Mise à jour des Buffers si changement détecté
+        // 3. Mise à jour des Buffers
         if (isDirty)
         {
             shaderWasUpdated = true;
@@ -119,17 +121,18 @@ public class SpecularLightManager : UdonSharpBehaviour
                     _shaderColBuffer[i] = bakedColors[idx];
                     _shaderRightBuffer[i] = bakedRight[idx];
                     _shaderUpBuffer[i] = bakedUp[idx];
+                    _shaderDirBuffer[i] = bakedDirections[idx]; // NOUVEAU
                     _lastIndicesSorted[i] = idx;
                 }
                 else
                 {
-                    // Nettoyage des slots vides
                     if (_lastIndicesSorted[i] != -1)
                     {
                         _shaderPosBuffer[i] = Vector4.zero;
                         _shaderColBuffer[i] = Vector4.zero;
                         _shaderRightBuffer[i] = Vector4.zero;
                         _shaderUpBuffer[i] = Vector4.zero;
+                        _shaderDirBuffer[i] = Vector4.zero; // NOUVEAU
                         _lastIndicesSorted[i] = -1;
                     }
                 }
@@ -151,6 +154,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         VRCShader.SetGlobalVectorArray(_colID, _shaderColBuffer);
         VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer);
         VRCShader.SetGlobalVectorArray(_upID, _shaderUpBuffer);
+        VRCShader.SetGlobalVectorArray(_dirID, _shaderDirBuffer); // NOUVEAU
         VRCShader.SetGlobalFloat(_countID, (float)count);
     }
 }
