@@ -419,8 +419,8 @@ Shader "Meenphie/Standard/Opaque"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.005;
-					float LumaEnd = 0.5;
+					float LumaStart = 0.02;
+					float LumaEnd = 0.4;
 					float MaxRadius = 10.0;
 					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
@@ -2428,4 +2428,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5457;625
 WireConnection;5280;2;5457;624
 ASEEND*/
-//CHKSM=2B59319FD03FBAB08EF46998C0DDB1071F398307
+//CHKSM=7EC33B15432494123AE1255B319396E40538FECB

@@ -423,8 +423,8 @@ Shader "Meenphie/Standard/Cutout"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.005;
-					float LumaEnd = 0.5;
+					float LumaStart = 0.02;
+					float LumaEnd = 0.4;
 					float MaxRadius = 10.0;
 					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
@@ -2034,4 +2034,4 @@ WireConnection;2888;2;2954;624
 WireConnection;2888;7;2954;156
 WireConnection;2888;8;2954;427
 ASEEND*/
-//CHKSM=AB34C8FDB3C008E8CD9E28F5135357B4AD223FA9
+//CHKSM=55B38A36D5F89B1D1545E15DE399FAC77CA161E0

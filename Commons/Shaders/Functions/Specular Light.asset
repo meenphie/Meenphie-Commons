@@ -30,7 +30,7 @@ MonoBehaviour:
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;101;-1088,-384;Inherit;False;Global;_UdonSpecularLightCount;_UdonSpecularLightCount;44;0;Create;True;0;0;0;True;0;False;0;0;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.GlobalArrayNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;105;-1088,-64;Inherit;False;_UdonSpecularLightRight;0;32;2;False;False;0;1;True;Object;-1;4;0;INT;0;False;2;INT;0;False;1;INT;0;False;3;INT;0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;97;-320,-128;Inherit;False;//
-    --- CONFIGURATION ---$float LumaStart = 0.005@$float LumaEnd = 0.5@$float MaxRadius
+    --- CONFIGURATION ---$float LumaStart = 0.02@$float LumaEnd = 0.4@$float MaxRadius
     = 10.0@$float RadiusFadeStart = 3.0@$float specBoost = 1.0@$$float luma = dot(LightmapColor,
     float3(0.22, 0.70, 0.08))@$float lmMask = saturate((luma - LumaStart) / max(LumaEnd
     - LumaStart, 0.0001))@$float playerDist = distance(_WorldSpaceCameraPos, WorldPos)@$float
@@ -58,7 +58,7 @@ MonoBehaviour:
     specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w
     * falloff * spotMask)@$        }$    }$}$return specAccum * specBoost * Fresnel
     * lmMask * radiusFade@;3;Create;6;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;LightmapColor;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Fresnel;FLOAT4;0,0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;Specular;False;False;0;;False;6;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Output;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;107;0\nWireConnection;97;1;98;0\nWireConnection;97;2;100;0\nWireConnection;97;3;106;0\nWireConnection;97;4;108;0\nWireConnection;97;5;99;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=53BADB5583713BBE777C1E96A542FC85DF0A6B8C"
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Output;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;107;0\nWireConnection;97;1;98;0\nWireConnection;97;2;100;0\nWireConnection;97;3;106;0\nWireConnection;97;4;108;0\nWireConnection;97;5;99;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=4AC85E6348E194E611F98AA7B7185A846F759C96"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

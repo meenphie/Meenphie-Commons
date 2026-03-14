@@ -761,8 +761,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.005;
-					float LumaEnd = 0.5;
+					float LumaStart = 0.02;
+					float LumaEnd = 0.4;
 					float MaxRadius = 10.0;
 					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
@@ -2173,8 +2173,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.005;
-					float LumaEnd = 0.5;
+					float LumaStart = 0.02;
+					float LumaEnd = 0.4;
 					float MaxRadius = 10.0;
 					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
@@ -3496,8 +3496,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.005;
-					float LumaEnd = 0.5;
+					float LumaStart = 0.02;
+					float LumaEnd = 0.4;
 					float MaxRadius = 10.0;
 					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
@@ -4819,4 +4819,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=17A10644A607BF3F2E55F727BABC573CEF3AF6A6
+//CHKSM=41A245ECB4637320E06CE1E5DF6D377523525475
