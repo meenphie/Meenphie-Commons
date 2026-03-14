@@ -761,8 +761,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05; float LumaEnd = 0.95;
-					float MaxRadius = 10.0; float RadiusFadeStart = 3.0;
+					float LumaStart = 0.005;
+					float LumaEnd = 0.5;
+					float MaxRadius = 10.0;
+					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
 					float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08));
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
@@ -779,7 +781,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					{
 					    float4 posRange = _UdonSpecularLightPos[i];
 					    float4 dirAngle = _UdonSpecularLightDir[i]; // XYZ: Forward, W: cosOuter
-					    
 					    float3 L_full = normalize(WorldPos - posRange.xyz);
 					    float theta = dot(L_full, dirAngle.xyz);
 					    float spotMask = saturate((theta - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
@@ -2172,8 +2173,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05; float LumaEnd = 0.95;
-					float MaxRadius = 10.0; float RadiusFadeStart = 3.0;
+					float LumaStart = 0.005;
+					float LumaEnd = 0.5;
+					float MaxRadius = 10.0;
+					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
 					float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08));
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
@@ -2190,7 +2193,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					{
 					    float4 posRange = _UdonSpecularLightPos[i];
 					    float4 dirAngle = _UdonSpecularLightDir[i]; // XYZ: Forward, W: cosOuter
-					    
 					    float3 L_full = normalize(WorldPos - posRange.xyz);
 					    float theta = dot(L_full, dirAngle.xyz);
 					    float spotMask = saturate((theta - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
@@ -3494,8 +3496,10 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05; float LumaEnd = 0.95;
-					float MaxRadius = 10.0; float RadiusFadeStart = 3.0;
+					float LumaStart = 0.005;
+					float LumaEnd = 0.5;
+					float MaxRadius = 10.0;
+					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
 					float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08));
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
@@ -3512,7 +3516,6 @@ Shader "Meenphie/Standard/Winter/Snow"
 					{
 					    float4 posRange = _UdonSpecularLightPos[i];
 					    float4 dirAngle = _UdonSpecularLightDir[i]; // XYZ: Forward, W: cosOuter
-					    
 					    float3 L_full = normalize(WorldPos - posRange.xyz);
 					    float theta = dot(L_full, dirAngle.xyz);
 					    float spotMask = saturate((theta - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
@@ -4816,4 +4819,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=E20D51071C213FA8B5FEC1BEA4EB1687A9BC9485
+//CHKSM=17A10644A607BF3F2E55F727BABC573CEF3AF6A6

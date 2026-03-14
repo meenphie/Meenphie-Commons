@@ -419,8 +419,10 @@ Shader "Meenphie/Standard/Opaque"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05; float LumaEnd = 0.95;
-					float MaxRadius = 10.0; float RadiusFadeStart = 3.0;
+					float LumaStart = 0.005;
+					float LumaEnd = 0.5;
+					float MaxRadius = 10.0;
+					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
 					float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08));
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
@@ -437,7 +439,6 @@ Shader "Meenphie/Standard/Opaque"
 					{
 					    float4 posRange = _UdonSpecularLightPos[i];
 					    float4 dirAngle = _UdonSpecularLightDir[i]; // XYZ: Forward, W: cosOuter
-					    
 					    float3 L_full = normalize(WorldPos - posRange.xyz);
 					    float theta = dot(L_full, dirAngle.xyz);
 					    float spotMask = saturate((theta - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
@@ -2427,4 +2428,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5457;625
 WireConnection;5280;2;5457;624
 ASEEND*/
-//CHKSM=5FD6B71E7B93CA8BA37D19EFD01B147E412CA6F0
+//CHKSM=2B59319FD03FBAB08EF46998C0DDB1071F398307

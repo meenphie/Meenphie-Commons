@@ -422,8 +422,10 @@ Shader "Meenphie/Standard/Additive"
 				float3 Specular( float3 WorldPos, float3 WorldNormal, float3 LightmapColor, float3 ViewDir, float4 Fresnel, float Smoothness )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.05; float LumaEnd = 0.95;
-					float MaxRadius = 10.0; float RadiusFadeStart = 3.0;
+					float LumaStart = 0.005;
+					float LumaEnd = 0.5;
+					float MaxRadius = 10.0;
+					float RadiusFadeStart = 3.0;
 					float specBoost = 1.0;
 					float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08));
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
@@ -440,7 +442,6 @@ Shader "Meenphie/Standard/Additive"
 					{
 					    float4 posRange = _UdonSpecularLightPos[i];
 					    float4 dirAngle = _UdonSpecularLightDir[i]; // XYZ: Forward, W: cosOuter
-					    
 					    float3 L_full = normalize(WorldPos - posRange.xyz);
 					    float theta = dot(L_full, dirAngle.xyz);
 					    float spotMask = saturate((theta - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
@@ -2437,4 +2438,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=ADDB22912D0B69719451F41CA0A31B563294F418
+//CHKSM=BD4BE3CE4509BB2D0AD7BB985710B6D0C94A705F
