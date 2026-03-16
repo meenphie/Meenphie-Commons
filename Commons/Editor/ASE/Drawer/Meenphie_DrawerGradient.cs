@@ -42,17 +42,17 @@ namespace Meenphie.Drawers
 
         public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
         {
-            #if UNITY_6000_2_OR_NEWER
+#if UNITY_6000_2_OR_NEWER
             if (prop.propertyType != UnityEngine.Rendering.ShaderPropertyType.Texture)
-            #else
+#else
             if (prop.type != MaterialProperty.PropType.Texture)
-            #endif
+#endif
             {
-                #if UNITY_6000_2_OR_NEWER
+#if UNITY_6000_2_OR_NEWER
                 EditorGUI.HelpBox(position, $"[Gradient] used on property {prop.name} of type {prop.propertyType}.", MessageType.Error);
-                #else
+#else
                 EditorGUI.HelpBox(position, $"[Gradient] used on property {prop.name} of type {prop.type}.", MessageType.Error);
-                #endif
+#endif
                 return;
             }
 
@@ -65,7 +65,11 @@ namespace Meenphie.Drawers
             _prop = prop;
 
             Gradient currentGradient = LoadCurrentGradient(prop);
-            currentGradient ??= CreateDefaultGradient();
+            
+            if (currentGradient == null)
+            {
+                currentGradient = CreateDefaultGradient();
+            }
 
             EditorGUI.showMixedValue = prop.targets.Length > 1;
 

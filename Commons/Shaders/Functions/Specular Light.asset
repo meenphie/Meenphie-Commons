@@ -27,38 +27,45 @@ MonoBehaviour:
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;109;-1056,160;Inherit;False;_UdonSpecularLightDir;0;32;2;False;False;0;1;True;Object;-1;4;0;INT;0;False;2;INT;0;False;1;INT;0;False;3;INT;0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.GlobalArrayNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;102;-1056,-176;Inherit;False;_UdonSpecularLightCol;0;32;2;False;False;0;1;True;Object;-1;4;0;INT;0;False;2;INT;0;False;1;INT;0;False;3;INT;0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.GlobalArrayNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;103;-1056,-288;Inherit;False;_UdonSpecularLightPos;0;32;2;False;False;0;1;True;Object;-1;4;0;INT;0;False;2;INT;0;False;1;INT;0;False;3;INT;0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.RangedFloatNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;101;-1088,-384;Inherit;False;Global;_UdonSpecularLightCount;_UdonSpecularLightCount;44;0;Create;True;0;0;0;True;0;False;0;0;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.GlobalArrayNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;101;-1088,-384;Inherit;False;Global;_UdonSpecularLightCount;_UdonSpecularLightCount;44;0;Create;True;0;0;0;True;0;False;0;1;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.GlobalArrayNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;105;-1088,-64;Inherit;False;_UdonSpecularLightRight;0;32;2;False;False;0;1;True;Object;-1;4;0;INT;0;False;2;INT;0;False;1;INT;0;False;3;INT;0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;97;-320,-128;Inherit;False;//
-    --- CONFIGURATION ---$float LumaStart = 0.02@$float LumaEnd = 0.4@$float MaxRadius
-    = 10.0@$float RadiusFadeStart = 3.0@$float specBoost = 1.0@$$float luma = dot(LightmapColor,
+    --- CONFIGURATION ---$float LumaStart = 0.02@ float LumaEnd = 0.4@$float MaxRadius
+    = 10.0@ float RadiusFadeStart = 3.0@$float specBoost = 1.0@$$float luma = dot(LightmapColor,
     float3(0.22, 0.70, 0.08))@$float lmMask = saturate((luma - LumaStart) / max(LumaEnd
     - LumaStart, 0.0001))@$float playerDist = distance(_WorldSpaceCameraPos, WorldPos)@$float
-    radiusFade = 1.0 - saturate((playerDist - RadiusFadeStart) / max(MaxRadius -
-    RadiusFadeStart, 0.0001))@$$if (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount
-    == 0 || radiusFade < 0.001) return 0@$$float3 vDir = normalize(ViewDir)@$float3
-    N = normalize(WorldNormal)@$float shininess = exp2(10.0 * Smoothness + 1.0)@$float
-    normalization = (shininess + 2.0) * 0.125@$float3 R = reflect(-vDir, N)@$float3
-    specAccum = 0.0@$$for (int i = 0@ i < (int)_UdonSpecularLightCount@ i++)${$   
-    float4 posRange = _UdonSpecularLightPos[i]@$    float4 dirAngle = _UdonSpecularLightDir[i]@
-    // XYZ: Forward, W: cosOuter$$    float3 L_full = normalize(WorldPos - posRange.xyz)@$   
-    float theta = dot(L_full, dirAngle.xyz)@$    float spotMask = saturate((theta
-    - dirAngle.w) / max(0.01, 1.0 - dirAngle.w))@$$    if (spotMask > 0.001)$   
-    {$        float3 L = posRange.xyz - WorldPos@$        float3 proj = R * dot(L,
-    R) - L@$        float3 closestPoint = posRange.xyz@$        closestPoint += _UdonSpecularLightRight[i].xyz
-    * clamp(dot(proj, _UdonSpecularLightRight[i].xyz), -_UdonSpecularLightRight[i].w,
-    _UdonSpecularLightRight[i].w)@$        closestPoint += _UdonSpecularLightUp[i].xyz
-    * clamp(dot(proj, _UdonSpecularLightUp[i].xyz), -_UdonSpecularLightUp[i].w, _UdonSpecularLightUp[i].w)@$$       
-    float3 diff = closestPoint - WorldPos@$        float distSq = dot(diff, diff)@$       
-    float atten = saturate(1.0 - (distSq / (posRange.w * posRange.w)))@$        float
-    falloff = (atten * atten) / (distSq + 0.01)@$$        if (falloff > 0.001)$       
-    {$            float3 lDir = normalize(diff)@$            float nDotL = saturate(dot(N,
-    lDir))@$            float3 H = normalize(lDir + vDir)@$            float spec
-    = exp2(log2(max(saturate(dot(N, H)), 0.00001)) * shininess) * normalization@$           
+    fadeT = saturate((playerDist - RadiusFadeStart) / max(MaxRadius - RadiusFadeStart,
+    0.0001))@$float radiusFade = 1.0 - (fadeT * fadeT * (3.0 - 2.0 * fadeT))@ $$if
+    (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount == 0 || radiusFade
+    < 0.001) return 0@$$float3 vDir = normalize(ViewDir)@$float3 N = normalize(WorldNormal)@$float
+    shininess = exp2(10.0 * Smoothness + 1.0)@$float normalization = (shininess +
+    2.0) * 0.125@$float3 R = reflect(-vDir, N)@$float3 specAccum = 0.0@$$for (int
+    i = 0@ i < (int)_UdonSpecularLightCount@ i++)${$    float4 posRange = _UdonSpecularLightPos[i]@$   
+    float4 dirAngle = _UdonSpecularLightDir[i]@$$    // Vecteur de surface vers centre
+    lumi\xE8re$    float3 L_center = posRange.xyz - WorldPos@$    float distSqCenter
+    = dot(L_center, L_center)@$    float3 L_center_norm = L_center * rsqrt(distSqCenter
+    + 0.0001)@$$    // Spot Mask (on utilise le vecteur invers\xE9 car dirAngle.xyz
+    est le forward de la lampe)$    float theta = dot(-L_center_norm, dirAngle.xyz)@$   
+    float spotMask = saturate((theta - dirAngle.w) / max(0.01, 1.0 - dirAngle.w))@$$   
+    if (spotMask > 0.001)$    {$        float atten = saturate(1.0 - (distSqCenter
+    / (posRange.w * posRange.w)))@$        if (atten > 0.001)$        {$           
+    // PROJECTION RECTIFI\xC9E : L et R doivent \xEAtre dans le m\xEAme h\xE9misph\xE8re$           
+    float rDotL = max(0.0001, dot(L_center, R))@$            float3 proj = R * rDotL
+    - L_center@$            $            float3 closestPoint = posRange.xyz@$           
+    closestPoint += _UdonSpecularLightRight[i].xyz * clamp(dot(proj, _UdonSpecularLightRight[i].xyz),
+    -_UdonSpecularLightRight[i].w, _UdonSpecularLightRight[i].w)@$            closestPoint
+    += _UdonSpecularLightUp[i].xyz * clamp(dot(proj, _UdonSpecularLightUp[i].xyz),
+    -_UdonSpecularLightUp[i].w, _UdonSpecularLightUp[i].w)@$$            float3 diff
+    = closestPoint - WorldPos@$            float distSq = dot(diff, diff)@$           
+    float falloff = (atten * atten) / (distSq + 0.01)@$$            if (falloff >
+    0.001)$            {$                float3 lDir = normalize(diff)@$               
+    float nDotL = saturate((dot(N, lDir) + 0.15) / 1.15)@$                float3
+    H = normalize(lDir + vDir)@$                float spec = exp2(log2(max(saturate(dot(N,
+    H)), 0.00001)) * shininess) * normalization@$                $               
     specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w
-    * falloff * spotMask)@$        }$    }$}$return specAccum * specBoost * Fresnel
-    * lmMask * radiusFade@;3;Create;6;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;LightmapColor;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Fresnel;FLOAT4;0,0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;Specular;False;False;0;;False;6;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Speculars;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;107;0\nWireConnection;97;1;98;0\nWireConnection;97;2;100;0\nWireConnection;97;3;106;0\nWireConnection;97;4;108;0\nWireConnection;97;5;99;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=43579B473B3E321244FD94B1F2707D99FFD7C982"
+    * falloff * spotMask)@$            }$        }$    }$}$return specAccum * specBoost
+    * Fresnel * lmMask * radiusFade@;3;Create;6;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;LightmapColor;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Fresnel;FLOAT4;0,0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;Specular;False;False;0;;False;6;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Speculars;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;107;0\nWireConnection;97;1;98;0\nWireConnection;97;2;100;0\nWireConnection;97;3;106;0\nWireConnection;97;4;108;0\nWireConnection;97;5;99;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=FBA8A442DDCC6ADC37B59AFFD73953178A412181"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

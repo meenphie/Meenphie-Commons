@@ -2,11 +2,14 @@
 using UnityEditor.Build;
 using UdonSharp;
 
-public class CompileOnPlatformChange : IActiveBuildTargetChanged
+namespace Meenphie.Commons
 {
-    public int callbackOrder { get { return 0; } }
-    public void OnActiveBuildTargetChanged(BuildTarget previousTarget, BuildTarget newTarget)
+    public class CompileOnPlatformChange : IActiveBuildTargetChanged
     {
-        UdonSharpProgramAsset.CompileAllCsPrograms(true);
+        public int callbackOrder { get { return 0; } }
+        public void OnActiveBuildTargetChanged(BuildTarget previousTarget, BuildTarget newTarget)
+        {
+            UdonSharpProgramAsset.CompileAllCsPrograms(true);
+        }
     }
 }

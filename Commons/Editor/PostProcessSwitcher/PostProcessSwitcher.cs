@@ -6,46 +6,49 @@ using UnityEngine.Rendering.PostProcessing;
 using VRC.SDK3.Components;
 using VRC.SDKBase;
 
-public class PostProcessingInitializer : IActiveBuildTargetChanged
+namespace Meenphie.Commons
 {
-    // Required by IActiveBuildTargetChanged
-    public int callbackOrder => 0;
-
-    // Called whenever the active build target changes
-    public void OnActiveBuildTargetChanged(BuildTarget previousTarget, BuildTarget newTarget)
+    public class PostProcessingInitializer : IActiveBuildTargetChanged
     {
-        UpdatePostProcessingSettings();
-    }
+        // Required by IActiveBuildTargetChanged
+        public int callbackOrder => 0;
 
-    private static void UpdatePostProcessingSettings()
-    {
-        var sceneDescriptor = Object.FindObjectOfType<VRCSceneDescriptor>(true);
-        var refCam = sceneDescriptor.ReferenceCamera;
-        var postProcessLayer = refCam.GetComponent<PostProcessLayer>();
-        var postProcessVolumes = Object.FindObjectsOfType<PostProcessVolume>(true);
+        // Called whenever the active build target changes
+        public void OnActiveBuildTargetChanged(BuildTarget previousTarget, BuildTarget newTarget)
+        {
+            UpdatePostProcessingSettings();
+        }
+
+        private static void UpdatePostProcessingSettings()
+        {
+            var sceneDescriptor = Object.FindObjectOfType<VRCSceneDescriptor>(true);
+            var refCam = sceneDescriptor.ReferenceCamera;
+            var postProcessLayer = refCam.GetComponent<PostProcessLayer>();
+            var postProcessVolumes = Object.FindObjectsOfType<PostProcessVolume>(true);
 
 #if UNITY_ANDROID
         SetPostProcessingSettings(false, "EditorOnly", postProcessLayer, postProcessVolumes);
         Debug.Log($"[<color=purple>Meenphie</color>] Post-processing Disabled");
 #else
-        SetPostProcessingSettings(true, "Untagged", postProcessLayer, postProcessVolumes);
-        Debug.Log($"[<color=purple>Meenphie</color>] Post-processing Enabled");
+            SetPostProcessingSettings(true, "Untagged", postProcessLayer, postProcessVolumes);
+            Debug.Log($"[<color=purple>Meenphie</color>] Post-processing Enabled");
 #endif
-    }
-
-    private static void SetPostProcessingSettings(bool enable, string tag, PostProcessLayer layer, PostProcessVolume[] volumes)
-    {
-        if (layer != null)
-        {
-            layer.tag = tag;
-            layer.enabled = enable;
         }
 
-        foreach (var volume in volumes)
+        private static void SetPostProcessingSettings(bool enable, string tag, PostProcessLayer layer, PostProcessVolume[] volumes)
         {
-            if (volume != null && volume.tag != tag)
+            if (layer != null)
             {
-                volume.tag = tag;
+                layer.tag = tag;
+                layer.enabled = enable;
+            }
+
+            foreach (var volume in volumes)
+            {
+                if (volume != null && volume.tag != tag)
+                {
+                    volume.tag = tag;
+                }
             }
         }
     }
