@@ -14,38 +14,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_functionInfo: "// Made with Amplify Shader Editor v1.9.9.7\n// Available at the
     Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19907\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;12;-704,288;Inherit;False;Use
-    Geometric AA;1;5;False;1;0;FLOAT;1;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;9;-672,208;Inherit;False;Smoothness;1;4;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-640,128;Inherit;False;Fresnel;4;3;False;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;13;-672,48;Inherit;False;View
-    Direction;3;2;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;15;-672,-112;Inherit;False;World
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;15;-416,-48;Inherit;False;World
     Position;3;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;14;-672,-32;Inherit;False;World
-    Normal;3;1;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;-320,0;Inherit;False;//
-    =============================================$//  GEOMETRIC SPECULAR AA - M\xC9THODE
-    VALVE (GDC 2015)$//  Version INDIRECT / IBL (cubemap) - Forward ASE$// =============================================$$//
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;14;-416,32;Inherit;False;World
+    Normal;3;1;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;13;-416,112;Inherit;False;View
+    Direction;3;2;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-384,192;Inherit;False;Fresnel;4;3;False;1;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;9;-416,272;Inherit;False;Smoothness;1;4;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;-96,0;Inherit;False;//
     --- 1. SETUP DES VECTEURS ---$float3 N = normalize(WorldNormal)@$float3 V = normalize(ViewDir)@$float3
-    R = reflect(-V, N)@$$float AA_Roughness = 1.0 - Smoothness@   // ta rugosit\xE9
-    de base$$// --- 2. FILTRAGE G\xC9OM\xC9TRIQUE - M\xC9THODE VALVE ---$if (UseGeometricAA
-    > 0.5)${$    // D\xE9riv\xE9es de la normale monde$    float3 dNdx = ddx(N)@$   
-    float3 dNdy = ddy(N)@$$    // Facteur de rugosit\xE9 g\xE9om\xE9trique (formule
-    exacte Valve)$    float varianceMax = max(dot(dNdx, dNdx), dot(dNdy, dNdy))@$   
-    float geometricFactor = pow(saturate(varianceMax), 0.333)@   // \u2248 1/3 power$$   
-    // On ajoute \xE0 la rugosit\xE9 (\xE9quivalent \xE0 min(smoothness, 1 - factor))$   
-    AA_Roughness = max(AA_Roughness, geometricFactor)@$}$$// --- 3. BOX PROJECTION
-    (Unity built-in) ---$float3 ray = R@$if (unity_SpecCube0_ProbePosition.w > 0.0)${$   
-    float3 factors = ((ray > 0.0 ? unity_SpecCube0_BoxMax.xyz : unity_SpecCube0_BoxMin.xyz)
+    R = reflect(-V, N)@$$// --- 2. BOX PROJECTION ---$float3 ray = R@$if (unity_SpecCube0_ProbePosition.w
+    > 0.0)${$    float3 factors = ((ray > 0.0 ? unity_SpecCube0_BoxMax.xyz : unity_SpecCube0_BoxMin.xyz)
     - WorldPos) / ray@$    float scalar = min(min(factors.x, factors.y), factors.z)@$   
     ray = ray * scalar + (WorldPos - unity_SpecCube0_ProbePosition.xyz)@$}$$// ---
-    4. SAMPLING DE LA CUBEMAP ---$float mipLevel = AA_Roughness * 7.0@                    
-    // 7 mips de unity_SpecCube0$float4 envSample = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0,
+    3. SAMPLING ---$// CORRECTED: Smoothness 1.0 -> Mip 0 | Smoothness 0.0 -> Mip
+    7$float mipLevel = (1.0 - Smoothness) * 7.0@$$float4 envSample = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0,
     ray, mipLevel)@$float3 indirectSpec = DecodeHDR(envSample, unity_SpecCube0_HDR)@$$return
-    indirectSpec * Fresnel@;3;Create;6;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Fresnel;FLOAT4;0,0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;UseGeometricAA;FLOAT;0;In;;Inherit;False;Indirect
-    Geometric Specular;True;False;0;;False;6;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT4;0,0,0,0;False;4;FLOAT;0;False;5;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,0;Inherit;False;True;-1;Output;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;1;0;15;0\nWireConnection;1;1;14;0\nWireConnection;1;2;13;0\nWireConnection;1;3;10;0\nWireConnection;1;4;9;0\nWireConnection;1;5;12;0\nWireConnection;0;0;1;0\nASEEND*/\n//CHKSM=F81C077B01797A8A0CCB89BC429DA269516EF400"
+    indirectSpec * Fresnel@;3;Create;5;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Fresnel;FLOAT4;0,0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;Indirect
+    Geometric Specular;True;False;0;;False;5;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT4;0,0,0,0;False;4;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;256,0;Inherit;False;True;-1;Reflections;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;1;0;15;0\nWireConnection;1;1;14;0\nWireConnection;1;2;13;0\nWireConnection;1;3;10;0\nWireConnection;1;4;9;0\nWireConnection;0;0;1;0\nASEEND*/\n//CHKSM=E90AC61D84F1ECB871DE9912FE1ED770086ED8CE"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

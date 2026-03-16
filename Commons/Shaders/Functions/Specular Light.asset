@@ -58,7 +58,7 @@ MonoBehaviour:
     specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w
     * falloff * spotMask)@$        }$    }$}$return specAccum * specBoost * Fresnel
     * lmMask * radiusFade@;3;Create;6;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;LightmapColor;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Fresnel;FLOAT4;0,0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;Specular;False;False;0;;False;6;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT4;0,0,0,0;False;5;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Output;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;107;0\nWireConnection;97;1;98;0\nWireConnection;97;2;100;0\nWireConnection;97;3;106;0\nWireConnection;97;4;108;0\nWireConnection;97;5;99;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=4AC85E6348E194E611F98AA7B7185A846F759C96"
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Speculars;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;107;0\nWireConnection;97;1;98;0\nWireConnection;97;2;100;0\nWireConnection;97;3;106;0\nWireConnection;97;4;108;0\nWireConnection;97;5;99;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=43579B473B3E321244FD94B1F2707D99FFD7C982"
   m_functionName: 
   m_description: 
   m_additionalIncludes:
