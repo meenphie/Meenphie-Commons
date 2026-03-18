@@ -1162,9 +1162,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 Output_2D293_g58826 = ( ( tex2D( _MetallicMap, temp_output_597_0_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_30_g58826 ) + ( tex2D( _MetallicMap, temp_output_597_26_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_28_g58826 ) + ( tex2D( _MetallicMap, temp_output_597_27_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_29_g58826 ) );
 					float4 break31_g58826 = Output_2D293_g58826;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1005_g5296 = break31_g58826.a;
+					float staticSwitch1005_g5296 = break31_g58826.r;
 					#else
-					float staticSwitch1005_g5296 = tex2D( _MetallicMap, UV02420_g5296 ).a;
+					float staticSwitch1005_g5296 = tex2D( _MetallicMap, UV02420_g5296 ).r;
 					#endif
 					#ifdef _METALLICMAP
 					float staticSwitch846_g5296 = staticSwitch1005_g5296;
@@ -1599,7 +1599,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 Output_2D293_g59038 = ( ( tex2D( _GlossinessMap, temp_output_597_0_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_30_g59038 ) + ( tex2D( _GlossinessMap, temp_output_597_26_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_28_g59038 ) + ( tex2D( _GlossinessMap, temp_output_597_27_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_29_g59038 ) );
 					float4 break31_g59038 = Output_2D293_g59038;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1004_g5296 = break31_g59038.a;
+					float staticSwitch1004_g5296 = break31_g59038.r;
 					#else
 					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).r;
 					#endif
@@ -2562,9 +2562,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 Output_2D293_g58826 = ( ( tex2D( _MetallicMap, temp_output_597_0_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_30_g58826 ) + ( tex2D( _MetallicMap, temp_output_597_26_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_28_g58826 ) + ( tex2D( _MetallicMap, temp_output_597_27_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_29_g58826 ) );
 					float4 break31_g58826 = Output_2D293_g58826;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1005_g5296 = break31_g58826.a;
+					float staticSwitch1005_g5296 = break31_g58826.r;
 					#else
-					float staticSwitch1005_g5296 = tex2D( _MetallicMap, UV02420_g5296 ).a;
+					float staticSwitch1005_g5296 = tex2D( _MetallicMap, UV02420_g5296 ).r;
 					#endif
 					#ifdef _METALLICMAP
 					float staticSwitch846_g5296 = staticSwitch1005_g5296;
@@ -2999,7 +2999,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 Output_2D293_g59038 = ( ( tex2D( _GlossinessMap, temp_output_597_0_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_30_g59038 ) + ( tex2D( _GlossinessMap, temp_output_597_26_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_28_g59038 ) + ( tex2D( _GlossinessMap, temp_output_597_27_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_29_g59038 ) );
 					float4 break31_g59038 = Output_2D293_g59038;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1004_g5296 = break31_g59038.a;
+					float staticSwitch1004_g5296 = break31_g59038.r;
 					#else
 					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).r;
 					#endif
@@ -3871,9 +3871,9 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 Output_2D293_g58826 = ( ( tex2D( _MetallicMap, temp_output_597_0_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_30_g58826 ) + ( tex2D( _MetallicMap, temp_output_597_26_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_28_g58826 ) + ( tex2D( _MetallicMap, temp_output_597_27_g58826, DDX631_g58826, DDY632_g58826 ) * temp_output_597_29_g58826 ) );
 					float4 break31_g58826 = Output_2D293_g58826;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1005_g5296 = break31_g58826.a;
+					float staticSwitch1005_g5296 = break31_g58826.r;
 					#else
-					float staticSwitch1005_g5296 = tex2D( _MetallicMap, UV02420_g5296 ).a;
+					float staticSwitch1005_g5296 = tex2D( _MetallicMap, UV02420_g5296 ).r;
 					#endif
 					#ifdef _METALLICMAP
 					float staticSwitch846_g5296 = staticSwitch1005_g5296;
@@ -4314,7 +4314,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 Output_2D293_g59038 = ( ( tex2D( _GlossinessMap, temp_output_597_0_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_30_g59038 ) + ( tex2D( _GlossinessMap, temp_output_597_26_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_28_g59038 ) + ( tex2D( _GlossinessMap, temp_output_597_27_g59038, DDX631_g59038, DDY632_g59038 ) * temp_output_597_29_g59038 ) );
 					float4 break31_g59038 = Output_2D293_g59038;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1004_g5296 = break31_g59038.a;
+					float staticSwitch1004_g5296 = break31_g59038.r;
 					#else
 					float staticSwitch1004_g5296 = tex2D( _GlossinessMap, UV02420_g5296 ).r;
 					#endif
@@ -4834,4 +4834,4 @@ WireConnection;2888;2;3034;624
 WireConnection;2887;0;2930;17
 WireConnection;2887;3;2930;0
 ASEEND*/
-//CHKSM=E962C8023EA067A2F8A68EE9A88FEA2881D0B2B4
+//CHKSM=7FB53B842D16F6C7D210E553F1E6BBA9FEBD77C2

@@ -824,9 +824,9 @@ Shader "Meenphie/Standard/Cutout"
 					float4 Output_2D293_g59610 = ( ( tex2D( _MetallicMap, temp_output_597_0_g59610, DDX631_g59610, DDY632_g59610 ) * temp_output_597_30_g59610 ) + ( tex2D( _MetallicMap, temp_output_597_26_g59610, DDX631_g59610, DDY632_g59610 ) * temp_output_597_28_g59610 ) + ( tex2D( _MetallicMap, temp_output_597_27_g59610, DDX631_g59610, DDY632_g59610 ) * temp_output_597_29_g59610 ) );
 					float4 break31_g59610 = Output_2D293_g59610;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1005_g59604 = break31_g59610.a;
+					float staticSwitch1005_g59604 = break31_g59610.r;
 					#else
-					float staticSwitch1005_g59604 = tex2D( _MetallicMap, UV02420_g59604 ).a;
+					float staticSwitch1005_g59604 = tex2D( _MetallicMap, UV02420_g59604 ).r;
 					#endif
 					#ifdef _METALLICMAP
 					float staticSwitch846_g59604 = staticSwitch1005_g59604;
@@ -1261,7 +1261,7 @@ Shader "Meenphie/Standard/Cutout"
 					float4 Output_2D293_g59620 = ( ( tex2D( _GlossinessMap, temp_output_597_0_g59620, DDX631_g59620, DDY632_g59620 ) * temp_output_597_30_g59620 ) + ( tex2D( _GlossinessMap, temp_output_597_26_g59620, DDX631_g59620, DDY632_g59620 ) * temp_output_597_28_g59620 ) + ( tex2D( _GlossinessMap, temp_output_597_27_g59620, DDX631_g59620, DDY632_g59620 ) * temp_output_597_29_g59620 ) );
 					float4 break31_g59620 = Output_2D293_g59620;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1004_g59604 = break31_g59620.a;
+					float staticSwitch1004_g59604 = break31_g59620.r;
 					#else
 					float staticSwitch1004_g59604 = tex2D( _GlossinessMap, UV02420_g59604 ).r;
 					#endif
@@ -2039,4 +2039,4 @@ WireConnection;2888;2;2954;624
 WireConnection;2888;7;2954;156
 WireConnection;2888;8;2954;427
 ASEEND*/
-//CHKSM=89927F4A6FC60E3C37867A6FD1722B8BF1C04934
+//CHKSM=EA40AEA71686698C6408D219871DAEFDF2D804AE
