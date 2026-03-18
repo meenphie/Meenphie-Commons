@@ -6,8 +6,7 @@ using UnityEngine.Rendering.PostProcessing;
 using VRC.SDK3.Components;
 using VRC.SDKBase;
 
-namespace Meenphie.Commons
-{
+
     public class PostProcessingInitializer : IActiveBuildTargetChanged
     {
         // Required by IActiveBuildTargetChanged
@@ -52,4 +51,3 @@ namespace Meenphie.Commons
             }
         }
     }
-}

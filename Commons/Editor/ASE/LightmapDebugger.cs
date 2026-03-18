@@ -1,8 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Meenphie.Commons
-{
+
     public static class LightmapDebugger
     {
         private const string Keyword = "_LIGHTMAPDEBUG";
@@ -72,4 +71,3 @@ namespace Meenphie.Commons
             Debug.Log($"[<color=purple>Meenphie</color>] {materialCount} matériaux mis à jour. Lightmaps Lerp: {state}");
         }
     }
-}

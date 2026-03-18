@@ -2,8 +2,7 @@
 using UnityEngine;
 using VRC.SDKBase;
 
-namespace Meenphie.Commons
-{
+
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SpecularLightManager : UdonSharpBehaviour
     {
@@ -160,4 +159,3 @@ namespace Meenphie.Commons
             VRCShader.SetGlobalFloat(_countID, (float)count);
         }
     }
-}

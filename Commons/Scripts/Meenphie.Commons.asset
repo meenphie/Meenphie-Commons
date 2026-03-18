@@ -10,6 +10,6 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5136146375e9a0a498a72a0091b40cc1, type: 3}
-  m_Name: UdonSharpAssemblyDefinition
+  m_Name: Meenphie.Commons
   m_EditorClassIdentifier: 
-  sourceAssembly: {fileID: 5897886265953266890, guid: 120c9a40487c5ed2db2783d4b9216331, type: 3}
+  sourceAssembly: {fileID: 5897886265953266890, guid: 9178b30c182b8c036955abdb6657e7d4, type: 3}
