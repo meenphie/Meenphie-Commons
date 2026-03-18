@@ -68,37 +68,45 @@ public class MeshImporter : AssetPostprocessor
 
     private static bool Apply(Material mat, Dictionary<string, string> data)
     {
-        bool changed = false;
+        bool changed = true;
 
-        // --- COULEURS & ALPHA ---
-        if (data.ContainsKey("ColorHex") && ColorUtility.TryParseHtmlString("#" + data["ColorHex"], out Color c))
+        // Utilisation de GetValue pour éviter KeyNotFoundException
+        string colorHex = GetValue(data, "ColorHex", "FFFFFF");
+        if (ColorUtility.TryParseHtmlString("#" + colorHex, out Color c))
         {
-            if (data.ContainsKey("AlphaValue")) c.a = ParseF(data["AlphaValue"]);
+            c.a = ParseF(GetValue(data, "AlphaValue", "1.0"));
             mat.SetColor("_Color", c);
-            changed = true;
         }
 
-        // --- VALEURS ---
-        if (data.ContainsKey("MetallicValue")) { mat.SetFloat("_Metallic", ParseF(data["MetallicValue"])); changed = true; }
-        if (data.ContainsKey("SmoothnessValue")) { mat.SetFloat("_Glossiness", ParseF(data["SmoothnessValue"])); changed = true; }
+        // Valeurs numériques avec fallback
+        mat.SetFloat("_Metallic", ParseF(GetValue(data, "MetallicValue", "0")));
+        mat.SetFloat("_Glossiness", ParseF(GetValue(data, "SmoothnessValue", "0.5")));
 
-        // --- EMISSION ---
-        if (data.ContainsKey("EmissionHex") && ColorUtility.TryParseHtmlString("#" + data["EmissionHex"], out Color ec))
+        // Emission
+        string emHex = GetValue(data, "EmissionHex", "000000");
+        if (ColorUtility.TryParseHtmlString("#" + emHex, out Color ec))
         {
-            float intensity = data.ContainsKey("EmissionIntensity") ? ParseF(data["EmissionIntensity"]) : 1.0f;
+            float intensity = ParseF(GetValue(data, "EmissionIntensity", "1.0"));
             mat.SetColor("_EmissionColor", ec * intensity);
-            mat.EnableKeyword("_EMISSION");
-            changed = true;
+
+            if (ec.r > 0 || ec.g > 0 || ec.b > 0) mat.EnableKeyword("_EMISSION");
+            else mat.DisableKeyword("_EMISSION");
         }
 
-        // --- TEXTURES (Le coeur du problème) ---
-        changed |= SetTex(mat, data, "Base Color", "_MainTex");
-        changed |= SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", true); // On précise que c'est une Normal
-        changed |= SetTex(mat, data, "Roughness", "_GlossinessMap");
-        changed |= SetTex(mat, data, "Metallic", "_MetallicMap");
-        changed |= SetTex(mat, data, "Emission", "_EmissionMap", "_EMISSION");
+        // Textures (SetTex gère déjà les clés manquantes via ContainsKey)
+        SetTex(mat, data, "Base Color", "_MainTex");
+        SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", true);
+        SetTex(mat, data, "Roughness", "_GlossinessMap");
+        SetTex(mat, data, "Metallic", "_MetallicMap");
+        SetTex(mat, data, "Emission", "_EmissionMap", "_EMISSION");
 
         return changed;
+    }
+
+    // Fonction Helper pour sécuriser l'accès au dictionnaire
+    private static string GetValue(Dictionary<string, string> dict, string key, string defaultValue)
+    {
+        return dict.ContainsKey(key) ? dict[key] : defaultValue;
     }
 
     private static bool SetTex(Material mat, Dictionary<string, string> data, string key, string prop, string keyword = "", bool isNormal = false)
