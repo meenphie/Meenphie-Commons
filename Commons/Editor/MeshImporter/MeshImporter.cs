@@ -111,16 +111,32 @@ public class MeshImporter : AssetPostprocessor
 
     private static bool SetTex(Material mat, Dictionary<string, string> data, string key, string prop, string keyword = "", bool isNormal = false)
     {
-        if (!data.ContainsKey(key) || string.IsNullOrEmpty(data[key])) return false;
+        // 1. Si la clé n'existe pas du tout, on ne touche à rien (sécurité)
+        if (!data.ContainsKey(key)) return false;
 
-        Texture2D tex = FindAndFixTex(data[key], isNormal);
+        string fileName = data[key];
+        Texture2D tex = null;
 
-        if (tex != null && mat.GetTexture(prop) != tex)
+        // 2. Si on a un nom de fichier, on cherche la texture
+        if (!string.IsNullOrEmpty(fileName))
+        {
+            tex = FindAndFixTex(fileName, isNormal);
+        }
+
+        // 3. On applique (soit la nouvelle texture, soit null pour nettoyer)
+        if (mat.GetTexture(prop) != tex)
         {
             mat.SetTexture(prop, tex);
-            if (!string.IsNullOrEmpty(keyword)) mat.EnableKeyword(keyword);
+
+            // Gérer le mot-clé (Keyword)
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                if (tex != null) mat.EnableKeyword(keyword);
+                else mat.DisableKeyword(keyword);
+            }
             return true;
         }
+
         return false;
     }
 
