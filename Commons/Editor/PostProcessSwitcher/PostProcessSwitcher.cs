@@ -4,50 +4,56 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine.Rendering.PostProcessing;
 using VRC.SDK3.Components;
-using VRC.SDKBase;
 
+public class PostProcessingInitializer : IActiveBuildTargetChanged
+{
+    public int callbackOrder => 0;
 
-    public class PostProcessingInitializer : IActiveBuildTargetChanged
+    public void OnActiveBuildTargetChanged(BuildTarget previousTarget, BuildTarget newTarget)
     {
-        // Required by IActiveBuildTargetChanged
-        public int callbackOrder => 0;
+        // On vérifie la nouvelle cible de build via l'argument 'newTarget'
+        bool isAndroid = (newTarget == BuildTarget.Android);
+        UpdatePostProcessingSettings(isAndroid);
+    }
 
-        // Called whenever the active build target changes
-        public void OnActiveBuildTargetChanged(BuildTarget previousTarget, BuildTarget newTarget)
+    private static void UpdatePostProcessingSettings(bool toAndroid)
+    {
+        var sceneDescriptor = Object.FindObjectOfType<VRCSceneDescriptor>(true);
+        if (sceneDescriptor == null || sceneDescriptor.ReferenceCamera == null) return;
+
+        var refCam = sceneDescriptor.ReferenceCamera;
+        var postProcessLayer = refCam.GetComponent<PostProcessLayer>();
+        var postProcessVolumes = Object.FindObjectsOfType<PostProcessVolume>(true);
+
+        if (toAndroid)
         {
-            UpdatePostProcessingSettings();
+            // Paramètres pour Android (Désactivé)
+            SetPostProcessingSettings(false, "EditorOnly", postProcessLayer, postProcessVolumes);
+            Debug.Log("[<color=purple>Meenphie</color>] Switch to Android: Post-processing Disabled");
         }
-
-        private static void UpdatePostProcessingSettings()
+        else
         {
-            var sceneDescriptor = Object.FindObjectOfType<VRCSceneDescriptor>(true);
-            var refCam = sceneDescriptor.ReferenceCamera;
-            var postProcessLayer = refCam.GetComponent<PostProcessLayer>();
-            var postProcessVolumes = Object.FindObjectsOfType<PostProcessVolume>(true);
-
-#if UNITY_ANDROID
-        SetPostProcessingSettings(false, "EditorOnly", postProcessLayer, postProcessVolumes);
-        Debug.Log($"[<color=purple>Meenphie</color>] Post-processing Disabled");
-#else
+            // Paramètres pour PC / Autres (Activé)
             SetPostProcessingSettings(true, "Untagged", postProcessLayer, postProcessVolumes);
-            Debug.Log($"[<color=purple>Meenphie</color>] Post-processing Enabled");
-#endif
+            Debug.Log("[<color=purple>Meenphie</color>] Switch to PC: Post-processing Enabled");
+        }
+    }
+
+    private static void SetPostProcessingSettings(bool enable, string tag, PostProcessLayer layer, PostProcessVolume[] volumes)
+    {
+        if (layer != null)
+        {
+            layer.gameObject.tag = tag; // On change le tag du GameObject
+            layer.enabled = enable;
         }
 
-        private static void SetPostProcessingSettings(bool enable, string tag, PostProcessLayer layer, PostProcessVolume[] volumes)
+        foreach (var volume in volumes)
         {
-            if (layer != null)
+            if (volume != null)
             {
-                layer.tag = tag;
-                layer.enabled = enable;
-            }
-
-            foreach (var volume in volumes)
-            {
-                if (volume != null && volume.tag != tag)
-                {
-                    volume.tag = tag;
-                }
+                volume.gameObject.tag = tag;
+                volume.enabled = enable; // Optionnel : désactive aussi le composant volume
             }
         }
     }
+}
