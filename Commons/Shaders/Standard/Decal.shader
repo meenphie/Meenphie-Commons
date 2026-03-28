@@ -499,7 +499,7 @@ Shader "Meenphie/Standard/Decal"
 					#else
 						float3 defaultVertexValue = float3(0, 0, 0);
 					#endif
-					float3 vertexValue = ( v.normal * ( distance( World_Position2505_g62519 , _WorldSpaceCameraPos ) * 0.0002 ) );
+					float3 vertexValue = ( v.normal * ( distance( World_Position2505_g62519 , _WorldSpaceCameraPos ) * 0.0005 ) );
 					#ifdef ASE_ABSOLUTE_VERTEX_POS
 						v.vertex.xyz = vertexValue;
 					#else
@@ -1808,7 +1808,7 @@ Shader "Meenphie/Standard/Decal"
 					#else
 						float3 defaultVertexValue = float3(0, 0, 0);
 					#endif
-					float3 vertexValue = ( v.normal * ( distance( World_Position2505_g62519 , _WorldSpaceCameraPos ) * 0.0002 ) );
+					float3 vertexValue = ( v.normal * ( distance( World_Position2505_g62519 , _WorldSpaceCameraPos ) * 0.0005 ) );
 					#ifdef ASE_ABSOLUTE_VERTEX_POS
 						v.vertex.xyz = vertexValue;
 					#else
@@ -2085,4 +2085,4 @@ WireConnection;2888;7;3009;156
 WireConnection;2888;8;3009;427
 WireConnection;2888;15;3009;1024
 ASEEND*/
-//CHKSM=823634C9DFF6FCFCB45E2C36A718F9D18E5C7C60
+//CHKSM=CFCF1001ECA2DEB022BD6ED174EB66E53F62F97D
