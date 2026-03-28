@@ -70,7 +70,7 @@ public class MeshImporter : AssetPostprocessor
     {
         bool changed = true;
 
-        // Utilisation de GetValue pour éviter KeyNotFoundException
+        // 1. Base Color & Alpha
         string colorHex = GetValue(data, "ColorHex", "FFFFFF");
         if (ColorUtility.TryParseHtmlString("#" + colorHex, out Color c))
         {
@@ -78,27 +78,38 @@ public class MeshImporter : AssetPostprocessor
             mat.SetColor("_Color", c);
         }
 
-        // Valeurs numériques avec fallback
+        // 2. Metallic & Smoothness
         mat.SetFloat("_Metallic", ParseF(GetValue(data, "MetallicValue", "0")));
         mat.SetFloat("_Glossiness", ParseF(GetValue(data, "SmoothnessValue", "0.5")));
 
-        // Emission
+        // 3. Émission (Séparée : Couleur d'un côté, Intensité de l'autre)
         string emHex = GetValue(data, "EmissionHex", "000000");
+        float intensity = ParseF(GetValue(data, "EmissionIntensity", "1.0"));
+
         if (ColorUtility.TryParseHtmlString("#" + emHex, out Color ec))
         {
-            float intensity = ParseF(GetValue(data, "EmissionIntensity", "1.0"));
-            mat.SetColor("_EmissionColor", ec * intensity);
+            // On envoie la couleur brute (0-1) sans la multiplier par l'intensité ici
+            mat.SetColor("_EmissionColor", ec);
 
-            if (ec.r > 0 || ec.g > 0 || ec.b > 0) mat.EnableKeyword("_EMISSION");
-            else mat.DisableKeyword("_EMISSION");
+            // On envoie l'intensité dans le slot spécifique de ton shader Meenphie
+            if (mat.HasProperty("_EmissionIntensity"))
+            {
+                mat.SetFloat("_EmissionIntensity", intensity);
+            }
+
+            // Gestion du Keyword d'activation (selon ton shader Meenphie)
+            if (intensity > 0.001f || !emHex.Equals("000000"))
+                mat.EnableKeyword("_EMISSIONENABLED_ON");
+            else
+                mat.DisableKeyword("_EMISSIONENABLED_ON");
         }
 
-        // Textures (SetTex gère déjà les clés manquantes via ContainsKey)
+        // 4. Textures
         SetTex(mat, data, "Base Color", "_MainTex");
         SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", true);
         SetTex(mat, data, "Roughness", "_GlossinessMap");
         SetTex(mat, data, "Metallic", "_MetallicMap");
-        SetTex(mat, data, "Emission", "_EmissionMap", "_EMISSION");
+        SetTex(mat, data, "Emission", "_EmissionMap");
 
         return changed;
     }
