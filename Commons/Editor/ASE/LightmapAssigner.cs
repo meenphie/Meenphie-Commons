@@ -19,10 +19,11 @@ public static class LightmapAssigner
 
     private static void ProcessLightmaps(bool assign)
     {
-        HashSet<Material> materials = assign ? CollectSceneMaterials() : CollectAllProjectMaterials();
-        
-        // Cache all project textures once to avoid slow disk hits in the loop
-        Dictionary<string, Texture> textureCache = BuildTextureCache();
+        // If unassigning, we process the SCENE materials first (faster/more direct)
+        // If you want to clean the whole project, use CollectAllProjectMaterials()
+        HashSet<Material> materials = CollectSceneMaterials();
+
+        Dictionary<string, Texture> textureCache = assign ? BuildTextureCache() : null;
 
         int matIndex = 0;
         int totalMats = materials.Count;
@@ -37,21 +38,19 @@ public static class LightmapAssigner
 
                 if (assign)
                 {
-                    // Split name: "Shader - Group - Name" -> index 1 is "Station"
                     string[] nameParts = mat.name.Split(new string[] { " - " }, System.StringSplitOptions.None);
                     if (nameParts.Length >= 2)
                     {
-                        string groupName = nameParts[1].Trim(); 
-                        
-                        // We check both "Group" and "Group ON" / "Group OFF"
-                        if (TryAssignGroup(mat, groupName, textureCache, 0)) touchedCount++; // Default/OFF
+                        string groupName = nameParts[1].Trim();
+                        if (TryAssignGroup(mat, groupName, textureCache, 0)) touchedCount++;
                         if (TryAssignGroup(mat, groupName + " ON", textureCache, 1)) touchedCount++;
                         if (TryAssignGroup(mat, groupName + " OFF", textureCache, 0)) touchedCount++;
                     }
                 }
                 else
                 {
-                    UnassignAll(mat);
+                    // Aggressive reset: Wipe all 6 slots if they exist
+                    if (UnassignAll(mat)) touchedCount++;
                 }
                 matIndex++;
             }
@@ -62,7 +61,27 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
-        Debug.Log($"[<color=purple>Meenphie</color>] Done. {touchedCount} properties updated.");
+        Debug.Log($"[<color=purple>Meenphie</color>] Done. {touchedCount} materials updated.");
+    }
+
+    private static bool UnassignAll(Material mat)
+    {
+        bool changed = false;
+        foreach (var group in ShaderPropGroups)
+        {
+            foreach (var prop in group)
+            {
+                // We check if the property exists and if it actually has a texture
+                if (mat.HasProperty(prop) && mat.GetTexture(prop) != null)
+                {
+                    mat.SetTexture(prop, null);
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) EditorUtility.SetDirty(mat);
+        return changed;
     }
 
     private static bool TryAssignGroup(Material mat, string groupName, Dictionary<string, Texture> cache, int slot)
@@ -73,7 +92,7 @@ public static class LightmapAssigner
         for (int i = 0; i < 3; i++)
         {
             string baseName = groupName + suffixes[i];
-            
+
             // PRIORITY 1: Denoised version
             // PRIORITY 2: Original version
             Texture tex = null;
@@ -115,12 +134,12 @@ public static class LightmapAssigner
     {
         var cache = new Dictionary<string, Texture>(System.StringComparer.OrdinalIgnoreCase);
         string[] guids = AssetDatabase.FindAssets("t:Texture");
-        
+
         foreach (var guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
             string name = Path.GetFileNameWithoutExtension(path);
-            
+
             // Only cache lightmap-related textures to save memory
             if (name.Contains("_RNM"))
             {
