@@ -270,7 +270,7 @@ Shader "Meenphie/Standard/Cutout"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local_fragment _METALLICMAP
@@ -1675,7 +1675,7 @@ Shader "Meenphie/Standard/Cutout"
 				#include "UnityPBSLighting.cginc"
 
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 
@@ -2032,4 +2032,4 @@ WireConnection;2888;2;2961;624
 WireConnection;2888;7;2961;156
 WireConnection;2888;8;2961;427
 ASEEND*/
-//CHKSM=C101926D191EC45C1C2B0FF59B85C1663C56DD3E
+//CHKSM=9C831AC5DB5948E5FA808456A5D8DD1F16995900

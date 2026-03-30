@@ -270,7 +270,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local_fragment _METALLICMAP
@@ -1675,7 +1675,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#include "UnityPBSLighting.cginc"
 
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 
@@ -2058,7 +2058,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#include "AutoLight.cginc"
 
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 
@@ -2404,7 +2404,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#include "AutoLight.cginc"
 
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 
@@ -2720,4 +2720,4 @@ WireConnection;2;0;12;625
 WireConnection;2;2;12;624
 WireConnection;2;7;12;156
 ASEEND*/
-//CHKSM=81C27F87BFF315D4EA2EC7486FB31F897982A336
+//CHKSM=7F054548FBFBA114BFE913D476148C73CD671183

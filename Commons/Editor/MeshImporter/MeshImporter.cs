@@ -80,7 +80,7 @@ public class MeshImporter : AssetPostprocessor
 
         // 2. Metallic & Smoothness
         mat.SetFloat("_Metallic", ParseF(GetValue(data, "MetallicValue", "0")));
-        mat.SetFloat("_Glossiness", ParseF(GetValue(data, "SmoothnessValue", "0.5")));
+        mat.SetFloat("_Glossiness", ParseF(GetValue(data, "RoughnessValue", "0.5")));
 
         // 3. Émission (Séparée : Couleur d'un côté, Intensité de l'autre)
         string emHex = GetValue(data, "EmissionHex", "000000");
@@ -239,7 +239,7 @@ public static class SimpleJsonParser
         json = json.Replace("\r", "").Replace("\n", "");
 
         string[] materials = json.Split(new string[] { "}," }, System.StringSplitOptions.RemoveEmptyEntries);
-        string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "SmoothnessValue", "EmissionIntensity", "AlphaValue" };
+        string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "RoughnessValue", "EmissionIntensity", "AlphaValue" };
 
         foreach (var m in materials)
         {

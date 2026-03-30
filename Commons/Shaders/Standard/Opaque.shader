@@ -267,7 +267,7 @@ Shader "Meenphie/Standard/Opaque"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local_fragment _METALLICMAP
@@ -2425,4 +2425,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5509;625
 WireConnection;5280;2;5509;624
 ASEEND*/
-//CHKSM=0524D7DA3EEC2D6DD240821D5C899B62DF35E07B
+//CHKSM=D644D6E035DC1BA68CA76CBECC9D2EE9B27FC983

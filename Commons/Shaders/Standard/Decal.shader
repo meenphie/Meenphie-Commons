@@ -274,7 +274,7 @@ Shader "Meenphie/Standard/Decal"
 				#define ASE_NEEDS_FRAG_WORLD_NORMAL
 				#define ASE_NEEDS_FRAG_WORLD_BITANGENT
 				#define ASE_NEEDS_FRAG_WORLD_VIEW_DIR
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local_fragment _METALLICMAP
@@ -1706,7 +1706,7 @@ Shader "Meenphie/Standard/Decal"
 
 				#define ASE_NEEDS_VERT_NORMAL
 				#define ASE_NEEDS_TEXTURE_COORDINATES2
-				#pragma shader_feature_local_fragment _LIGHTMAPDEBUG
+				#pragma shader_feature_fragment _LIGHTMAPDEBUG
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 
@@ -2069,4 +2069,4 @@ WireConnection;2888;7;3009;156
 WireConnection;2888;8;3009;427
 WireConnection;2888;15;3009;1024
 ASEEND*/
-//CHKSM=028588DAA9E2B54BD491E79863760E8D83EEF942
+//CHKSM=37EB9E2C4F30CB1683CA7B918C7E2DBF646C992F
