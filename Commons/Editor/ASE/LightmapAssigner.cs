@@ -2,12 +2,13 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
+using System.IO;
 
 public static class LightmapAssigner
 {
     private static readonly string[][] ShaderPropGroups = {
-        new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" },
-        new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }
+        new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" }, // Slot 0 (OFF / Standard)
+        new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }  // Slot 1 (ON)
     };
 
     [MenuItem("Meenphie/Lightmaps/Assign Lightmaps")]
@@ -19,76 +20,38 @@ public static class LightmapAssigner
     private static void ProcessLightmaps(bool assign)
     {
         HashSet<Material> materials = assign ? CollectSceneMaterials() : CollectAllProjectMaterials();
-        Dictionary<string, Texture[]> lightmapGroups = assign ? BuildLightmapGroups() : null;
+        
+        // Cache all project textures once to avoid slow disk hits in the loop
+        Dictionary<string, Texture> textureCache = BuildTextureCache();
 
-        HashSet<Texture> touchedTextures = new HashSet<Texture>();
         int matIndex = 0;
         int totalMats = materials.Count;
+        int touchedCount = 0;
 
         try
         {
             foreach (Material mat in materials)
             {
                 if (mat == null) continue;
-                ShowProgress(assign ? "Assigning Lightmaps" : "Unassigning Lightmaps", mat.name, matIndex, totalMats);
+                ShowProgress(assign ? "Assigning" : "Unassigning", mat.name, matIndex, totalMats);
 
                 if (assign)
                 {
-                    // 1. On extrait le groupe du nom du matériau : "Shader - Groupe - Nom"
+                    // Split name: "Shader - Group - Name" -> index 1 is "Station"
                     string[] nameParts = mat.name.Split(new string[] { " - " }, System.StringSplitOptions.None);
-
-                    // On a besoin d'au moins [Shader] et [Groupe]
                     if (nameParts.Length >= 2)
                     {
-                        string materialGroupName = nameParts[1].Trim(); // Récupère "Station"
-
-                        foreach (var kvp in lightmapGroups)
-                        {
-                            string lightmapGroupName = kvp.Key;
-                            string baseLMName = lightmapGroupName.Replace("GI ", "").Replace(" ON", "").Replace(" OFF", "").Trim();
-
-                            // 2. Comparaison stricte entre le groupe du mat et le groupe de la lightmap
-                            if (string.Equals(materialGroupName, baseLMName, System.StringComparison.OrdinalIgnoreCase))
-                            {
-                                Texture[] textures = kvp.Value;
-                                int slotIndex = lightmapGroupName.EndsWith("ON") ? 1 : 0;
-
-                                for (int i = 0; i < 3; i++)
-                                {
-                                    Texture tex = textures[i];
-                                    if (tex == null) continue;
-
-                                    string prop = ShaderPropGroups[slotIndex][i];
-                                    Texture currentTex = mat.GetTexture(prop);
-
-                                    // Comparaison par référence (évite les réassignations inutiles)
-                                    if (currentTex != tex)
-                                    {
-                                        mat.SetTexture(prop, tex);
-                                        EditorUtility.SetDirty(mat);
-                                        touchedTextures.Add(tex);
-
-                                        Debug.Log($"[<color=green>Assign</color>] Mat: <b>{mat.name}</b> | Slot: {slotIndex} | Groupe: {materialGroupName}");
-                                    }
-                                }
-                            }
-                        }
+                        string groupName = nameParts[1].Trim(); 
+                        
+                        // We check both "Group" and "Group ON" / "Group OFF"
+                        if (TryAssignGroup(mat, groupName, textureCache, 0)) touchedCount++; // Default/OFF
+                        if (TryAssignGroup(mat, groupName + " ON", textureCache, 1)) touchedCount++;
+                        if (TryAssignGroup(mat, groupName + " OFF", textureCache, 0)) touchedCount++;
                     }
                 }
                 else
                 {
-                    // Reset des propriétés
-                    foreach (var propGroup in ShaderPropGroups)
-                    {
-                        foreach (string prop in propGroup)
-                        {
-                            if (mat.HasProperty(prop) && mat.GetTexture(prop) != null)
-                            {
-                                mat.SetTexture(prop, null);
-                                EditorUtility.SetDirty(mat);
-                            }
-                        }
-                    }
+                    UnassignAll(mat);
                 }
                 matIndex++;
             }
@@ -99,101 +62,98 @@ public static class LightmapAssigner
         }
 
         AssetDatabase.SaveAssets();
-        Debug.Log($"[<color=purple>Meenphie</color>] Processing finished. {touchedTextures.Count} unique textures handled.");
+        Debug.Log($"[<color=purple>Meenphie</color>] Done. {touchedCount} properties updated.");
     }
 
-    // --- Helpers ---
-    private static HashSet<Material> CollectSceneMaterials()
+    private static bool TryAssignGroup(Material mat, string groupName, Dictionary<string, Texture> cache, int slot)
     {
-        HashSet<Material> sceneMaterials = new HashSet<Material>();
-        foreach (GameObject go in SceneManager.GetActiveScene().GetRootGameObjects())
+        bool changed = false;
+        string[] suffixes = { "_RNMX", "_RNMY", "_RNMZ" };
+
+        for (int i = 0; i < 3; i++)
         {
-            foreach (Renderer rend in go.GetComponentsInChildren<Renderer>(true))
+            string baseName = groupName + suffixes[i];
+            
+            // PRIORITY 1: Denoised version
+            // PRIORITY 2: Original version
+            Texture tex = null;
+            if (!cache.TryGetValue(baseName + "_denoised", out tex))
             {
-                foreach (Material m in rend.sharedMaterials)
+                cache.TryGetValue(baseName, out tex);
+            }
+
+            if (tex != null)
+            {
+                string prop = ShaderPropGroups[slot][i];
+                if (mat.HasProperty(prop) && mat.GetTexture(prop) != tex)
                 {
-                    if (m != null) sceneMaterials.Add(m);
+                    mat.SetTexture(prop, tex);
+                    EditorUtility.SetDirty(mat);
+                    changed = true;
                 }
             }
         }
-        return sceneMaterials;
+        return changed;
+    }
+
+    private static void UnassignAll(Material mat)
+    {
+        foreach (var group in ShaderPropGroups)
+        {
+            foreach (var prop in group)
+            {
+                if (mat.HasProperty(prop) && mat.GetTexture(prop) != null)
+                {
+                    mat.SetTexture(prop, null);
+                    EditorUtility.SetDirty(mat);
+                }
+            }
+        }
+    }
+
+    private static Dictionary<string, Texture> BuildTextureCache()
+    {
+        var cache = new Dictionary<string, Texture>(System.StringComparer.OrdinalIgnoreCase);
+        string[] guids = AssetDatabase.FindAssets("t:Texture");
+        
+        foreach (var guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            string name = Path.GetFileNameWithoutExtension(path);
+            
+            // Only cache lightmap-related textures to save memory
+            if (name.Contains("_RNM"))
+            {
+                Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(path);
+                if (tex != null) cache[name] = tex;
+            }
+        }
+        return cache;
+    }
+
+    private static HashSet<Material> CollectSceneMaterials()
+    {
+        HashSet<Material> mats = new HashSet<Material>();
+        foreach (GameObject go in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            foreach (Renderer r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                foreach (Material m in r.sharedMaterials) if (m != null) mats.Add(m);
+            }
+        }
+        return mats;
     }
 
     private static HashSet<Material> CollectAllProjectMaterials()
     {
-        HashSet<Material> allMaterials = new HashSet<Material>();
+        HashSet<Material> mats = new HashSet<Material>();
         string[] guids = AssetDatabase.FindAssets("t:Material");
-        foreach (string guid in guids)
+        foreach (string g in guids)
         {
-            Material m = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
-            if (m != null) allMaterials.Add(m);
+            Material m = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g));
+            if (m != null) mats.Add(m);
         }
-        return allMaterials;
-    }
-
-    private static Dictionary<string, Texture[]> BuildLightmapGroups()
-    {
-        Dictionary<string, Texture[]> lightmapGroups = new Dictionary<string, Texture[]>();
-
-        // On cherche tous les fichiers RNMX (originaux ou DN)
-        string[] rnmxGuids = AssetDatabase.FindAssets("_RNMX t:Texture");
-
-        foreach (string guid in rnmxGuids)
-        {
-            string path = AssetDatabase.GUIDToAssetPath(guid);
-            Texture texX = AssetDatabase.LoadAssetAtPath<Texture>(path);
-            if (texX == null) continue;
-
-            // Si le fichier actuel est déjà un _DN, on récupère le nom de base sans le suffixe _DN
-            // Sinon on prend juste le nom de base.
-            string baseName = texX.name.Replace("_RNMX", "").Replace("_DN", "");
-
-            if (!lightmapGroups.ContainsKey(baseName))
-                lightmapGroups[baseName] = new Texture[3];
-
-            // Pour chaque canal (X, Y, Z), on tente de trouver la version débruitée
-            lightmapGroups[baseName][0] = GetBestTexture(baseName + "_RNMX");
-            lightmapGroups[baseName][1] = GetBestTexture(baseName + "_RNMY");
-            lightmapGroups[baseName][2] = GetBestTexture(baseName + "_RNMZ");
-        }
-        return lightmapGroups;
-    }
-
-    /// <summary>
-    /// Cherche d'abord "Nom_DN", sinon retourne "Nom"
-    /// </summary>
-    private static Texture GetBestTexture(string textureFullBaseName)
-    {
-        // 1. Priorité au Denoised (_DN)
-        string dnPath = FindPath(textureFullBaseName + "_DN");
-        if (!string.IsNullOrEmpty(dnPath))
-        {
-            return AssetDatabase.LoadAssetAtPath<Texture>(dnPath);
-        }
-
-        // 2. Fallback sur l'original
-        string originalPath = FindPath(textureFullBaseName);
-        if (!string.IsNullOrEmpty(originalPath))
-        {
-            return AssetDatabase.LoadAssetAtPath<Texture>(originalPath);
-        }
-
-        return null;
-    }
-
-    private static string FindPath(string assetName)
-    {
-        string[] guids = AssetDatabase.FindAssets(assetName + " t:Texture");
-        foreach (string guid in guids)
-        {
-            string path = AssetDatabase.GUIDToAssetPath(guid);
-            // Vérification stricte du nom pour éviter de trouver "Exit_RNMX_DN" quand on cherche "Exit_RNMX"
-            if (System.IO.Path.GetFileNameWithoutExtension(path) == assetName)
-            {
-                return path;
-            }
-        }
-        return null;
+        return mats;
     }
 
     private static void ShowProgress(string title, string matName, int index, int total)
