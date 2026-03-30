@@ -13,7 +13,7 @@ Shader "Meenphie/Standard/Decal"
 		[NoScaleOffset][SingleLineTexture] _GlossinessMap( "Roughness", 2D ) = "black" {}
 		[KeywordEnum( UV0,UV2 )] _RoughnessUV( "Roughness UV", Float ) = 0
 		_Metallic( "Metallic", Range( 0, 1 ) ) = 0
-		_Glossiness( "Smoothness", Range( 0, 1 ) ) = 0.5
+		_Glossiness( "Roughness", Range( 0, 1 ) ) = 0.5
 		[Toggle( _USEGEOMETRICAA_ON )] _UseGeometricAA( "Use Geometric AA", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
@@ -1299,7 +1299,7 @@ Shader "Meenphie/Standard/Decal"
 					float2 staticSwitch2644_g62519 = UV0A2420_g62519;
 					#endif
 					#ifdef _GLOSSINESSMAP
-					float staticSwitch845_g62519 = ( 1.0 - tex2D( _GlossinessMap, staticSwitch2644_g62519 ).r );
+					float staticSwitch845_g62519 = tex2D( _GlossinessMap, staticSwitch2644_g62519 ).r;
 					#else
 					float staticSwitch845_g62519 = _Glossiness;
 					#endif
@@ -1374,7 +1374,7 @@ Shader "Meenphie/Standard/Decal"
 					#ifdef _STOCHASTICENABLED_ON
 					float staticSwitch1004_g62519 = ( 1.0 - break31_g62561.r );
 					#else
-					float staticSwitch1004_g62519 = staticSwitch845_g62519;
+					float staticSwitch1004_g62519 = ( 1.0 - staticSwitch845_g62519 );
 					#endif
 					float temp_output_19_0_g62566 = staticSwitch1004_g62519;
 					float3 tanNormal2_g62566 = World_Normal2508_g62519;
@@ -2069,4 +2069,4 @@ WireConnection;2888;7;3009;156
 WireConnection;2888;8;3009;427
 WireConnection;2888;15;3009;1024
 ASEEND*/
-//CHKSM=E8A5361D59E8139EF386F4058B0B3A683C860078
+//CHKSM=028588DAA9E2B54BD491E79863760E8D83EEF942

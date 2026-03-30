@@ -11,7 +11,7 @@ Shader "Meenphie/Standard/Additive"
 		[NoScaleOffset][SingleLineTexture] _MetallicMap( "Metallic", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _GlossinessMap( "Roughness", 2D ) = "black" {}
 		_Metallic( "Metallic", Range( 0, 1 ) ) = 0
-		_Glossiness( "Smoothness", Range( 0, 1 ) ) = 0.5
+		_Glossiness( "Roughness", Range( 0, 1 ) ) = 0.5
 		[Toggle( _USEGEOMETRICAA_ON )] _UseGeometricAA( "Use Geometric AA", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
@@ -1269,7 +1269,7 @@ Shader "Meenphie/Standard/Additive"
 					float3 Fresnel1560_g59572 = lerpResult1480_g59572;
 					float3 Fresnel1_g59607 = Fresnel1560_g59572;
 					#ifdef _GLOSSINESSMAP
-					float staticSwitch845_g59572 = ( 1.0 - tex2D( _GlossinessMap, UV0A2420_g59572 ).r );
+					float staticSwitch845_g59572 = tex2D( _GlossinessMap, UV0A2420_g59572 ).r;
 					#else
 					float staticSwitch845_g59572 = _Glossiness;
 					#endif
@@ -1344,7 +1344,7 @@ Shader "Meenphie/Standard/Additive"
 					#ifdef _STOCHASTICENABLED_ON
 					float staticSwitch1004_g59572 = ( 1.0 - break31_g59686.r );
 					#else
-					float staticSwitch1004_g59572 = staticSwitch845_g59572;
+					float staticSwitch1004_g59572 = ( 1.0 - staticSwitch845_g59572 );
 					#endif
 					float temp_output_19_0_g59691 = staticSwitch1004_g59572;
 					float3 tanNormal2_g59691 = World_Normal2508_g59572;
@@ -2436,4 +2436,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=9E50BD004E08359092E5BBB894A3FD6498EB1C02
+//CHKSM=578D5E62F9B5060EF93D62728DA7B9C5F48F71B4
