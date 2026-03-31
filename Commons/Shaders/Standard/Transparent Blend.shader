@@ -274,7 +274,7 @@ Shader "Meenphie/Standard/Transparent Blend"
 				#pragma shader_feature_local_fragment _STOCHASTICENABLED_ON
 				#pragma shader_feature_local_fragment _MAINTEX
 				#pragma shader_feature_local_fragment _METALLICMAP
-				#pragma shader_feature_local_fragment _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_UdonRNM _LIGHTMAPMODE_UdonRNMLERP
+				#pragma shader_feature_local_fragment _LIGHTMAPMODE_DISABLED _LIGHTMAPMODE_SIMPLE _LIGHTMAPMODE_SIMPLELERP _LIGHTMAPMODE_RNM _LIGHTMAPMODE_RNMLERP
 				#pragma shader_feature_local_fragment _USEBICUBICFILTERING_ON
 				#pragma shader_feature_local_fragment _BUMPMAP
 				#pragma shader_feature_local_fragment _USELIGHTMAPSPECULAR_ON
@@ -1167,9 +1167,9 @@ Shader "Meenphie/Standard/Transparent Blend"
 					float4 staticSwitch1014_g59553 = Lightmap_0925_g59553;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
 					float4 staticSwitch1014_g59553 = Lightmap_Lerp932_g59553;
-					#elif defined( _LIGHTMAPMODE_UdonRNM )
+					#elif defined( _LIGHTMAPMODE_RNM )
 					float4 staticSwitch1014_g59553 = RNM_0926_g59553;
-					#elif defined( _LIGHTMAPMODE_UdonRNMLERP )
+					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g59553 = RNM_Lerp950_g59553;
 					#else
 					float4 staticSwitch1014_g59553 = temp_cast_1;
