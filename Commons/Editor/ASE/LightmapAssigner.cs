@@ -122,7 +122,7 @@ public static class LightmapAssigner
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
             string name = Path.GetFileNameWithoutExtension(path);
-            if (name.Contains("_UdonRNM"))
+            if (name.Contains("_RNM"))
             {
                 Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(path);
                 if (tex != null) cache[name] = tex;
