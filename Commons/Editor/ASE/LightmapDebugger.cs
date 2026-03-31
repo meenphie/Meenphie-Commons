@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public static class LightmapDebugger
 {
     private const string Keyword = "_LIGHTMAPDEBUG";
-    private const string LIGHTMAPLERP = "_LIGHTMAPLERP";
+    private const string LIGHTMAPLERP = "_UdonLightmapLerp";
 
     [MenuItem("Meenphie/Lightmaps/Lightmaps Only")]
     public static void ToggleLightmapsOnly()

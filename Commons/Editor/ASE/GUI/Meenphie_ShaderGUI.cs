@@ -61,7 +61,7 @@ public class Meenphie_ShaderGUI : ShaderGUI
                         continue;
                     if (prop.name == "_UdonRNMZ1")
                         continue;
-                    if (prop.name == "_LightmapLerp")
+                    if (prop.name == "_UdonLightmapLerp")
                         continue;
                     if (prop.name == "_UdonRNMScale")
                         continue;
@@ -78,7 +78,7 @@ public class Meenphie_ShaderGUI : ShaderGUI
                         continue;
                     if (prop.name == "_UdonRNMZ1")
                         continue;
-                    if (prop.name == "_LightmapLerp")
+                    if (prop.name == "_UdonLightmapLerp")
                         continue;
                 }
 
