@@ -42,7 +42,7 @@ public static class LightmapAssigner
                     string[] nameParts = mat.name.Split(new string[] { " - " }, System.StringSplitOptions.None);
                     if (nameParts.Length >= 2)
                     {
-                        string groupName = nameParts[1].Trim(); 
+                        string groupName = nameParts[1].Trim();
                         bool a = TryAssignGroup(mat, groupName, textureCache, 0);
                         bool b = TryAssignGroup(mat, groupName + " ON", textureCache, 1);
                         bool c = TryAssignGroup(mat, groupName + " OFF", textureCache, 0);
@@ -68,14 +68,14 @@ public static class LightmapAssigner
     private static bool TryAssignGroup(Material mat, string groupName, Dictionary<string, Texture> cache, int slot)
     {
         bool changed = false;
-        string[] suffixes = { "_UdonRNMX", "_UdonRNMY", "_UdonRNMZ" };
+        // Keep these as the old file suffixes so it finds your existing textures
+        string[] fileSuffixes = { "_RNMX", "_RNMY", "_RNMZ" };
 
         for (int i = 0; i < 3; i++)
         {
-            string baseName = groupName + suffixes[i];
+            string baseName = groupName + fileSuffixes[i];
             Texture tex = null;
-            
-            // Priority: Denoised -> Original
+
             if (!cache.TryGetValue(baseName + "_denoised", out tex))
             {
                 cache.TryGetValue(baseName, out tex);
@@ -83,8 +83,9 @@ public static class LightmapAssigner
 
             if (tex != null)
             {
+                // This maps the old file to the NEW _Udon shader property
                 string prop = ShaderPropGroups[slot][i];
-                if (mat.HasProperty(prop) && mat.GetTexture(prop) != tex)
+                if (mat.HasProperty(prop))
                 {
                     mat.SetTexture(prop, tex);
                     EditorUtility.SetDirty(mat);
@@ -93,6 +94,24 @@ public static class LightmapAssigner
             }
         }
         return changed;
+    }
+
+    private static Dictionary<string, Texture> BuildTextureCache()
+    {
+        var cache = new Dictionary<string, Texture>(System.StringComparer.OrdinalIgnoreCase);
+        string[] guids = AssetDatabase.FindAssets("t:Texture");
+        foreach (var guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            string name = Path.GetFileNameWithoutExtension(path);
+            // Look for standard RNM filenames
+            if (name.Contains("_RNM"))
+            {
+                Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(path);
+                if (tex != null) cache[name] = tex;
+            }
+        }
+        return cache;
     }
 
     // THE ONLY UNASSIGNALL FUNCTION
