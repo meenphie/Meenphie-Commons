@@ -49,21 +49,21 @@ public class Meenphie_ShaderGUI : ShaderGUI
             {
                 if (material.GetInt("_LIGHTMAPPINGMODE") == 0)
                 {
-                    if (prop.name == "_RNMX0")
+                    if (prop.name == "_UdonRNMX0")
                         continue;
-                    if (prop.name == "_RNMY0")
+                    if (prop.name == "_UdonRNMY0")
                         continue;
-                    if (prop.name == "_RNMZ0")
+                    if (prop.name == "_UdonRNMZ0")
                         continue;
-                    if (prop.name == "_RNMX1")
+                    if (prop.name == "_UdonRNMX1")
                         continue;
-                    if (prop.name == "_RNMY1")
+                    if (prop.name == "_UdonRNMY1")
                         continue;
-                    if (prop.name == "_RNMZ1")
+                    if (prop.name == "_UdonRNMZ1")
                         continue;
                     if (prop.name == "_LightmapLerp")
                         continue;
-                    if (prop.name == "_RNMScale")
+                    if (prop.name == "_UdonRNMScale")
                         continue;
 
                 }
@@ -72,11 +72,11 @@ public class Meenphie_ShaderGUI : ShaderGUI
                 {
                     if (prop.name == "_Lightmap")
                         continue;
-                    if (prop.name == "_RNMX1")
+                    if (prop.name == "_UdonRNMX1")
                         continue;
-                    if (prop.name == "_RNMY1")
+                    if (prop.name == "_UdonRNMY1")
                         continue;
-                    if (prop.name == "_RNMZ1")
+                    if (prop.name == "_UdonRNMZ1")
                         continue;
                     if (prop.name == "_LightmapLerp")
                         continue;

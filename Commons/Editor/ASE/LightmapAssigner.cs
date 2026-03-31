@@ -7,8 +7,8 @@ using System.IO;
 public static class LightmapAssigner
 {
     private static readonly string[][] ShaderPropGroups = {
-        new string[] { "_RNMX0", "_RNMY0", "_RNMZ0" },
-        new string[] { "_RNMX1", "_RNMY1", "_RNMZ1" }
+        new string[] { "_UdonRNMX0", "_UdonRNMY0", "_UdonRNMZ0" },
+        new string[] { "_UdonRNMX1", "_UdonRNMY1", "_UdonRNMZ1" }
     };
 
     [MenuItem("Meenphie/Lightmaps/Assign Lightmaps")]
@@ -68,7 +68,7 @@ public static class LightmapAssigner
     private static bool TryAssignGroup(Material mat, string groupName, Dictionary<string, Texture> cache, int slot)
     {
         bool changed = false;
-        string[] suffixes = { "_RNMX", "_RNMY", "_RNMZ" };
+        string[] suffixes = { "_UdonRNMX", "_UdonRNMY", "_UdonRNMZ" };
 
         for (int i = 0; i < 3; i++)
         {
@@ -122,7 +122,7 @@ public static class LightmapAssigner
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
             string name = Path.GetFileNameWithoutExtension(path);
-            if (name.Contains("_RNM"))
+            if (name.Contains("_UdonRNM"))
             {
                 Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(path);
                 if (tex != null) cache[name] = tex;
