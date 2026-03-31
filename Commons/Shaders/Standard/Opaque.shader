@@ -30,7 +30,7 @@ Shader "Meenphie/Standard/Opaque"
 		[NoScaleOffset][SingleLineTexture] _RNMX1( "RNMX 1", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _RNMY1( "RNMY 1", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _RNMZ1( "RNMZ 1", 2D ) = "black" {}
-		_LIGHTMAPLERP( "Lightmap Lerp", Range( 0, 1 ) ) = 0
+		_UdonLightmapLerp( "Lightmap Lerp", Range( 0, 1 ) ) = 0
 		[Toggle( _USEBICUBICFILTERING_ON )] _UseBicubicFiltering( "Use Bicubic Filtering", Float ) = 1
 		[Toggle( _USELIGHTMAPSPECULAR_ON )] _UseLightmapSpecular( "Use Lightmap Specular", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
@@ -361,7 +361,7 @@ Shader "Meenphie/Standard/Opaque"
 				float4 _Lightmap0_TexelSize;
 				uniform sampler2D _Lightmap1;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LIGHTMAPLERP;
+				uniform float _UdonLightmapLerp;
 				uniform sampler2D _BumpMap;
 				sampler2D _Sampler82965_g59903;
 				uniform sampler2D _RNMX0;
@@ -928,7 +928,7 @@ Shader "Meenphie/Standard/Opaque"
 					float4 staticSwitch1088_g59903 = tex2D( _Lightmap1, UV0B2361_g59903 );
 					#endif
 					float4 Lightmap_1956_g59903 = staticSwitch1088_g59903;
-					float Lightmap_Lerp_Value969_g59903 = _LIGHTMAPLERP;
+					float Lightmap_Lerp_Value969_g59903 = _UdonLightmapLerp;
 					float4 lerpResult442_g59903 = lerp( Lightmap_0925_g59903 , Lightmap_1956_g59903 , Lightmap_Lerp_Value969_g59903);
 					float4 Lightmap_Lerp932_g59903 = lerpResult442_g59903;
 					float3 appendResult139_g59926 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
@@ -2430,4 +2430,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5509;625
 WireConnection;5280;2;5509;624
 ASEEND*/
-//CHKSM=16F45CC445E982CC4206AF480160E2454C43A760
+//CHKSM=20AB993261FFDDC1CFF52E46DF357BD1BB2B2A74

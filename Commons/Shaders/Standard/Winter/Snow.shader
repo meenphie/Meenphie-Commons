@@ -30,7 +30,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 		[NoScaleOffset][SingleLineTexture] _RNMX1( "RNMX 1", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _RNMY1( "RNMY 1", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _RNMZ1( "RNMZ 1", 2D ) = "black" {}
-		_LIGHTMAPLERP( "Lightmap Lerp", Range( 0, 1 ) ) = 0
+		_UdonLightmapLerp( "Lightmap Lerp", Range( 0, 1 ) ) = 0
 		[Toggle( _USEBICUBICFILTERING_ON )] _UseBicubicFiltering( "Use Bicubic Filtering", Float ) = 1
 		[Toggle( _USELIGHTMAPSPECULAR_ON )] _UseLightmapSpecular( "Use Lightmap Specular", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
@@ -371,7 +371,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 				float4 _Lightmap0_TexelSize;
 				uniform sampler2D _Lightmap1;
 				float4 _Lightmap1_TexelSize;
-				uniform float _LIGHTMAPLERP;
+				uniform float _UdonLightmapLerp;
 				uniform sampler2D _BumpMap;
 				sampler2D _Sampler82965_g5296;
 				uniform sampler2D _RNMX0;
@@ -1021,7 +1021,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1088_g5296 = tex2D( _Lightmap1, UV0B2361_g5296 );
 					#endif
 					float4 Lightmap_1956_g5296 = staticSwitch1088_g5296;
-					float Lightmap_Lerp_Value969_g5296 = _LIGHTMAPLERP;
+					float Lightmap_Lerp_Value969_g5296 = _UdonLightmapLerp;
 					float4 lerpResult442_g5296 = lerp( Lightmap_0925_g5296 , Lightmap_1956_g5296 , Lightmap_Lerp_Value969_g5296);
 					float4 Lightmap_Lerp932_g5296 = lerpResult442_g5296;
 					float3 appendResult139_g59624 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
@@ -2025,4 +2025,4 @@ WireConnection;2888;3;3038;0
 WireConnection;2888;5;3039;0
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=863A15D801824BC3FB214B21F3660A2A5D47BAED
+//CHKSM=BCFFDA752FD99B49DBF2EA08FC8341A937F49E66
