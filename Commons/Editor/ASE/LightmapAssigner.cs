@@ -133,23 +133,6 @@ public static class LightmapAssigner
         return changed;
     }
 
-    private static Dictionary<string, Texture> BuildTextureCache()
-    {
-        var cache = new Dictionary<string, Texture>(System.StringComparer.OrdinalIgnoreCase);
-        string[] guids = AssetDatabase.FindAssets("t:Texture");
-        foreach (var guid in guids)
-        {
-            string path = AssetDatabase.GUIDToAssetPath(guid);
-            string name = Path.GetFileNameWithoutExtension(path);
-            if (name.Contains("_RNM"))
-            {
-                Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(path);
-                if (tex != null) cache[name] = tex;
-            }
-        }
-        return cache;
-    }
-
     private static HashSet<Material> CollectSceneMaterials()
     {
         HashSet<Material> mats = new HashSet<Material>();
