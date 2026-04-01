@@ -344,8 +344,8 @@ Shader "Meenphie/Standard/Additive"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -406,11 +406,11 @@ Shader "Meenphie/Standard/Additive"
 				float3 Specular( float3 AlbedoColor, float3 LightmapColor, float Metallic, float Smoothness, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
-					float LumaStart = 0.02;
-					float LumaEnd = 0.4;
+					float LumaStart = 0.05;
+					float LumaEnd = 1.0;
 					float MaxRadius = 10.0;
 					float RadiusFadeStart = 0.0;
-					float specBoost = 2.0;
+					float specBoost = 0.5;
 					float3 f0_dielectric = float3(0.2, 0.2, 0.2);
 					float3 f0_metal = AlbedoColor.rgb;
 					float3 specularColorTint = lerp(f0_dielectric, f0_metal, Metallic);
@@ -1371,16 +1371,16 @@ Shader "Meenphie/Standard/Additive"
 					float3 staticSwitch1469_g59572 = temp_output_2578_0_g59572;
 					#endif
 					float3 Reflections1419_g59572 = staticSwitch1469_g59572;
-					float3 AlbedoColor97_g59619 = oAlbedo6_g59572;
-					float3 LightmapColor97_g59619 = Lightmap46_g59572;
-					float Metallic97_g59619 = Metallic1239_g59572;
-					float Smoothness97_g59619 = Smoothness1399_g59572;
-					float3 Fresnel97_g59619 = Fresnel1560_g59572;
-					float3 WorldPos97_g59619 = World_Position2505_g59572;
-					float3 WorldNormal97_g59619 = World_Normal2508_g59572;
-					float3 ViewDir97_g59619 = View_Direction2511_g59572;
-					float3 localSpecular97_g59619 = Specular( AlbedoColor97_g59619 , LightmapColor97_g59619 , Metallic97_g59619 , Smoothness97_g59619 , Fresnel97_g59619 , WorldPos97_g59619 , WorldNormal97_g59619 , ViewDir97_g59619 );
-					float3 Speculars2560_g59572 = localSpecular97_g59619;
+					float3 AlbedoColor97_g59698 = oAlbedo6_g59572;
+					float3 LightmapColor97_g59698 = Lightmap46_g59572;
+					float Metallic97_g59698 = Metallic1239_g59572;
+					float Smoothness97_g59698 = Smoothness1399_g59572;
+					float3 Fresnel97_g59698 = Fresnel1560_g59572;
+					float3 WorldPos97_g59698 = World_Position2505_g59572;
+					float3 WorldNormal97_g59698 = World_Normal2508_g59572;
+					float3 ViewDir97_g59698 = View_Direction2511_g59572;
+					float3 localSpecular97_g59698 = Specular( AlbedoColor97_g59698 , LightmapColor97_g59698 , Metallic97_g59698 , Smoothness97_g59698 , Fresnel97_g59698 , WorldPos97_g59698 , WorldNormal97_g59698 , ViewDir97_g59698 );
+					float3 Speculars2560_g59572 = localSpecular97_g59698;
 					#ifdef _LIGHTMAPDEBUG
 					float3 staticSwitch1181_g59572 = Lightmap46_g59572;
 					#else
@@ -1716,8 +1716,8 @@ Shader "Meenphie/Standard/Additive"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2006,8 +2006,8 @@ Shader "Meenphie/Standard/Additive"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2258,8 +2258,8 @@ Shader "Meenphie/Standard/Additive"
 				uniform sampler2D _2DLut;
 				uniform float _LUTSize;
 				uniform sampler3D _3DLut;
-				uniform float _UdonSpecularLightCount;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2436,4 +2436,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=F1ED8B67F711E6A01312F6C5026EC784FD0F1C5C
+//CHKSM=FD3D1CADBC31C5065BBF5CABCE4F9B136B019341
