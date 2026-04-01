@@ -1368,7 +1368,7 @@ Shader "Meenphie/Standard/Additive"
 					float Smoothness1_g59607 = Smoothness1399_g59572;
 					float3 localIndirectSpecularWithBoxProjection1_g59607 = IndirectSpecularWithBoxProjection1_g59607( WorldPos1_g59607 , WorldNormal1_g59607 , ViewDir1_g59607 , Fresnel1_g59607 , Smoothness1_g59607 );
 					float3 temp_output_2578_0_g59572 = localIndirectSpecularWithBoxProjection1_g59607;
-					float3 temp_cast_5 = (0.02).xxx;
+					float3 temp_cast_5 = (0.0).xxx;
 					float3 temp_cast_6 = (0.1).xxx;
 					float3 smoothstepResult2430_g59572 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g59572);
 					#ifdef _USELIGHTMAPSPECULAR_ON
@@ -2442,4 +2442,4 @@ WireConnection;3153;0;3248;625
 WireConnection;3153;2;3248;624
 WireConnection;3153;15;3248;1024
 ASEEND*/
-//CHKSM=55EE462B771F724461B105D2934DC32B7C05CAC1
+//CHKSM=012786F47FFAA20890AB79BA48D2AAC3ED286171

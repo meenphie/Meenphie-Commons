@@ -1398,7 +1398,7 @@ Shader "Meenphie/Standard/Decal"
 					float Smoothness1_g62536 = Smoothness1399_g62519;
 					float3 localIndirectSpecularWithBoxProjection1_g62536 = IndirectSpecularWithBoxProjection1_g62536( WorldPos1_g62536 , WorldNormal1_g62536 , ViewDir1_g62536 , Fresnel1_g62536 , Smoothness1_g62536 );
 					float3 temp_output_2578_0_g62519 = localIndirectSpecularWithBoxProjection1_g62536;
-					float3 temp_cast_5 = (0.02).xxx;
+					float3 temp_cast_5 = (0.0).xxx;
 					float3 temp_cast_6 = (0.1).xxx;
 					float3 smoothstepResult2430_g62519 = smoothstep( temp_cast_5 , temp_cast_6 , Lightmap46_g62519);
 					#ifdef _USELIGHTMAPSPECULAR_ON
@@ -2075,4 +2075,4 @@ WireConnection;2888;7;3009;156
 WireConnection;2888;8;3009;427
 WireConnection;2888;15;3009;1024
 ASEEND*/
-//CHKSM=1D45588AAC453C121FA806DC27A5D2327F7848E2
+//CHKSM=D59DCFA88F3A06E32E18A1D989C39C742D32BF78
