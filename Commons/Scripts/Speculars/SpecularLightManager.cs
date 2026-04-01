@@ -30,13 +30,13 @@ public class SpecularLightManager : UdonSharpBehaviour
     private Vector4[] _shaderDirBuffer = new Vector4[MAX_LIGHTS];
 
     private int[] _indices = new int[MAX_LIGHTS];
+    private float[] _distances = new float[MAX_LIGHTS];
     private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
 
     private int _posID, _colID, _rightID, _upID, _dirID, _countID;
     private VRCPlayerApi _localPlayer;
     private int _lastFinalCount = -1;
 
-    // 🔥 Distance dépendante plateforme (comme shader)
 #if UNITY_ANDROID
     private const float MAX_RADIUS = 10f;
 #else
@@ -79,6 +79,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         }
     }
 
+
     public void UpdateNearestLights()
     {
         if (!isEnabled || _localPlayer == null)
@@ -88,25 +89,44 @@ public class SpecularLightManager : UdonSharpBehaviour
         }
 
         Vector3 playerPos = _localPlayer.GetPosition();
-        int candidateCount = 0;
         int totalBaked = bakedPositions.Length;
+        int count = 0;
 
-        // 🔹 Culling (SANS sqrt)
+        // 🔥 Top-N nearest selection
         for (int i = 0; i < totalBaked; i++)
         {
             float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
 
-            if (distSq < _maxRadiusSq)
-            {
-                _indices[candidateCount] = i;
-                candidateCount++;
+            if (distSq > _maxRadiusSq)
+                continue;
 
-                if (candidateCount >= activeLightCount)
-                    break;
+            // insertion triée (plus proche → index 0)
+            int insertIndex = count;
+
+            while (insertIndex > 0 && _distances[insertIndex - 1] > distSq)
+                insertIndex--;
+
+            // si pas utile → skip
+            if (insertIndex >= activeLightCount)
+                continue;
+
+            // shift droite
+            int maxShift = Mathf.Min(count, activeLightCount - 1);
+            for (int j = maxShift; j > insertIndex; j--)
+            {
+                _indices[j] = _indices[j - 1];
+                _distances[j] = _distances[j - 1];
             }
+
+            // insert
+            _indices[insertIndex] = i;
+            _distances[insertIndex] = distSq;
+
+            if (count < activeLightCount)
+                count++;
         }
 
-        int finalCount = candidateCount;
+        int finalCount = count;
         currentActiveCount = finalCount;
 
         // 🔹 Dirty check
