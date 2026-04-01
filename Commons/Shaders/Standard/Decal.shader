@@ -417,9 +417,14 @@ Shader "Meenphie/Standard/Decal"
 					// --- CONFIGURATION ---
 					float LumaStart = 0.05;
 					float LumaEnd = 1.0;
-					float MaxRadius = 10.0;
 					float RadiusFadeStart = 0.0;
 					float specBoost = 0.5;
+					// Base radius
+					#if defined(SHADER_API_MOBILE)
+					    #define MAX_RADIUS 10.0
+					#else
+					    #define MAX_RADIUS 20.0
+					#endif
 					float3 f0_dielectric = float3(0.2, 0.2, 0.2);
 					float3 f0_metal = AlbedoColor.rgb;
 					float3 specularColorTint = lerp(f0_dielectric, f0_metal, Metallic);
@@ -427,7 +432,7 @@ Shader "Meenphie/Standard/Decal"
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
 					// Fade de distance
 					float playerDist = distance(_WorldSpaceCameraPos, WorldPos);
-					float fadeT = saturate((playerDist - RadiusFadeStart) / max(MaxRadius - RadiusFadeStart, 0.0001));
+					float fadeT = saturate((playerDist - RadiusFadeStart) / max(MAX_RADIUS - RadiusFadeStart, 0.0001));
 					float radiusFade = 1.0 - (fadeT * fadeT * (3.0 - 2.0 * fadeT));
 					if (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount == 0 || radiusFade < 0.001) return 0;
 					float3 vDir = normalize(ViewDir);
@@ -464,7 +469,8 @@ Shader "Meenphie/Standard/Decal"
 					                float nDotL = saturate((dot(N, lDir) + 0.15) / 1.15);
 					                float3 H = normalize(lDir + vDir);
 					                float spec = exp2(log2(max(saturate(dot(N, H)), 0.00001)) * shininess) * normalization;
-					                specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w * falloff * spotMask);
+					                specAccum += _UdonSpecularLightCol[i].rgb *
+					                    (spec * nDotL * _UdonSpecularLightCol[i].w * falloff * spotMask);
 					            }
 					        }
 					    }
@@ -2069,4 +2075,4 @@ WireConnection;2888;7;3009;156
 WireConnection;2888;8;3009;427
 WireConnection;2888;15;3009;1024
 ASEEND*/
-//CHKSM=DD45439CFBAADD1B1D4D6C148B3984DFF59671BF
+//CHKSM=1D45588AAC453C121FA806DC27A5D2327F7848E2

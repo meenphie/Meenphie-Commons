@@ -2,160 +2,177 @@
 using UnityEngine;
 using VRC.SDKBase;
 
+[UdonBehaviourSyncMode(BehaviourSyncMode.None)]
+public class SpecularLightManager : UdonSharpBehaviour
+{
+    [Header("Settings")]
+    public bool isEnabled = true;
+    public float updateInterval = 0.5f;
 
-    [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
-    public class SpecularLightManager : UdonSharpBehaviour
+    private const int MAX_LIGHTS = 32;
+    [Range(1, MAX_LIGHTS)] public int activeLightCount = MAX_LIGHTS;
+
+    [Header("Baked Data")]
+    public Vector4[] bakedPositions;
+    public Vector4[] bakedColors;
+    public Vector4[] bakedRight;
+    public Vector4[] bakedUp;
+    public Vector4[] bakedDirections;
+
+    [Header("Debug Info")]
+    public int currentActiveCount;
+    public bool shaderWasUpdated;
+
+    private Vector4[] _shaderPosBuffer = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderColBuffer = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderRightBuffer = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderUpBuffer = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderDirBuffer = new Vector4[MAX_LIGHTS];
+
+    private int[] _indices = new int[MAX_LIGHTS];
+    private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
+
+    private int _posID, _colID, _rightID, _upID, _dirID, _countID;
+    private VRCPlayerApi _localPlayer;
+    private int _lastFinalCount = -1;
+
+    // 🔥 Distance dépendante plateforme (comme shader)
+#if UNITY_ANDROID
+    private const float MAX_RADIUS = 10f;
+#else
+    private const float MAX_RADIUS = 20f;
+#endif
+
+    private float _maxRadiusSq;
+
+    void Start()
     {
-        [Header("Settings")]
-        public bool isEnabled = true;
-        public float activationRadius = 16f;
-        [Tooltip("Intervalle de frames entre les calculs (1 = chaque frame)")]
-        public int updateIntervalFrames = 10;
+        _localPlayer = Networking.LocalPlayer;
 
-        private const int MAX_LIGHTS = 32;
-        [Range(1, MAX_LIGHTS)] public int activeLightCount = MAX_LIGHTS;
+        _posID = VRCShader.PropertyToID("_UdonSpecularLightPos");
+        _colID = VRCShader.PropertyToID("_UdonSpecularLightCol");
+        _rightID = VRCShader.PropertyToID("_UdonSpecularLightRight");
+        _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
+        _dirID = VRCShader.PropertyToID("_UdonSpecularLightDir");
+        _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 
-        [Header("Baked Data")]
-        public Vector4[] bakedPositions;
-        public Vector4[] bakedColors;
-        public Vector4[] bakedRight;
-        public Vector4[] bakedUp;
-        public Vector4[] bakedDirections; // NOUVEAU : XYZ = Forward, W = cosOuter
+        _maxRadiusSq = MAX_RADIUS * MAX_RADIUS;
 
-        [Header("Debug Info")]
-        public int currentActiveCount;
-        public bool shaderWasUpdated;
+        for (int i = 0; i < MAX_LIGHTS; i++)
+            _lastIndicesSorted[i] = -1;
 
-        private Vector4[] _shaderPosBuffer = new Vector4[MAX_LIGHTS];
-        private Vector4[] _shaderColBuffer = new Vector4[MAX_LIGHTS];
-        private Vector4[] _shaderRightBuffer = new Vector4[MAX_LIGHTS];
-        private Vector4[] _shaderUpBuffer = new Vector4[MAX_LIGHTS];
-        private Vector4[] _shaderDirBuffer = new Vector4[MAX_LIGHTS]; // NOUVEAU
+        UpdateNearestLights();
+    }
 
-        private int[] _indices = new int[MAX_LIGHTS];
-        private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
+    public void ToggleSpecular()
+    {
+        isEnabled = !isEnabled;
 
-        private int _posID, _colID, _rightID, _upID, _dirID, _countID;
-        private VRCPlayerApi _localPlayer;
-        private int _lastFinalCount = -1;
-
-        void Start()
+        if (!isEnabled)
         {
-            _localPlayer = Networking.LocalPlayer;
-            _posID = VRCShader.PropertyToID("_UdonSpecularLightPos");
-            _colID = VRCShader.PropertyToID("_UdonSpecularLightCol");
-            _rightID = VRCShader.PropertyToID("_UdonSpecularLightRight");
-            _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
-            _dirID = VRCShader.PropertyToID("_UdonSpecularLightDir"); // NOUVEAU
-            _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
+            ApplyToShader(0);
+            _lastFinalCount = 0;
+            currentActiveCount = 0;
 
-            // Initialisation du cache des index
-            for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
-
-            UpdateNearestLights();
-        }
-
-        public void ToggleSpecular()
-        {
-            isEnabled = !isEnabled;
-            if (!isEnabled)
-            {
-                ApplyToShader(0);
-                _lastFinalCount = 0;
-                currentActiveCount = 0;
-                for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
-            }
-        }
-
-        public void UpdateNearestLights()
-        {
-            if (!isEnabled || _localPlayer == null)
-            {
-                SendCustomEventDelayedFrames(nameof(UpdateNearestLights), updateIntervalFrames);
-                return;
-            }
-
-            Vector3 playerPos = _localPlayer.GetPosition();
-            float radiusSq = activationRadius * activationRadius;
-            int candidateCount = 0;
-            int totalBaked = bakedPositions.Length;
-
-            // 1. Culling rapide
-            for (int i = 0; i < totalBaked; i++)
-            {
-                float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
-                if (distSq < radiusSq)
-                {
-                    _indices[candidateCount] = i;
-                    candidateCount++;
-                    if (candidateCount >= activeLightCount) break;
-                }
-            }
-
-            int finalCount = candidateCount;
-            currentActiveCount = finalCount;
-
-            // 2. Dirty Check
-            bool isDirty = finalCount != _lastFinalCount;
-            if (!isDirty)
-            {
-                for (int i = 0; i < finalCount; i++)
-                {
-                    if (_indices[i] != _lastIndicesSorted[i])
-                    {
-                        isDirty = true;
-                        break;
-                    }
-                }
-            }
-
-            // 3. Mise à jour des Buffers
-            if (isDirty)
-            {
-                shaderWasUpdated = true;
-                for (int i = 0; i < MAX_LIGHTS; i++)
-                {
-                    if (i < finalCount)
-                    {
-                        int idx = _indices[i];
-                        _shaderPosBuffer[i] = bakedPositions[idx];
-                        _shaderColBuffer[i] = bakedColors[idx];
-                        _shaderRightBuffer[i] = bakedRight[idx];
-                        _shaderUpBuffer[i] = bakedUp[idx];
-                        _shaderDirBuffer[i] = bakedDirections[idx]; // NOUVEAU
-                        _lastIndicesSorted[i] = idx;
-                    }
-                    else
-                    {
-                        if (_lastIndicesSorted[i] != -1)
-                        {
-                            _shaderPosBuffer[i] = Vector4.zero;
-                            _shaderColBuffer[i] = Vector4.zero;
-                            _shaderRightBuffer[i] = Vector4.zero;
-                            _shaderUpBuffer[i] = Vector4.zero;
-                            _shaderDirBuffer[i] = Vector4.zero; // NOUVEAU
-                            _lastIndicesSorted[i] = -1;
-                        }
-                    }
-                }
-                ApplyToShader(finalCount);
-                _lastFinalCount = finalCount;
-            }
-            else
-            {
-                shaderWasUpdated = false;
-            }
-
-            SendCustomEventDelayedFrames(nameof(UpdateNearestLights), updateIntervalFrames);
-        }
-
-        private void ApplyToShader(int count)
-        {
-            VRCShader.SetGlobalVectorArray(_posID, _shaderPosBuffer);
-            VRCShader.SetGlobalVectorArray(_colID, _shaderColBuffer);
-            VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer);
-            VRCShader.SetGlobalVectorArray(_upID, _shaderUpBuffer);
-            VRCShader.SetGlobalVectorArray(_dirID, _shaderDirBuffer); // NOUVEAU
-            VRCShader.SetGlobalFloat(_countID, (float)count);
+            for (int i = 0; i < MAX_LIGHTS; i++)
+                _lastIndicesSorted[i] = -1;
         }
     }
+
+    public void UpdateNearestLights()
+    {
+        if (!isEnabled || _localPlayer == null)
+        {
+            SendCustomEventDelayedSeconds(nameof(UpdateNearestLights), updateInterval);
+            return;
+        }
+
+        Vector3 playerPos = _localPlayer.GetPosition();
+        int candidateCount = 0;
+        int totalBaked = bakedPositions.Length;
+
+        // 🔹 Culling (SANS sqrt)
+        for (int i = 0; i < totalBaked; i++)
+        {
+            float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
+
+            if (distSq < _maxRadiusSq)
+            {
+                _indices[candidateCount] = i;
+                candidateCount++;
+
+                if (candidateCount >= activeLightCount)
+                    break;
+            }
+        }
+
+        int finalCount = candidateCount;
+        currentActiveCount = finalCount;
+
+        // 🔹 Dirty check
+        bool isDirty = finalCount != _lastFinalCount;
+
+        if (!isDirty)
+        {
+            for (int i = 0; i < finalCount; i++)
+            {
+                if (_indices[i] != _lastIndicesSorted[i])
+                {
+                    isDirty = true;
+                    break;
+                }
+            }
+        }
+
+        // 🔹 Update buffers
+        if (isDirty)
+        {
+            shaderWasUpdated = true;
+
+            for (int i = 0; i < MAX_LIGHTS; i++)
+            {
+                if (i < finalCount)
+                {
+                    int idx = _indices[i];
+
+                    _shaderPosBuffer[i] = bakedPositions[idx];
+                    _shaderColBuffer[i] = bakedColors[idx];
+                    _shaderRightBuffer[i] = bakedRight[idx];
+                    _shaderUpBuffer[i] = bakedUp[idx];
+                    _shaderDirBuffer[i] = bakedDirections[idx];
+
+                    _lastIndicesSorted[i] = idx;
+                }
+                else if (_lastIndicesSorted[i] != -1)
+                {
+                    _shaderPosBuffer[i] = Vector4.zero;
+                    _shaderColBuffer[i] = Vector4.zero;
+                    _shaderRightBuffer[i] = Vector4.zero;
+                    _shaderUpBuffer[i] = Vector4.zero;
+                    _shaderDirBuffer[i] = Vector4.zero;
+
+                    _lastIndicesSorted[i] = -1;
+                }
+            }
+
+            ApplyToShader(finalCount);
+            _lastFinalCount = finalCount;
+        }
+        else
+        {
+            shaderWasUpdated = false;
+        }
+
+        SendCustomEventDelayedSeconds(nameof(UpdateNearestLights), updateInterval);
+    }
+
+    private void ApplyToShader(int count)
+    {
+        VRCShader.SetGlobalVectorArray(_posID, _shaderPosBuffer);
+        VRCShader.SetGlobalVectorArray(_colID, _shaderColBuffer);
+        VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer);
+        VRCShader.SetGlobalVectorArray(_upID, _shaderUpBuffer);
+        VRCShader.SetGlobalVectorArray(_dirID, _shaderDirBuffer);
+        VRCShader.SetGlobalFloat(_countID, (float)count);
+    }
+}

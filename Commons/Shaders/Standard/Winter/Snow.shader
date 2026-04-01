@@ -488,9 +488,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- CONFIGURATION ---
 					float LumaStart = 0.05;
 					float LumaEnd = 1.0;
-					float MaxRadius = 10.0;
 					float RadiusFadeStart = 0.0;
 					float specBoost = 0.5;
+					// Base radius
+					#if defined(SHADER_API_MOBILE)
+					    #define MAX_RADIUS 10.0
+					#else
+					    #define MAX_RADIUS 20.0
+					#endif
 					float3 f0_dielectric = float3(0.2, 0.2, 0.2);
 					float3 f0_metal = AlbedoColor.rgb;
 					float3 specularColorTint = lerp(f0_dielectric, f0_metal, Metallic);
@@ -498,7 +503,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
 					// Fade de distance
 					float playerDist = distance(_WorldSpaceCameraPos, WorldPos);
-					float fadeT = saturate((playerDist - RadiusFadeStart) / max(MaxRadius - RadiusFadeStart, 0.0001));
+					float fadeT = saturate((playerDist - RadiusFadeStart) / max(MAX_RADIUS - RadiusFadeStart, 0.0001));
 					float radiusFade = 1.0 - (fadeT * fadeT * (3.0 - 2.0 * fadeT));
 					if (lmMask < 0.001 || Smoothness < 0.01 || _UdonSpecularLightCount == 0 || radiusFade < 0.001) return 0;
 					float3 vDir = normalize(ViewDir);
@@ -535,7 +540,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 					                float nDotL = saturate((dot(N, lDir) + 0.15) / 1.15);
 					                float3 H = normalize(lDir + vDir);
 					                float spec = exp2(log2(max(saturate(dot(N, H)), 0.00001)) * shininess) * normalization;
-					                specAccum += _UdonSpecularLightCol[i].rgb * (spec * nDotL * _UdonSpecularLightCol[i].w * falloff * spotMask);
+					                specAccum += _UdonSpecularLightCol[i].rgb *
+					                    (spec * nDotL * _UdonSpecularLightCol[i].w * falloff * spotMask);
 					            }
 					        }
 					    }
@@ -1462,16 +1468,16 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float3 staticSwitch1469_g5296 = temp_output_2578_0_g5296;
 					#endif
 					float3 Reflections1419_g5296 = staticSwitch1469_g5296;
-					float3 AlbedoColor97_g59698 = oAlbedo6_g5296;
-					float3 LightmapColor97_g59698 = Lightmap46_g5296;
-					float Metallic97_g59698 = Metallic1239_g5296;
-					float Smoothness97_g59698 = Smoothness1399_g5296;
-					float3 Fresnel97_g59698 = Fresnel1560_g5296;
-					float3 WorldPos97_g59698 = World_Position2505_g5296;
-					float3 WorldNormal97_g59698 = World_Normal2508_g5296;
-					float3 ViewDir97_g59698 = View_Direction2511_g5296;
-					float3 localSpecular97_g59698 = Specular( AlbedoColor97_g59698 , LightmapColor97_g59698 , Metallic97_g59698 , Smoothness97_g59698 , Fresnel97_g59698 , WorldPos97_g59698 , WorldNormal97_g59698 , ViewDir97_g59698 );
-					float3 Speculars2560_g5296 = localSpecular97_g59698;
+					float3 AlbedoColor97_g59697 = oAlbedo6_g5296;
+					float3 LightmapColor97_g59697 = Lightmap46_g5296;
+					float Metallic97_g59697 = Metallic1239_g5296;
+					float Smoothness97_g59697 = Smoothness1399_g5296;
+					float3 Fresnel97_g59697 = Fresnel1560_g5296;
+					float3 WorldPos97_g59697 = World_Position2505_g5296;
+					float3 WorldNormal97_g59697 = World_Normal2508_g5296;
+					float3 ViewDir97_g59697 = View_Direction2511_g5296;
+					float3 localSpecular97_g59697 = Specular( AlbedoColor97_g59697 , LightmapColor97_g59697 , Metallic97_g59697 , Smoothness97_g59697 , Fresnel97_g59697 , WorldPos97_g59697 , WorldNormal97_g59697 , ViewDir97_g59697 );
+					float3 Speculars2560_g5296 = localSpecular97_g59697;
 					#ifdef _LIGHTMAPDEBUG
 					float3 staticSwitch1181_g5296 = Lightmap46_g5296;
 					#else
@@ -2025,4 +2031,4 @@ WireConnection;2888;3;3038;0
 WireConnection;2888;5;3039;0
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=980A13CA1BD8B893DC2D22F4B21DA0324292F320
+//CHKSM=3DD00427491011FC1588B5D7E0647AD34968B124
