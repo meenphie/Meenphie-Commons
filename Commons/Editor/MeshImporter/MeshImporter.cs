@@ -207,7 +207,7 @@ public class MeshImporter : AssetPostprocessor
         Light[] lights = g.GetComponentsInChildren<Light>();
         foreach (Light light in lights)
         {
-            light.intensity *= 0.1f;
+            light.intensity *= 0.5f;
         }
     }
 
