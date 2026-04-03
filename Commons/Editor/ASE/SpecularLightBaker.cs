@@ -1,13 +1,14 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
+using System.IO;
 
 public class SpecularLightBaker : EditorWindow
 {
     [MenuItem("Meenphie/Specular Light/Bake")]
     public static void BakeLights()
     {
-        // 1. Recherche du Manager par nom de type (pour bypasser les problèmes d'Assembly)
+        // --- 1. RECHERCHE DU MANAGER ---
         Component manager = null;
         foreach (var comp in Object.FindObjectsByType<Component>(FindObjectsSortMode.None))
         {
@@ -20,11 +21,11 @@ public class SpecularLightBaker : EditorWindow
 
         if (manager == null)
         {
-            Debug.LogError("SpecularLightManager introuvable dans la scène. Vérifiez que le script est bien attaché à un GameObject.");
+            Debug.LogError("SpecularLightManager introuvable dans la scène.");
             return;
         }
 
-        // 2. Collecte des lumières
+        // --- 2. COLLECTE DES LUMIÈRES ---
         Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
         List<Vector4> finalPosRange = new();
         List<Vector4> finalColorInt = new();
@@ -43,7 +44,6 @@ public class SpecularLightBaker : EditorWindow
             Vector3 pos = l.transform.position;
             float intensity = l.intensity;
             
-            // Calcul du Range (Fix Area Lights)
             float rawRange = l.range;
             if (l.type == LightType.Area)
             {
@@ -54,12 +54,7 @@ public class SpecularLightBaker : EditorWindow
             float width = (l.type == LightType.Area) ? l.areaSize.x * 0.5f : 0.01f;
             float height = (l.type == LightType.Area) ? l.areaSize.y * 0.5f : 0.01f;
             Vector3 forward = l.transform.forward;
-
-            float cosOuter = -1.0f;
-            if (l.type == LightType.Spot)
-                cosOuter = Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad);
-            else if (l.type == LightType.Area)
-                cosOuter = 0.0f;
+            float cosOuter = (l.type == LightType.Spot) ? Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad) : (l.type == LightType.Area ? 0.0f : -1.0f);
 
             bool merged = false;
             for (int i = 0; i < finalPosRange.Count; i++)
@@ -83,6 +78,7 @@ public class SpecularLightBaker : EditorWindow
                     }
                     else
                     {
+                        // Interpolation de la couleur pour les groupes fusionnés
                         Vector4 c = finalColorInt[i];
                         c.w = newSum;
                         float weight = intensity / newSum;
@@ -90,10 +86,6 @@ public class SpecularLightBaker : EditorWindow
                         c.y = Mathf.Lerp(c.y, l.color.g, weight);
                         c.z = Mathf.Lerp(c.z, l.color.b, weight);
                         finalColorInt[i] = c;
-
-                        Vector4 p = finalPosRange[i];
-                        p.w = Mathf.Max(p.w, Mathf.Sqrt(distSq) + rawRange);
-                        finalPosRange[i] = p;
                     }
                     merged = true;
                     break;
@@ -112,25 +104,66 @@ public class SpecularLightBaker : EditorWindow
             }
         }
 
-        // 3. Application des données via SerializedProperties (Évite les erreurs de type SetValue)
+        // --- 3. APPLICATION DES DONNÉES ---
         SerializedObject soManager = new SerializedObject(manager);
-        
         FillProperty(soManager.FindProperty("bakedPositions"), finalPosRange);
         FillProperty(soManager.FindProperty("bakedColors"), finalColorInt);
         FillProperty(soManager.FindProperty("bakedRight"), finalRightWidth);
         FillProperty(soManager.FindProperty("bakedUp"), finalUpHeight);
         FillProperty(soManager.FindProperty("bakedDirections"), finalDirAngle);
-
         soManager.ApplyModifiedProperties();
-        EditorUtility.SetDirty(manager);
 
-        Debug.Log($"[Bake Success] {finalPosRange.Count} groupes de lumières enregistrés.");
+        // --- 4. SYNC DES MATÉRIAUX ---
+        ProcessGIMaterials();
+
+        EditorUtility.SetDirty(manager);
+        AssetDatabase.SaveAssets(); // Important pour sauvegarder les .mat sur le disque
+        Debug.Log($"[Bake Success] {finalPosRange.Count} groupes de lumières enregistrés et matériaux GI synchronisés.");
+    }
+
+    private static void ProcessGIMaterials()
+    {
+        string[] guids = AssetDatabase.FindAssets("t:Material");
+        int updatedCount = 0;
+
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (!Path.GetFileNameWithoutExtension(path).Contains("GI")) continue;
+
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null) continue;
+
+            // Détection du mode métallique
+            float metallicSlider = mat.HasProperty("_Metallic") ? mat.GetFloat("_Metallic") : 0f;
+            bool metallicMapActive = (mat.HasProperty("_METALLICMAP") && mat.GetFloat("_METALLICMAP") > 0.5f) 
+                                   || mat.IsKeywordEnabled("_METALLICMAP");
+
+            // Si slider > 0 OU toggle map ON, on active le système de réflexion métallique
+            bool shouldEnableReflections = (metallicSlider > 0.01f) || metallicMapActive;
+
+            SetPropertyAndKeyword(mat, "_IsMetallic", shouldEnableReflections);
+
+            EditorUtility.SetDirty(mat);
+            updatedCount++;
+        }
+        Debug.Log($"[Material Sync] {updatedCount} matériaux 'GI' mis à jour.");
+    }
+
+    private static void SetPropertyAndKeyword(Material mat, string propName, bool state)
+    {
+        if (mat.HasProperty(propName))
+        {
+            mat.SetFloat(propName, state ? 1.0f : 0.0f);
+        }
+
+        if (state) mat.EnableKeyword(propName);
+        else mat.DisableKeyword(propName);
     }
 
     private static void FillProperty(SerializedProperty arrayProp, List<Vector4> values)
     {
         if (arrayProp == null) return;
-        
         arrayProp.ClearArray();
         for (int i = 0; i < values.Count; i++)
         {
