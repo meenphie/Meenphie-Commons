@@ -99,18 +99,17 @@ public class MeshImporter : AssetPostprocessor
         bool hasMetallicMap = SetTex(mat, data, "Metallic", "_MetallicMap");
         SetTex(mat, data, "Emission", "_EmissionMap");
 
-        // --- 5. SPECULAR / METALLIC LOGIC WITH DEBUG ---
-        if (mat.name.Contains("GI"))
+        // --- 5. SPECULAR / METALLIC LOGIC (Applied to EVERY synced material) ---
+        // Logic: Enable reflections if there's a map OR the slider is > 0
+        bool shouldEnableReflections = (metallicValue > 0.01f) || hasMetallicMap;
+        
+        // Debug specifically for potential metals or if manually set
+        if (shouldEnableReflections)
         {
-            bool shouldEnableReflections = (metallicValue > 0.01f) || hasMetallicMap;
-            
-            Debug.Log($"{TAG} <color=cyan>[METALLIC CHECK]</color> Material: <b>{mat.name}</b>\n" +
-                      $" - Value: {metallicValue}\n" +
-                      $" - Has Map: {hasMetallicMap}\n" +
-                      $" - Final _IsMetallic: <b>{shouldEnableReflections}</b>");
-
-            SetPropertyAndKeyword(mat, "_IsMetallic", shouldEnableReflections);
+            Debug.Log($"{TAG} <color=green>[METALLIC ENABLED]</color> Material: <b>{mat.name}</b> (Val: {metallicValue}, Map: {hasMetallicMap})");
         }
+
+        SetPropertyAndKeyword(mat, "_IsMetallic", shouldEnableReflections);
 
         return true;
     }
@@ -120,10 +119,6 @@ public class MeshImporter : AssetPostprocessor
         if (mat.HasProperty(propName))
         {
             mat.SetFloat(propName, state ? 1.0f : 0.0f);
-        }
-        else
-        {
-            Debug.LogError($"{TAG} <color=red>Property {propName} NOT FOUND</color> in shader for {mat.name}!");
         }
 
         if (state) mat.EnableKeyword(propName);
@@ -144,11 +139,7 @@ public class MeshImporter : AssetPostprocessor
 
         Texture2D tex = FindAndFixTex(fileName, isNormal);
 
-        if (tex == null)
-        {
-            Debug.LogWarning($"{TAG} Texture file <b>{fileName}</b> (Key: {key}) NOT FOUND in project for material {mat.name}.");
-            return false;
-        }
+        if (tex == null) return false;
 
         if (mat.GetTexture(prop) != tex)
         {
