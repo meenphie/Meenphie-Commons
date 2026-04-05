@@ -60,7 +60,7 @@ public class MeshImporter : AssetPostprocessor
         }
 
         AssetDatabase.SaveAssets();
-        Debug.Log($"{TAG} Terminé. {count} matériaux synchronisés (Metallic logic inclus).");
+        Debug.Log($"{TAG} Terminé. {count} matériaux synchronisés.");
     }
 
     private static bool Apply(Material mat, Dictionary<string, string> data)
@@ -95,14 +95,20 @@ public class MeshImporter : AssetPostprocessor
         SetTex(mat, data, "Base Color", "_MainTex");
         SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", true);
         SetTex(mat, data, "Roughness", "_GlossinessMap");
+        
         bool hasMetallicMap = SetTex(mat, data, "Metallic", "_MetallicMap");
         SetTex(mat, data, "Emission", "_EmissionMap");
 
-        // 5. Specular Reflection Logic (Metallic Compute)
-        // If the material name contains "GI", we apply the specific reflection keyword
+        // --- 5. SPECULAR / METALLIC LOGIC WITH DEBUG ---
         if (mat.name.Contains("GI"))
         {
             bool shouldEnableReflections = (metallicValue > 0.01f) || hasMetallicMap;
+            
+            Debug.Log($"{TAG} <color=cyan>[METALLIC CHECK]</color> Material: <b>{mat.name}</b>\n" +
+                      $" - Value: {metallicValue}\n" +
+                      $" - Has Map: {hasMetallicMap}\n" +
+                      $" - Final _IsMetallic: <b>{shouldEnableReflections}</b>");
+
             SetPropertyAndKeyword(mat, "_IsMetallic", shouldEnableReflections);
         }
 
@@ -111,7 +117,15 @@ public class MeshImporter : AssetPostprocessor
 
     private static void SetPropertyAndKeyword(Material mat, string propName, bool state)
     {
-        if (mat.HasProperty(propName)) mat.SetFloat(propName, state ? 1.0f : 0.0f);
+        if (mat.HasProperty(propName))
+        {
+            mat.SetFloat(propName, state ? 1.0f : 0.0f);
+        }
+        else
+        {
+            Debug.LogError($"{TAG} <color=red>Property {propName} NOT FOUND</color> in shader for {mat.name}!");
+        }
+
         if (state) mat.EnableKeyword(propName);
         else mat.DisableKeyword(propName);
     }
@@ -125,7 +139,16 @@ public class MeshImporter : AssetPostprocessor
     {
         if (!data.ContainsKey(key)) return false;
         string fileName = data[key];
-        Texture2D tex = !string.IsNullOrEmpty(fileName) ? FindAndFixTex(fileName, isNormal) : null;
+        
+        if (string.IsNullOrEmpty(fileName)) return false;
+
+        Texture2D tex = FindAndFixTex(fileName, isNormal);
+
+        if (tex == null)
+        {
+            Debug.LogWarning($"{TAG} Texture file <b>{fileName}</b> (Key: {key}) NOT FOUND in project for material {mat.name}.");
+            return false;
+        }
 
         if (mat.GetTexture(prop) != tex)
         {
@@ -136,7 +159,7 @@ public class MeshImporter : AssetPostprocessor
                 else mat.DisableKeyword(keyword);
             }
         }
-        return tex != null;
+        return true;
     }
 
     private static Texture2D FindAndFixTex(string fileName, bool isNormal)
@@ -201,51 +224,5 @@ public class MeshImporter : AssetPostprocessor
             packed.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
 
         mesh.SetUVs(0, packed);
-    }
-}
-
-public static class SimpleJsonParser
-{
-    public static Dictionary<string, Dictionary<string, string>> Parse(string json)
-    {
-        var result = new Dictionary<string, Dictionary<string, string>>();
-        json = json.Replace("\r", "").Replace("\n", "");
-        string[] materials = json.Split(new string[] { "}," }, System.StringSplitOptions.RemoveEmptyEntries);
-        string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "RoughnessValue", "EmissionIntensity", "AlphaValue" };
-
-        foreach (var m in materials)
-        {
-            int s = m.IndexOf('"') + 1;
-            int e = m.IndexOf('"', s);
-            if (s <= 0 || e <= 0) continue;
-
-            string matName = m.Substring(s, e - s);
-            var dict = new Dictionary<string, string>();
-
-            foreach (var k in keys)
-            {
-                string search = $"\"{k}\":";
-                int keyIdx = m.IndexOf(search);
-                if (keyIdx != -1)
-                {
-                    int vStart = keyIdx + search.Length;
-                    while (vStart < m.Length && (m[vStart] == ' ' || m[vStart] == ':')) vStart++;
-                    if (vStart < m.Length && m[vStart] == '"')
-                    {
-                        vStart++;
-                        int vEnd = m.IndexOf('"', vStart);
-                        dict[k] = m.Substring(vStart, vEnd - vStart);
-                    }
-                    else
-                    {
-                        int vEnd = m.IndexOfAny(new char[] { ',', '}', ' ' }, vStart);
-                        if (vEnd == -1) vEnd = m.Length;
-                        dict[k] = m.Substring(vStart, vEnd - vStart).Trim();
-                    }
-                }
-            }
-            result[matName] = dict;
-        }
-        return result;
     }
 }
