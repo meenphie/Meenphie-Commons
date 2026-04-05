@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
-using System.IO;
 
 public class SpecularLightBaker : EditorWindow
 {
@@ -78,7 +77,6 @@ public class SpecularLightBaker : EditorWindow
                     }
                     else
                     {
-                        // Interpolation de la couleur pour les groupes fusionnés
                         Vector4 c = finalColorInt[i];
                         c.w = newSum;
                         float weight = intensity / newSum;
@@ -113,52 +111,9 @@ public class SpecularLightBaker : EditorWindow
         FillProperty(soManager.FindProperty("bakedDirections"), finalDirAngle);
         soManager.ApplyModifiedProperties();
 
-        // --- 4. SYNC DES MATÉRIAUX ---
-        ProcessGIMaterials();
-
         EditorUtility.SetDirty(manager);
-        AssetDatabase.SaveAssets(); // Important pour sauvegarder les .mat sur le disque
-        Debug.Log($"[Bake Success] {finalPosRange.Count} groupes de lumières enregistrés et matériaux GI synchronisés.");
-    }
-
-    private static void ProcessGIMaterials()
-    {
-        string[] guids = AssetDatabase.FindAssets("t:Material");
-        int updatedCount = 0;
-
-        foreach (string guid in guids)
-        {
-            string path = AssetDatabase.GUIDToAssetPath(guid);
-            if (!Path.GetFileNameWithoutExtension(path).Contains("GI")) continue;
-
-            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (mat == null) continue;
-
-            // Détection du mode métallique
-            float metallicSlider = mat.HasProperty("_Metallic") ? mat.GetFloat("_Metallic") : 0f;
-            bool metallicMapActive = (mat.HasProperty("_METALLICMAP") && mat.GetFloat("_METALLICMAP") > 0.5f) 
-                                   || mat.IsKeywordEnabled("_METALLICMAP");
-
-            // Si slider > 0 OU toggle map ON, on active le système de réflexion métallique
-            bool shouldEnableReflections = (metallicSlider > 0.01f) || metallicMapActive;
-
-            SetPropertyAndKeyword(mat, "_IsMetallic", shouldEnableReflections);
-
-            EditorUtility.SetDirty(mat);
-            updatedCount++;
-        }
-        Debug.Log($"[Material Sync] {updatedCount} matériaux 'GI' mis à jour.");
-    }
-
-    private static void SetPropertyAndKeyword(Material mat, string propName, bool state)
-    {
-        if (mat.HasProperty(propName))
-        {
-            mat.SetFloat(propName, state ? 1.0f : 0.0f);
-        }
-
-        if (state) mat.EnableKeyword(propName);
-        else mat.DisableKeyword(propName);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[Bake Success] {finalPosRange.Count} groupes de lumières enregistrés.");
     }
 
     private static void FillProperty(SerializedProperty arrayProp, List<Vector4> values)
