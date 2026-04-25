@@ -95,34 +95,9 @@ public class MeshImporter : AssetPostprocessor
         SetTex(mat, data, "Base Color", "_MainTex");
         SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", true);
         SetTex(mat, data, "Roughness", "_GlossinessMap");
-        
-        bool hasMetallicMap = SetTex(mat, data, "Metallic", "_MetallicMap");
         SetTex(mat, data, "Emission", "_EmissionMap");
 
-        // --- 5. SPECULAR / METALLIC LOGIC (Applied to EVERY synced material) ---
-        // Logic: Enable reflections if there's a map OR the slider is > 0
-        bool shouldEnableReflections = (metallicValue > 0.01f) || hasMetallicMap;
-        
-        // Debug specifically for potential metals or if manually set
-        if (shouldEnableReflections)
-        {
-            Debug.Log($"{TAG} <color=green>[METALLIC ENABLED]</color> Material: <b>{mat.name}</b> (Val: {metallicValue}, Map: {hasMetallicMap})");
-        }
-
-        SetPropertyAndKeyword(mat, "_IsMetallic", shouldEnableReflections);
-
         return true;
-    }
-
-    private static void SetPropertyAndKeyword(Material mat, string propName, bool state)
-    {
-        if (mat.HasProperty(propName))
-        {
-            mat.SetFloat(propName, state ? 1.0f : 0.0f);
-        }
-
-        if (state) mat.EnableKeyword(propName);
-        else mat.DisableKeyword(propName);
     }
 
     private static string GetValue(Dictionary<string, string> dict, string key, string defaultValue)
@@ -134,7 +109,7 @@ public class MeshImporter : AssetPostprocessor
     {
         if (!data.ContainsKey(key)) return false;
         string fileName = data[key];
-        
+
         if (string.IsNullOrEmpty(fileName)) return false;
 
         Texture2D tex = FindAndFixTex(fileName, isNormal);
@@ -187,7 +162,6 @@ public class MeshImporter : AssetPostprocessor
         mat.SetFloat("_Metallic", 0);
         mat.SetFloat("_Glossiness", 0);
         mat.DisableKeyword("_NORMALMAP");
-        mat.DisableKeyword("_IsMetallic");
         return true;
     }
 
@@ -200,20 +174,39 @@ public class MeshImporter : AssetPostprocessor
             if (filter.sharedMesh != null) ApplyPacking(filter.sharedMesh);
         }
         Light[] lights = g.GetComponentsInChildren<Light>();
-        foreach (Light light in lights) light.intensity *= 0.5f;
+        foreach (Light light in lights) light.intensity *= 0.1f;
     }
 
     private void ApplyPacking(Mesh mesh)
     {
-        List<Vector2> uv0 = new List<Vector2>(), uv1 = new List<Vector2>();
+        List<Vector2> uv0 = new List<Vector2>();
+        List<Vector2> uv1 = new List<Vector2>();
+
         mesh.GetUVs(0, uv0);
         mesh.GetUVs(1, uv1);
-        if (uv0.Count == 0 || uv1.Count != uv0.Count) return;
 
+        // Si on n'a pas d'UV0, on ne peut rien faire
+        if (uv0.Count == 0) return;
+
+        // Si l'UV1 est absent (pas de lightmap faite), 
+        // on remplit avec des Vector2.zero pour ne pas faire crash le Vector4
+        if (uv1.Count != uv0.Count)
+        {
+            uv1 = new List<Vector2>(new Vector2[uv0.Count]);
+        }
+
+        // On crée le packing dans l'UV0
         List<Vector4> packed = new List<Vector4>(uv0.Count);
         for (int i = 0; i < uv0.Count; i++)
+        {
             packed.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
+        }
 
+        // On injecte le pack dans l'UV0
         mesh.SetUVs(0, packed);
+
+        // IMPORTANT : On ré-injecte l'UV1 à sa place d'origine (canal 1)
+        // Cela garantit que le Lightmapper d'Unity voit toujours les coordonnées
+        mesh.SetUVs(1, uv1);
     }
 }

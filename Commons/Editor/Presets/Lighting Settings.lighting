@@ -18,7 +18,7 @@ LightingSettings:
   m_UsingShadowmask: 0
   m_BakeBackend: 2
   m_LightmapMaxSize: 2048
-  m_BakeResolution: 40
+  m_BakeResolution: 120
   m_Padding: 2
   m_LightmapCompression: 3
   m_AO: 0
@@ -29,7 +29,7 @@ LightingSettings:
   m_MixedBakeMode: 0
   m_LightmapsBakeMode: 0
   m_FilterMode: 1
-  m_LightmapParameters: {fileID: 111300000, guid: c5d615887fbf597aca7466a987dd7d59, type: 2}
+  m_LightmapParameters: {fileID: 111300000, guid: 9b148ffbffadd5d57971d59a97e9cc94, type: 2}
   m_ExportTrainingData: 0
   m_TrainingDataDestination: TrainingData
   m_RealtimeResolution: 2

@@ -20,6 +20,8 @@ public class ReflectionProbeDownsampler : EditorWindow
     private void OnGUI()
     {
         GUILayout.Space(15);
+        
+        // --- CONFIGURATION ---
         using (new GUILayout.VerticalScope(GUI.skin.box))
         {
             GUILayout.Label("LINEAR HDR KAISER WORKFLOW", EditorStyles.boldLabel);
@@ -29,15 +31,27 @@ public class ReflectionProbeDownsampler : EditorWindow
             int bakeRes = Mathf.Min(targetResolution * aaFactor, 4096);
             EditorGUILayout.HelpBox($"Bake: {bakeRes}px HDR\nFilter: Kaiser (Sharp Downsample)\nTarget: {targetResolution}px HDR", MessageType.Info);
 
+            GUILayout.Space(10);
+
+            // --- ACTIONS ---
             if (GUILayout.Button("EXECUTE KAISER CLEAN BAKE", GUILayout.Height(30)))
             {
                 ExecuteFullWorkflow();
             }
+
+            if (GUILayout.Button("SET ALL MESH RENDERERS TO SIMPLE", GUILayout.Height(25)))
+            {
+                SetAllRenderersToSimple();
+            }
         }
 
         GUILayout.Space(10);
+        
+        // --- LISTE DES PROBES ---
+        GUILayout.Label("SCENE PROBES", EditorStyles.boldLabel);
         scrollPos = GUILayout.BeginScrollView(scrollPos);
         ReflectionProbe[] probes = Object.FindObjectsByType<ReflectionProbe>(FindObjectsSortMode.InstanceID);
+        
         foreach (var probe in probes)
         {
             using (new GUILayout.HorizontalScope(GUI.skin.box))
@@ -52,12 +66,30 @@ public class ReflectionProbeDownsampler : EditorWindow
         GUILayout.EndScrollView();
     }
 
+    private void SetAllRenderersToSimple()
+    {
+        MeshRenderer[] renderers = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+        Undo.RecordObjects(renderers, "Set Probes to Simple");
+
+        int count = 0;
+        foreach (var renderer in renderers)
+        {
+            if (renderer.reflectionProbeUsage != UnityEngine.Rendering.ReflectionProbeUsage.Simple)
+            {
+                renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Simple;
+                count++;
+            }
+        }
+        Debug.Log($"[Meenphie] {count} MeshRenderers passés en mode 'Simple'.");
+        EditorUtility.DisplayDialog("Succès", $"{count} Renderers modifiés.", "OK");
+    }
+
+    // --- LOGIQUE DE BAKE ---
     private void ExecuteFullWorkflow()
     {
         ReflectionProbe[] probes = Object.FindObjectsByType<ReflectionProbe>(FindObjectsSortMode.InstanceID);
         int count = probes.Length;
 
-        // 0% - 20%: Erase
         for (int i = 0; i < count; i++)
         {
             if (EditorUtility.DisplayCancelableProgressBar("AA Bake", "Clearing Cache...", (float)i / count * 0.2f)) { Cleanup(); return; }
@@ -65,7 +97,6 @@ public class ReflectionProbeDownsampler : EditorWindow
         }
         AssetDatabase.Refresh();
 
-        // 20% - 100%: Bake & Kaiser Import
         for (int i = 0; i < count; i++)
         {
             float p = 0.2f + ((float)i / count * 0.8f);
@@ -74,7 +105,7 @@ public class ReflectionProbeDownsampler : EditorWindow
         }
 
         Cleanup();
-        Debug.Log($"[Meenphie] SSAA Bake Complete using Kaiser filtering at {targetResolution}px.");
+        Debug.Log($"[Meenphie] Bake terminé.");
     }
 
     private void SingleProbeWorkflow(ReflectionProbe probe)
@@ -109,31 +140,19 @@ public class ReflectionProbeDownsampler : EditorWindow
         if (Lightmapping.BakeReflectionProbe(probe, path))
         {
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-
             TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer != null)
             {
-                // HDR & Cubemap Basics
                 importer.textureType = TextureImporterType.Default;
                 importer.textureShape = TextureImporterShape.TextureCube;
-                importer.sRGBTexture = false; // Stay in Linear space
-                
-                // --- THE KAISER SETUP ---
+                importer.sRGBTexture = false; 
                 importer.mipmapEnabled = true;
-                // Setting mipmapFilter to Kaiser provides the best sharpening/ringing balance for downsampling
                 importer.mipmapFilter = TextureImporterMipFilter.KaiserFilter; 
                 importer.filterMode = FilterMode.Trilinear;
-                
-                // Resizing
                 importer.maxTextureSize = targetResolution;
-                
-                // Compression: HighQuality (BC6H) or Uncompressed for HDR
                 importer.textureCompression = TextureImporterCompression.Uncompressed;
-                
                 importer.SaveAndReimport();
             }
-
-            // Collapse logical resolution to match physical file
             probe.resolution = targetResolution;
             EditorUtility.SetDirty(probe);
         }
