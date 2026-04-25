@@ -1482,7 +1482,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float3 localIndirectSpecularWithBoxProjection1_g59749 = IndirectSpecularWithBoxProjection1_g59749( Color1_g59749 , Metallic1_g59749 , Smoothness1_g59749 , IOR1_g59749 , Fresnel1_g59749 , WorldPos1_g59749 , WorldNormal1_g59749 , ViewDir1_g59749 );
 					float3 temp_output_2743_0_g5296 = localIndirectSpecularWithBoxProjection1_g59749;
 					float grayscale2713_g5296 = Luminance( Lightmap46_g5296 );
-					float smoothstepResult2430_g5296 = smoothstep( 0.0 , 0.5 , grayscale2713_g5296);
+					float smoothstepResult2430_g5296 = smoothstep( 0.0 , 0.075 , grayscale2713_g5296);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
 					float3 staticSwitch1469_g5296 = ( temp_output_2743_0_g5296 * smoothstepResult2430_g5296 );
 					#else
@@ -2053,4 +2053,4 @@ WireConnection;2888;3;3038;0
 WireConnection;2888;5;3039;0
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=A6024AEDF23CD2C7284A221E336C0D99EE3F07E6
+//CHKSM=81095A51CB246D53F31B4E0B7F1532719292BA81
