@@ -1396,7 +1396,7 @@ Shader "Meenphie/Standard/Opaque"
 					float3 localIndirectSpecularWithBoxProjection1_g65372 = IndirectSpecularWithBoxProjection1_g65372( Color1_g65372 , Metallic1_g65372 , Smoothness1_g65372 , IOR1_g65372 , Fresnel1_g65372 , WorldPos1_g65372 , WorldNormal1_g65372 , ViewDir1_g65372 );
 					float3 temp_output_2745_0_g65320 = localIndirectSpecularWithBoxProjection1_g65372;
 					float grayscale2713_g65320 = Luminance( Lightmap46_g65320 );
-					float smoothstepResult2430_g65320 = smoothstep( 0.0 , 0.075 , grayscale2713_g65320);
+					float smoothstepResult2430_g65320 = smoothstep( 0.0 , 0.1 , grayscale2713_g65320);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
 					float3 staticSwitch1469_g65320 = ( temp_output_2745_0_g65320 * smoothstepResult2430_g65320 );
 					#else
@@ -2177,4 +2177,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5694;625
 WireConnection;5280;2;5694;624
 ASEEND*/
-//CHKSM=5E20E3DDB02BED9ED5FCE5AF95C15CCD2784E6CD
+//CHKSM=0F2E87BF83DCB7CCEB7372C0F448949AEF493AEF
