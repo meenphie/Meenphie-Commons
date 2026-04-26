@@ -465,31 +465,31 @@ Shader "Meenphie/Standard/Winter/Snow"
 				
 				float3 IndirectSpecularWithBoxProjection1_g59751( float Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
-					// --- 1. VECTEURS & NORMALES ---
-					// On s'assure que N inclut bien la Normal Map (doit être fait avant d'entrer ici)
+					// --- 1. VECTORS & NORMALS ---
 					float3 N = normalize(WorldNormal); 
 					float3 V = normalize(ViewDir);
 					float3 R = reflect(-V, N);
 					float nDotV = saturate(dot(N, V));
-					// --- 2. RÉFLEXION (Rayon) ---
+					// --- 2. REFLECTION RAY & BOX PROJECTION ---
 					float3 ray = R;
-					// Correction VRChat : On ne fait la Box Projection que si on est sur un objet statique.
-					// Si c'est pour un avatar, il vaut mieux commenter cette section "if".
+					[branch]
 					if (unity_SpecCube0_ProbePosition.w > 0.0) {
-					    float3 factors = ((ray > 0.0 ? unity_SpecCube0_BoxMax.xyz : unity_SpecCube0_BoxMin.xyz) - WorldPos) / ray;
+					    float3 boxBounds = lerp(unity_SpecCube0_BoxMin.xyz, unity_SpecCube0_BoxMax.xyz, step(0.0, ray));
+					    float3 factors = (boxBounds - WorldPos) / (ray + 1e-5);
 					    float scalar = min(min(factors.x, factors.y), factors.z);
-					    // On ajoute un petit "bias" pour éviter que la box ne plaque la normale à plat
 					    ray = ray * scalar + (WorldPos - unity_SpecCube0_ProbePosition.xyz);
 					}
-					// --- 3. PBR F0 & FRESNEL (Smoothness-aware) ---
-					// Calcul de l'indice de réfraction (IOR) vers F0
-					float f0_ior = pow((IOR - 1.0) / (IOR + 1.0), 2.0);
-					float3 F_base = lerp(float3(f0_ior, f0_ior, f0_ior), Color, Metallic);
-					// Fresnel de Schlick modifié : on utilise le Smoothness pour éviter le "glow" excessif sur les bords
-					float3 fresnelFactor = F_base + (max(float3(Smoothness, Smoothness, Smoothness), F_base) - F_base) * pow(1.0 - nDotV, 5.0);
-					// --- 4. SAMPLING ---
-					// On utilise une courbe plus douce pour les Mips afin de ne pas perdre le relief trop vite
-					float mipLevel = pow(1.0 - Smoothness, 1.5) * 7.0; 
+					// --- 3. PBR F0 & FRESNEL (Modified Schlick) ---
+					float f0_base = pow((IOR - 1.0) / (IOR + 1.0), 2.0);
+					float3 F0 = lerp(float3(f0_base, f0_base, f0_base), Color, Metallic);
+					// Prevents rough surfaces from "glowing" unnaturally at edges
+					float3 fresnelFactor = F0 + (max(float3(Smoothness, Smoothness, Smoothness), F0) - F0) * pow(1.0 - nDotV, 5.0);
+					// --- 4. SAMPLING (The "In-Between" Logic) ---
+					float perceptualRoughness = 1.0 - Smoothness;
+					// We use 9.0 as a safe upper bound. 
+					// - If the probe is 512px, it uses all 9 mips.
+					// - If the probe is 128px, the GPU hardware automatically clamps this to 6.
+					float mipLevel = pow(perceptualRoughness, 1.5) * 9.0; 
 					float4 sampleCube = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, ray, mipLevel);
 					float3 indirectSpec = DecodeHDR(sampleCube, unity_SpecCube0_HDR);
 					return indirectSpec * fresnelFactor;
@@ -2060,4 +2060,4 @@ WireConnection;2888;3;3038;0
 WireConnection;2888;5;3039;0
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=E5288771A85A87C92DE74309128E1ABE63925633
+//CHKSM=E19227B49F5BDD1923EE91D2FF1CD4BE971FD260
