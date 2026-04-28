@@ -21,10 +21,10 @@ MonoBehaviour:
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;15;-176,368;Inherit;False;World
     Position;3;5;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;9;-176,128;Inherit;False;Smoothness;1;2;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-144,-32;Inherit;False;Color;3;0;False;1;0;FLOAT3;1,1,1;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;19;-144,48;Inherit;False;Metallic;1;1;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;16;-144,288;Inherit;False;Fresnel;3;4;False;1;0;FLOAT3;1,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;17;-144,208;Inherit;False;IOR;1;3;False;1;0;FLOAT;1.5;False;1;FLOAT;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;17;-144,208;Inherit;False;IOR;1;3;False;1;0;FLOAT;1.5;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-144,-32;Inherit;False;Color;3;0;False;1;0;FLOAT3;1,1,1;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;128,128;Inherit;False;//
     --- 1. VECTORS & NORMALS ---$float3 N = normalize(WorldNormal)@ $float3 V = normalize(ViewDir)@$float3
     R = reflect(-V, N)@$float nDotV = saturate(dot(N, V))@$$// --- 2. REFLECTION
@@ -39,16 +39,16 @@ MonoBehaviour:
     F0) - F0) * pow(1.0 - nDotV, 5.0)@$$// --- 4. SAMPLING AVEC \"FRESNEL SMOOTHING\"
     ---$// On r\xE9duit la rugosit\xE9 per\xE7ue sur les bords (quand nDotV est faible)$//
     Cela rend la r\xE9flexion plus nette \xE0 l'horizon/sur les bords des objets.$float
-    roughnessFresnel = perceptualRoughness * nDotV@ $// On m\xE9lange un peu pour
+    roughnessFresnel = perceptualRoughness * nDotV@$// On m\xE9lange un peu pour
     ne pas que ce soit trop violent (ajustable)$float finalPerceptual = lerp(roughnessFresnel,
     perceptualRoughness, nDotV)@$$// Remappage standard pour les Mips$float mipMapping
     = finalPerceptual * (1.7 - 0.7 * finalPerceptual)@$float mipLevel = mipMapping
     * 7.0@ // 7.0 est souvent plus pr\xE9cis pour \xE9viter le dernier mip pixelis\xE9$$float4
     sampleCube = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, ray, mipLevel)@$float3
     indirectSpec = DecodeHDR(sampleCube, unity_SpecCube0_HDR)@$$return indirectSpec
-    * fresnelFactor@;3;Create;8;True;Color;FLOAT;0;In;;Inherit;False;True;Metallic;FLOAT;0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;IOR;FLOAT;0;In;;Inherit;False;True;Fresnel;FLOAT3;0,0,0;In;;Inherit;False;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;Indirect
-    Specular;True;False;0;;False;8;0;FLOAT;0;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT;0;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;512,128;Inherit;False;True;-1;Reflections;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;1;0;10;0\nWireConnection;1;1;19;0\nWireConnection;1;2;9;0\nWireConnection;1;3;17;0\nWireConnection;1;4;16;0\nWireConnection;1;5;15;0\nWireConnection;1;6;14;0\nWireConnection;1;7;13;0\nWireConnection;0;0;1;0\nASEEND*/\n//CHKSM=0C7CB8D334B01A11E1A8A98CC5E41CF8C6613516"
+    * fresnelFactor@;3;Create;8;True;Color;FLOAT3;0,0,0;In;;Inherit;False;True;Metallic;FLOAT;0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;IOR;FLOAT;0;In;;Inherit;False;True;Fresnel;FLOAT3;0,0,0;In;;Inherit;False;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;Indirect
+    Specular;True;False;0;;False;8;0;FLOAT3;0,0,0;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT;0;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;7;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;512,128;Inherit;False;True;-1;Reflections;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;1;0;10;0\nWireConnection;1;1;19;0\nWireConnection;1;2;9;0\nWireConnection;1;3;17;0\nWireConnection;1;4;16;0\nWireConnection;1;5;15;0\nWireConnection;1;6;14;0\nWireConnection;1;7;13;0\nWireConnection;0;0;1;0\nASEEND*/\n//CHKSM=D115811FDAC0F97AEE5A3138819935B5670FD1A5"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

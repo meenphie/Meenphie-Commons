@@ -393,14 +393,14 @@ Shader "Meenphie/Standard/Winter/Snow"
 				uniform float _IOR;
 
 
-						float2 voronoihash3_g59764( float2 p )
+						float2 voronoihash3_g59769( float2 p )
 						{
 							
 							p = float2( dot( p, float2( 127.1, 311.7 ) ), dot( p, float2( 269.5, 183.3 ) ) );
 							return frac( sin( p ) *43758.5453);
 						}
 				
-						float voronoi3_g59764( float2 v, float time, inout float2 id, inout float2 mr, float smoothness, inout float2 smoothId )
+						float voronoi3_g59769( float2 v, float time, inout float2 id, inout float2 mr, float smoothness, inout float2 smoothId )
 						{
 							float2 n = floor( v );
 							float2 f = frac( v );
@@ -411,7 +411,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 								for ( i = -2; i <= 2; i++ )
 							 	{
 							 		float2 g = float2( i, j );
-							 		float2 o = voronoihash3_g59764( n + g );
+							 		float2 o = voronoihash3_g59769( n + g );
 									o = ( sin( time + o * 6.2831 ) * 0.5 + 0.5 ); float2 r = f - g - o;
 									float d = 0.5 * dot( r, r );
 							 		if( d<F1 ) {
@@ -463,7 +463,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					return t;
 				}
 				
-				float3 IndirectSpecular1_g59763( float Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
+				float3 IndirectSpecular1_g59768( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
 					// --- 1. VECTORS & NORMALS ---
 					float3 N = normalize(WorldNormal); 
@@ -488,7 +488,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					// --- 4. SAMPLING AVEC "FRESNEL SMOOTHING" ---
 					// On réduit la rugosité perçue sur les bords (quand nDotV est faible)
 					// Cela rend la réflexion plus nette à l'horizon/sur les bords des objets.
-					float roughnessFresnel = perceptualRoughness * nDotV; 
+					float roughnessFresnel = perceptualRoughness * nDotV;
 					// On mélange un peu pour ne pas que ce soit trop violent (ajustable)
 					float finalPerceptual = lerp(roughnessFresnel, perceptualRoughness, nDotV);
 					// Remappage standard pour les Mips
@@ -863,18 +863,18 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float3 staticSwitch1180_g5296 = oAlbedo6_g5296;
 					#endif
 					
-					float time3_g59764 = 0.0;
-					float2 voronoiSmoothId3_g59764 = 0;
-					float2 coords3_g59764 = IN.ase_texcoord6.xy * _VoronoiScale;
-					float2 id3_g59764 = 0;
-					float2 uv3_g59764 = 0;
-					float voroi3_g59764 = voronoi3_g59764( coords3_g59764, time3_g59764, id3_g59764, uv3_g59764, 0, voronoiSmoothId3_g59764 );
-					float saferPower5_g59764 = abs( voroi3_g59764 );
-					float2 texCoord4_g59764 = IN.ase_texcoord6.xy * float2( 1,1 ) + float2( 0,0 );
-					float simpleNoise8_g59764 = SimpleNoise( texCoord4_g59764*_NoiseScale );
-					float saferPower6_g59764 = abs( simpleNoise8_g59764 );
-					float clampResult12_g59764 = clamp( ( ( _Intensity * pow( saferPower5_g59764 , 5.0 ) ) * pow( saferPower6_g59764 , _NoisePower ) ) , 0.0 , 1.0 );
-					float3 temp_cast_1 = (clampResult12_g59764).xxx;
+					float time3_g59769 = 0.0;
+					float2 voronoiSmoothId3_g59769 = 0;
+					float2 coords3_g59769 = IN.ase_texcoord6.xy * _VoronoiScale;
+					float2 id3_g59769 = 0;
+					float2 uv3_g59769 = 0;
+					float voroi3_g59769 = voronoi3_g59769( coords3_g59769, time3_g59769, id3_g59769, uv3_g59769, 0, voronoiSmoothId3_g59769 );
+					float saferPower5_g59769 = abs( voroi3_g59769 );
+					float2 texCoord4_g59769 = IN.ase_texcoord6.xy * float2( 1,1 ) + float2( 0,0 );
+					float simpleNoise8_g59769 = SimpleNoise( texCoord4_g59769*_NoiseScale );
+					float saferPower6_g59769 = abs( simpleNoise8_g59769 );
+					float clampResult12_g59769 = clamp( ( ( _Intensity * pow( saferPower5_g59769 , 5.0 ) ) * pow( saferPower6_g59769 , _NoisePower ) ) , 0.0 , 1.0 );
+					float3 temp_cast_1 = (clampResult12_g59769).xxx;
 					
 					#ifdef _METALLICMAP
 					float staticSwitch846_g5296 = tex2D( _MetallicMap, UV0A2420_g5296 ).r;
@@ -1369,8 +1369,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 					#endif
 					float3 temp_output_2531_0_g5296 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g5296 * _EmissionIntensity )).rgb;
 					float3 Emission86_g5296 = temp_output_2531_0_g5296;
-					float Color1_g59763 = oAlbedo6_g5296.x;
-					float Metallic1_g59763 = Metallic1239_g5296;
+					float3 Color1_g59768 = oAlbedo6_g5296;
+					float Metallic1_g59768 = Metallic1239_g5296;
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g5296 = tex2D( _GlossinessMap, UV0A2420_g5296 ).r;
 					#else
@@ -1468,29 +1468,29 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float staticSwitch15_g59734 = temp_output_19_0_g59734;
 					#endif
 					float Smoothness1399_g5296 = staticSwitch15_g59734;
-					float Smoothness1_g59763 = Smoothness1399_g5296;
+					float Smoothness1_g59768 = Smoothness1399_g5296;
 					float IOR2700_g5296 = _IOR;
-					float IOR1_g59763 = IOR2700_g5296;
-					float3 temp_cast_6 = (0.04).xxx;
-					float3 lerpResult1473_g5296 = lerp( temp_cast_6 , oAlbedo6_g5296 , Metallic1239_g5296);
+					float IOR1_g59768 = IOR2700_g5296;
+					float3 temp_cast_5 = (0.04).xxx;
+					float3 lerpResult1473_g5296 = lerp( temp_cast_5 , oAlbedo6_g5296 , Metallic1239_g5296);
 					float3 switchResult1501_g5296 = (((ase_vface>0)?(World_Normal2508_g5296):(-World_Normal2508_g5296)));
 					float3 View_Direction2511_g5296 = ViewDirWS;
 					float dotResult1476_g5296 = dot( switchResult1501_g5296 , View_Direction2511_g5296 );
 					float3 lerpResult1480_g5296 = lerp( lerpResult1473_g5296 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g5296 ) ) , 5.0 ));
 					float3 Fresnel1560_g5296 = lerpResult1480_g5296;
-					float3 Fresnel1_g59763 = Fresnel1560_g5296;
+					float3 Fresnel1_g59768 = Fresnel1560_g5296;
 					float3 World_Position2505_g5296 = PositionWS;
-					float3 WorldPos1_g59763 = World_Position2505_g5296;
-					float3 WorldNormal1_g59763 = World_Normal2508_g5296;
-					float3 ViewDir1_g59763 = View_Direction2511_g5296;
-					float3 localIndirectSpecular1_g59763 = IndirectSpecular1_g59763( Color1_g59763 , Metallic1_g59763 , Smoothness1_g59763 , IOR1_g59763 , Fresnel1_g59763 , WorldPos1_g59763 , WorldNormal1_g59763 , ViewDir1_g59763 );
-					float3 temp_output_2761_0_g5296 = localIndirectSpecular1_g59763;
+					float3 WorldPos1_g59768 = World_Position2505_g5296;
+					float3 WorldNormal1_g59768 = World_Normal2508_g5296;
+					float3 ViewDir1_g59768 = View_Direction2511_g5296;
+					float3 localIndirectSpecular1_g59768 = IndirectSpecular1_g59768( Color1_g59768 , Metallic1_g59768 , Smoothness1_g59768 , IOR1_g59768 , Fresnel1_g59768 , WorldPos1_g59768 , WorldNormal1_g59768 , ViewDir1_g59768 );
+					float3 temp_output_2767_0_g5296 = localIndirectSpecular1_g59768;
 					float grayscale2713_g5296 = Luminance( Lightmap46_g5296 );
 					float smoothstepResult2430_g5296 = smoothstep( 0.0 , 0.05 , grayscale2713_g5296);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
-					float3 staticSwitch1469_g5296 = ( temp_output_2761_0_g5296 * smoothstepResult2430_g5296 );
+					float3 staticSwitch1469_g5296 = ( temp_output_2767_0_g5296 * smoothstepResult2430_g5296 );
 					#else
-					float3 staticSwitch1469_g5296 = temp_output_2761_0_g5296;
+					float3 staticSwitch1469_g5296 = temp_output_2767_0_g5296;
 					#endif
 					float3 Reflections1419_g5296 = staticSwitch1469_g5296;
 					float3 Color97_g59760 = oAlbedo6_g5296;
@@ -2041,8 +2041,8 @@ Shader "Meenphie/Standard/Winter/Snow"
 }
 /*ASEBEGIN
 Version=19907
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3034;192,-1200;Inherit;False;Meenphie;0;;5296;b3ba55a08dd6b49c7be16c6f35cf2033;6,1008,0,2632,0,2635,0,2636,0,2670,0,2619,0;0;5;FLOAT3;625;FLOAT3;624;FLOAT;156;FLOAT;427;FLOAT;1024
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3038;224,-976;Inherit;False;Snow Particles;50;;59764;5e2d84d094b538e50a87a98a44c75956;0;0;1;FLOAT;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3034;192,-1200;Inherit;False;Meenphie;0;;5296;b3ba55a08dd6b49c7be16c6f35cf2033;6,1008,0,2632,0,2635,0,2636,0,2670,0,2619,0;0;6;FLOAT3;625;FLOAT3;624;FLOAT;156;FLOAT;427;FLOAT;1024;FLOAT3;2765
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3038;224,-976;Inherit;False;Snow Particles;50;;59769;5e2d84d094b538e50a87a98a44c75956;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3039;-30.5,-1068;Inherit;False;Constant;_Float5;Float 5;4;0;Create;True;0;0;0;False;0;False;1;0;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2889;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;1;LightMode=ForwardAdd;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2890;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Deferred;False;False;0;;0;0;Standard;0;False;0
@@ -2057,4 +2057,4 @@ WireConnection;2888;3;3038;0
 WireConnection;2888;5;3039;0
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=F5355704B64BCAFF0B4B99B1C15E0FFB2E9ADB66
+//CHKSM=329610B1807FF508C56D6B56E1DD6BAD50C66D88
