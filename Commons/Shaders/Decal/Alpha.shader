@@ -394,35 +394,45 @@ Shader "Meenphie/Decal/Alpha"
 
 				float3 IndirectSpecular1_g59968( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
+					// --- 0. PARAMETERS ---
+					// À déclarer comme inputs dans ton expression Amplify :
+					// Smoothness, IOR, Metallic, Color, WorldPos, WorldNormal, ViewDir, GrazingBias, MaxMip
+					float grazingBias = 0.5; // Influence de l'angle sur la rugosité (0.5 = réaliste, 1.0 = linéaire)
+					float maxMip = 6.0;      // Niveau max de flou (6.0 est standard pour les Cubemaps Unity)
 					// --- 1. VECTORS & NORMALS ---
-					float3 N = normalize(WorldNormal); 
+					float3 N = normalize(WorldNormal);
 					float3 V = normalize(ViewDir);
 					float3 R = reflect(-V, N);
 					float nDotV = saturate(dot(N, V));
-					// --- 2. REFLECTION RAY & BOX PROJECTION ---
+					// --- 2. BOX PROJECTION ---
 					float3 ray = R;
 					[branch]
 					if (unity_SpecCube0_ProbePosition.w > 0.0) {
-					    float3 boxBounds = (ray > 0) ? unity_SpecCube0_BoxMax.xyz : unity_SpecCube0_BoxMin.xyz;
-					    float3 factors = (boxBounds - WorldPos) / (ray + 1e-5);
-					    float scalar = min(min(factors.x, factors.y), factors.z);
-					    ray = ray * scalar + (WorldPos - unity_SpecCube0_ProbePosition.xyz);
+					    // Protection contre la division par zéro (Claude's fix)
+					    float3 safeRay = max(abs(ray), 1e-5) * sign(ray); 
+					    
+					    float3 rbMax = (unity_SpecCube0_BoxMax.xyz - WorldPos) / safeRay;
+					    float3 rbMin = (unity_SpecCube0_BoxMin.xyz - WorldPos) / safeRay;
+					    float3 rbMinMax = (ray > 0) ? rbMax : rbMin;
+					    float fa = min(min(rbMinMax.x, rbMinMax.y), rbMinMax.z);
+					    
+					    ray = ray * fa + (WorldPos - unity_SpecCube0_ProbePosition.xyz);
 					}
-					// --- 3. PBR F0 & FRESNEL ---
+					// --- 3. PBR F0 & FRESNEL (Lagarde / Frostbite) ---
 					float perceptualRoughness = 1.0 - Smoothness;
-					float f0_base = pow((IOR - 1.0) / (IOR + 1.0), 2.0);
-					float3 F0 = lerp(float3(f0_base, f0_base, f0_base), Color, Metallic);
-					// Fresnel standard avec compensation de rugosité
-					float3 fresnelFactor = F0 + (max(float3(Smoothness, Smoothness, Smoothness), F0) - F0) * pow(1.0 - nDotV, 5.0);
-					// --- 4. SAMPLING AVEC "FRESNEL SMOOTHING" ---
-					// On réduit la rugosité perçue sur les bords (quand nDotV est faible)
-					// Cela rend la réflexion plus nette à l'horizon/sur les bords des objets.
-					float roughnessFresnel = perceptualRoughness * nDotV;
-					// On mélange un peu pour ne pas que ce soit trop violent (ajustable)
-					float finalPerceptual = lerp(roughnessFresnel, perceptualRoughness, nDotV);
-					// Remappage standard pour les Mips
+					// Calcul du F0 basé sur l'IOR (1.5 -> 0.04)
+					float iorTerm = (IOR - 1.0) / (IOR + 1.0);
+					float f0_base = iorTerm * iorTerm;
+					float3 F0 = lerp(float3(f0_base, f0_base, f0_base), Color.rgb, Metallic);
+					// Fresnel avec compensation de rugosité (évite les bords trop blancs sur matériaux mats)
+					float3 fresnelFactor = F0 + (max(1.0 - perceptualRoughness, F0) - F0) * pow(1.0 - nDotV, 5.0);
+					// --- 4. SAMPLING (Roughness Sharpening) ---
+					// On réduit la rugosité perçue à l'angle rasant
+					float grazingAlpha = saturate(nDotV + grazingBias * perceptualRoughness);
+					float finalPerceptual = perceptualRoughness * grazingAlpha;
+					// Remappage standard Unity pour la sélection du MIP
 					float mipMapping = finalPerceptual * (1.7 - 0.7 * finalPerceptual);
-					float mipLevel = mipMapping * 7.0; // 7.0 est souvent plus précis pour éviter le dernier mip pixelisé
+					float mipLevel = clamp(mipMapping * maxMip, 0.0, maxMip);
 					float4 sampleCube = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, ray, mipLevel);
 					float3 indirectSpec = DecodeHDR(sampleCube, unity_SpecCube0_HDR);
 					return indirectSpec * fresnelFactor;
@@ -430,34 +440,39 @@ Shader "Meenphie/Decal/Alpha"
 				
 				float3 DirectSpecular( float3 Color, float3 LightmapColor, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
-					// --- CONFIGURATION ---
-					float LumaStart = 0.05;
-					float LumaEnd = 1.0;
-					float RadiusFadeStart = 7.0;
+					// --- CONFIGURATION LISIBLE ---
+					float lumaStart = 0.05;
+					float lumaEnd = 1.0;
 					float specBoost = 2.0;
+					static const float PI_INV_8 = 0.0397887; 
 					#if defined(SHADER_API_MOBILE)
-					    #define MAX_RADIUS 10.0
+					static const float distStart = 0.0;  
+					static const float distEnd   = 10.0; 
 					#else
-					    #define MAX_RADIUS 20.0
+					static const float distStart = 0.0;  
+					static const float distEnd   = 20.0; 
 					#endif
+					// --- OPTIMISATION ---
+					static const float fadeStartSq = distStart * distStart;
+					static const float maxRadiusSq = distEnd * distEnd;
 					// --- INITIALISATION ---
 					float3 N = normalize(WorldNormal);
 					float3 vDir = normalize(ViewDir);
 					float3 R = reflect(-vDir, N);
-					// Calcul de F0 (Réflectance de base)
-					float3 f0_dielectric = float3(0.04, 0.04, 0.04);
-					float3 F0 = lerp(f0_dielectric, Color.rgb, Metallic);
+					// F0 (Réflectance de base)
+					float3 F0 = lerp(float3(0.04, 0.04, 0.04), Color.rgb, Metallic);
 					// --- MASQUES ET DISTANCE ---
-					float luma = dot(LightmapColor, float3(0.22, 0.70, 0.08));
-					float lmMask = saturate((luma - LumaStart) / max(LumaEnd - LumaStart, 0.0001));
-					float playerDist = distance(_WorldSpaceCameraPos, WorldPos);
-					float fadeT = saturate((playerDist - RadiusFadeStart) / max(MAX_RADIUS - RadiusFadeStart, 0.0001));
+					float luma = dot(LightmapColor, float3(0.2126, 0.7152, 0.0722));
+					float lmMask = saturate((luma - lumaStart) / max(lumaEnd - lumaStart, 1e-4));
+					float3 camDelta = _WorldSpaceCameraPos - WorldPos;
+					float playerDistSq = dot(camDelta, camDelta);
+					float fadeT = saturate((playerDistSq - fadeStartSq) / max(maxRadiusSq - fadeStartSq, 1e-4));
 					float radiusFade = 1.0 - (fadeT * fadeT * (3.0 - 2.0 * fadeT));
-					// Sortie précoce (Vital pour le Quest)
+					// --- SORTIE PRÉCOCE ---
 					if (lmMask * Smoothness * radiusFade < 0.001 || _UdonSpecularLightCount == 0) return 0;
-					// --- MATHS SPÉCULAIRES (Optimisées) ---
-					float shininess = exp2(10.0 * Smoothness + 1.0); 
-					float normalization = (shininess * 0.125 + 1.0) * 0.3183; // (s+8)/(8*pi)
+					// --- MATHS SPÉCULAIRES ---
+					float shininess = exp2(10.0 * Smoothness + 1.0);
+					float normalization = (shininess + 8.0) * PI_INV_8; 
 					float3 specAccum = 0;
 					// --- BOUCLE DE LUMIÈRES ---
 					for (int i = 0; i < (int)_UdonSpecularLightCount; i++) {
@@ -468,34 +483,39 @@ Shader "Meenphie/Decal/Alpha"
 					    if (distSqCenter > rangeSq) continue;
 					    float4 dirAngle = _UdonSpecularLightDir[i];
 					    float3 L_center_norm = L_center * rsqrt(distSqCenter + 1e-5);
-					    
-					    // Spot Mask
 					    float spotMask = saturate((dot(-L_center_norm, dirAngle.xyz) - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
 					    if (spotMask <= 0.0) continue;
-					    // Area Light Math (Intersection)
-					    float denom = dot(dirAngle.xyz, R);
-					    float tPlane = (dirAngle.w < -0.9) ? dot(L_center, R) : (dot(L_center, dirAngle.xyz) / (abs(denom) < 0.001 ? 0.001 : denom));
-					    
-					    float3 localP = (WorldPos + R * max(0.0, tPlane)) - posRange.xyz;
-					    float2 halfSize = float2(_UdonSpecularLightRight[i].w, _UdonSpecularLightUp[i].w);
-					    
-					    float2 clampedPos = clamp(float2(dot(localP, _UdonSpecularLightRight[i].xyz), dot(localP, _UdonSpecularLightUp[i].xyz)), -halfSize, halfSize);
-					    float3 closestPoint = posRange.xyz + _UdonSpecularLightRight[i].xyz * clampedPos.x + _UdonSpecularLightUp[i].xyz * clampedPos.y;
-					    float3 diff = closestPoint - WorldPos;
+					    float3 diff;
+					    [branch]
+					    if (dirAngle.w < -0.9) {
+					        diff = L_center;
+					    } else {
+					        float denom = dot(dirAngle.xyz, R);
+					        float tPlane = dot(L_center, dirAngle.xyz) / (abs(denom) < 1e-3 ? 1e-3 : denom);
+					        if (tPlane <= 0.0) continue; 
+					        float3 pReflection = WorldPos + R * tPlane;
+					        float3 localP = pReflection - posRange.xyz;
+					        float2 halfSize = float2(_UdonSpecularLightRight[i].w, _UdonSpecularLightUp[i].w);
+					        float2 clampedPos = clamp(
+					            float2(dot(localP, _UdonSpecularLightRight[i].xyz), dot(localP, _UdonSpecularLightUp[i].xyz)),
+					            -halfSize, halfSize);
+					        diff = (posRange.xyz + _UdonSpecularLightRight[i].xyz * clampedPos.x + _UdonSpecularLightUp[i].xyz * clampedPos.y) - WorldPos;
+					    }
 					    float distSq = dot(diff, diff);
-					    float3 lDir = normalize(diff);
+					    float3 lDir = diff * rsqrt(distSq + 1e-5);
 					    float3 H = normalize(lDir + vDir);
-					    // Fresnel Schlick optimisé (Pas de pow)
+					    // Fresnel Schlick - Punchy Version
 					    float f_inv = 1.0 - saturate(dot(H, vDir));
-					    float f5 = f_inv * f_inv; f5 *= f5 * f_inv; 
+					    float f2 = f_inv * f_inv;
+					    float f5 = f2 * f2 * f_inv;
 					    float3 fresnel = F0 + (1.0 - F0) * f5;
-					    // Terme Spéculaire
+					    // Specular
 					    float nDotH = saturate(dot(N, H));
-					    float spec = pow(nDotH, shininess) * normalization;
-					    // Atténuation
-					    float falloff = saturate(1.0 - distSqCenter/rangeSq);
+					    float nDotL = saturate(dot(N, lDir));
+					    float spec = exp2(shininess * nDotH - shininess) * normalization;
+					    float falloff = saturate(1.0 - distSqCenter / rangeSq);
 					    falloff = (falloff * falloff) / (distSq + 1.0);
-					    specAccum += _UdonSpecularLightCol[i].rgb * (spec * fresnel * saturate(dot(N, lDir)) * _UdonSpecularLightCol[i].w * falloff * spotMask);
+					    specAccum += _UdonSpecularLightCol[i].rgb * (spec * fresnel * nDotL * _UdonSpecularLightCol[i].w * falloff * spotMask);
 					}
 					return specAccum * specBoost * radiusFade * lmMask;
 				}
@@ -1430,13 +1450,13 @@ Shader "Meenphie/Decal/Alpha"
 					float3 WorldNormal1_g59968 = World_Normal2508_g59916;
 					float3 ViewDir1_g59968 = View_Direction2511_g59916;
 					float3 localIndirectSpecular1_g59968 = IndirectSpecular1_g59968( Color1_g59968 , Metallic1_g59968 , Smoothness1_g59968 , IOR1_g59968 , Fresnel1_g59968 , WorldPos1_g59968 , WorldNormal1_g59968 , ViewDir1_g59968 );
-					float3 temp_output_2767_0_g59916 = localIndirectSpecular1_g59968;
+					float3 temp_output_2768_0_g59916 = localIndirectSpecular1_g59968;
 					float grayscale2713_g59916 = Luminance( Lightmap46_g59916 );
 					float smoothstepResult2430_g59916 = smoothstep( 0.0 , 0.05 , grayscale2713_g59916);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
-					float3 staticSwitch1469_g59916 = ( temp_output_2767_0_g59916 * smoothstepResult2430_g59916 );
+					float3 staticSwitch1469_g59916 = ( temp_output_2768_0_g59916 * smoothstepResult2430_g59916 );
 					#else
-					float3 staticSwitch1469_g59916 = temp_output_2767_0_g59916;
+					float3 staticSwitch1469_g59916 = temp_output_2768_0_g59916;
 					#endif
 					float3 Reflections1419_g59916 = staticSwitch1469_g59916;
 					float3 Color97_g59967 = oAlbedo6_g59916;
@@ -2108,4 +2128,4 @@ WireConnection;2888;2;3020;624
 WireConnection;2888;7;3020;156
 WireConnection;2888;15;3020;1024
 ASEEND*/
-//CHKSM=FE841120BFA67D7834FC1874175EF8CDD716F56C
+//CHKSM=D20C699F2D515F3BE5EA1F76531F129CF9AF9179
