@@ -1432,7 +1432,7 @@ Shader "Meenphie/Decal/Alpha"
 					float3 localIndirectSpecular1_g59968 = IndirectSpecular1_g59968( Color1_g59968 , Metallic1_g59968 , Smoothness1_g59968 , IOR1_g59968 , Fresnel1_g59968 , WorldPos1_g59968 , WorldNormal1_g59968 , ViewDir1_g59968 );
 					float3 temp_output_2761_0_g59916 = localIndirectSpecular1_g59968;
 					float grayscale2713_g59916 = Luminance( Lightmap46_g59916 );
-					float smoothstepResult2430_g59916 = smoothstep( 0.0 , 0.1 , grayscale2713_g59916);
+					float smoothstepResult2430_g59916 = smoothstep( 0.0 , 0.05 , grayscale2713_g59916);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
 					float3 staticSwitch1469_g59916 = ( temp_output_2761_0_g59916 * smoothstepResult2430_g59916 );
 					#else
@@ -2108,4 +2108,4 @@ WireConnection;2888;2;3020;624
 WireConnection;2888;7;3020;156
 WireConnection;2888;15;3020;1024
 ASEEND*/
-//CHKSM=63A177D4BB2A52293C7A3A6C4D292795D4019D4D
+//CHKSM=16042A4FC8B0E5AB191A77F6CC375CD6A68516A6
