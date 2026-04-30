@@ -15,31 +15,49 @@ MonoBehaviour:
   m_functionInfo: "// Made with Amplify Shader Editor v1.9.9.7\n// Available at the
     Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19907\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;15;-160,128;Inherit;False;World
-    Position;3;3;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    Position;3;5;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;13;-160,288;Inherit;False;View
-    Direction;3;5;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    Direction;3;7;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;14;-160,208;Inherit;False;World
-    Normal;3;4;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;9;-160,448;Inherit;False;Smoothness;1;1;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;16;-128,528;Inherit;False;IOR;1;2;False;1;0;FLOAT;1;False;1;FLOAT;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
+    Normal;3;6;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-128,368;Inherit;False;Color;3;0;False;1;0;FLOAT3;1,1,1;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;9;-160,528;Inherit;False;Smoothness;1;2;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;17;-160,448;Inherit;False;Metallic;1;1;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;16;-128,608;Inherit;False;IOR;1;3;False;1;0;FLOAT;1;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;18;-160,688;Inherit;False;Is
+    Front Face;1;4;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;128,128;Inherit;False;//
-    --- 1. SETUP DES VECTEURS ---$float3 N = normalize(WorldNormal)@$float3 V = normalize(ViewDir)@$$//
-    --- 2. CALCUL DE LA R\xC9FRACTION ---$// \"safeIOR\" emp\xEAche la division par
-    z\xE9ro. $// \xC0 1.0, le rayon traverse tout droit.$float safeIOR = max(IOR,
-    1.0)@ $float eta = 1.0 / safeIOR@ $$float3 refRay = refract(-V, N, eta)@$$//
-    --- 3. BOX PROJECTION ---$float3 ray = refRay@$if (unity_SpecCube0_ProbePosition.w
-    > 0.0)${$    float3 factors = ((ray > 0.0 ? unity_SpecCube0_BoxMax.xyz : unity_SpecCube0_BoxMin.xyz)
-    - WorldPos) / ray@$    float scalar = min(min(factors.x, factors.y), factors.z)@$   
-    ray = ray * scalar + (WorldPos - unity_SpecCube0_ProbePosition.xyz)@$}$$// ---
-    4. SAMPLING ---$float mipLevel = (1.0 - Smoothness) * 7.0@$float4 envSample =
-    UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, ray, mipLevel)@$float3 indirectRefract
-    = DecodeHDR(envSample, unity_SpecCube0_HDR)@$$// --- 5. R\xC9SULTAT FINAL ---$//
-    On multiplie simplement la r\xE9fraction par ta couleur (Color).$// Assure-toi
-    d'avoir un param\xE8tre Color (Color Node) connect\xE9 \xE0 ton Custom Expression.$return
-    indirectRefract * Color.rgb@;3;Create;6;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Color;FLOAT3;0,0,0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;IOR;FLOAT;0;In;;Inherit;False;Indirect
-    Specular With Box Projection;True;False;0;;False;6;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT;0;False;5;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;10;-128,368;Inherit;False;Color;3;0;False;1;0;FLOAT3;1,1,1;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;512,128;Inherit;False;True;-1;Reflections;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;1;0;15;0\nWireConnection;1;1;14;0\nWireConnection;1;2;13;0\nWireConnection;1;3;10;0\nWireConnection;1;4;9;0\nWireConnection;1;5;16;0\nWireConnection;0;0;1;0\nASEEND*/\n//CHKSM=F912CC6B14562E7171352B5CAF966B092A0CA332"
+    Inputs: WorldNormal, ViewDir, WorldPos, IOR (1.0-2.5), Smoothness, Metallic,
+    Color, IsFrontFace$$// --- 1. SETUP ---$float3 N = normalize(WorldNormal)@$float3
+    V = normalize(ViewDir)@$bool isFront = IsFrontFace > 0.5@$if (!isFront) N = -N@$$//
+    --- 2. IOR & F0 ---$float safeIOR = clamp(IOR, 1.0001, 2.5)@$float eta = isFront
+    ? (1.0 / safeIOR) : safeIOR@$float f0_ior = pow((1.0 - safeIOR) / (1.0 + safeIOR),
+    2.0)@$float3 F0 = lerp(float3(f0_ior, f0_ior, f0_ior), Color.rgb, Metallic)@$$//
+    --- 3. RAYONS ---$float3 refRay = refract(-V, N, eta)@$if (dot(refRay, refRay)
+    < 1e-6) refRay = -N@$float3 reflRay = reflect(-V, N)@$$// --- 4. BOX PROJECTION
+    ---$float3 dirRefract = refRay@$float3 dirReflect = reflRay@$$if (unity_SpecCube0_ProbePosition.w
+    > 0.0)${$    float3 rbMax = unity_SpecCube0_BoxMax.xyz - WorldPos@$    float3
+    rbMin = unity_SpecCube0_BoxMin.xyz - WorldPos@$$    // Refraction$    float3
+    dRfr = dirRefract@$    dRfr.x = (abs(dRfr.x) < 1e-6) ? dRfr.x + 1e-6 : dRfr.x@$   
+    dRfr.y = (abs(dRfr.y) < 1e-6) ? dRfr.y + 1e-6 : dRfr.y@$    dRfr.z = (abs(dRfr.z)
+    < 1e-6) ? dRfr.z + 1e-6 : dRfr.z@$    float3 rbRfr = (dRfr > 0.0) ? rbMax / dRfr
+    : rbMin / dRfr@$    float faRfr = min(min(rbRfr.x, rbRfr.y), rbRfr.z)@$    dirRefract
+    = (WorldPos + dirRefract * faRfr) - unity_SpecCube0_ProbePosition.xyz@$$    //
+    Reflection$    float3 dRfl = dirReflect@$    dRfl.x = (abs(dRfl.x) < 1e-6) ?
+    dRfl.x + 1e-6 : dRfl.x@$    dRfl.y = (abs(dRfl.y) < 1e-6) ? dRfl.y + 1e-6 : dRfl.y@$   
+    dRfl.z = (abs(dRfl.z) < 1e-6) ? dRfl.z + 1e-6 : dRfl.z@$    float3 rbRfl = (dRfl
+    > 0.0) ? rbMax / dRfl : rbMin / dRfl@$    float faRfl = min(min(rbRfl.x, rbRfl.y),
+    rbRfl.z)@$    dirReflect = (WorldPos + dirReflect * faRfl) - unity_SpecCube0_ProbePosition.xyz@$}$$//
+    --- 5. SAMPLING ---$float mip = (1.0 - Smoothness) * 7.0@$float3 refracColor
+    = DecodeHDR(UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, dirRefract, mip), unity_SpecCube0_HDR)@$float3
+    refleColor  = DecodeHDR(UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, dirReflect,
+    mip), unity_SpecCube0_HDR)@$$// --- 6. FRESNEL SCHLICK ---$float cosTheta = saturate(dot(N,
+    V))@$float f_inv = 1.0 - cosTheta@$float f2 = f_inv * f_inv@$float3 F = F0 +
+    (1.0 - F0) * f2 * f2 * f_inv@$$// --- 7. MIX FINAL (conservation d'\xE9nergie)
+    ---$float3 refraction = refracColor * Color.rgb * (1.0 - Metallic) * (1.0 - F)@$float3
+    reflection = refleColor * F@$$return refraction + reflection@;3;Create;8;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;ViewDir;FLOAT3;0,0,0;In;;Inherit;False;True;Color;FLOAT3;0,0,0;In;;Inherit;False;True;Metallic;FLOAT;0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;IOR;FLOAT;0;In;;Inherit;False;True;IsFrontFace;FLOAT;0;In;;Inherit;False;Refraction
+    Probe;True;False;0;;False;8;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;2;FLOAT3;0,0,0;False;3;FLOAT3;0,0,0;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT;0;False;7;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;512,128;Inherit;False;True;-1;Reflections;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;1;0;15;0\nWireConnection;1;1;14;0\nWireConnection;1;2;13;0\nWireConnection;1;3;10;0\nWireConnection;1;4;17;0\nWireConnection;1;5;9;0\nWireConnection;1;6;16;0\nWireConnection;1;7;18;0\nWireConnection;0;0;1;0\nASEEND*/\n//CHKSM=8B3A2746E9481B32983DD5F13A97B332AF343B4E"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

@@ -1,6 +1,6 @@
 // Made with Amplify Shader Editor v1.9.9.7
 // Available at the Unity Asset Store - http://u3d.as/y3X 
-Shader "Meenphie/Standard/Cutout"
+Shader "Meenphie/Standard/Transparent/Cutout"
 {
 	Properties
 	{
@@ -385,7 +385,7 @@ Shader "Meenphie/Standard/Cutout"
 				uniform float _MaskClipValue;
 
 
-				float3 IndirectSpecular1_g60080( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
+				float3 IndirectSpecular1_g60079( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
 					// --- 0. PARAMETERS ---
 					// À déclarer comme inputs dans ton expression Amplify :
@@ -433,41 +433,40 @@ Shader "Meenphie/Standard/Cutout"
 				
 				float3 DirectSpecular( float3 Color, float3 LightmapColor, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
-					// --- CONFIGURATION LISIBLE ---
+					// --- CONFIGURATION ---
 					float lumaStart = 0.05;
 					float lumaEnd = 1.0;
 					float specBoost = 2.0;
-					static const float PI_INV_8 = 0.0397887; 
+					static const float PI_INV_8 = 0.0397887;
 					#if defined(SHADER_API_MOBILE)
-					static const float distStart = 0.0;  
-					static const float distEnd   = 10.0; 
+					static const float distStart = 0.0;
+					static const float distEnd   = 10.0;
 					#else
-					static const float distStart = 0.0;  
-					static const float distEnd   = 20.0; 
+					static const float distStart = 0.0;
+					static const float distEnd   = 20.0;
 					#endif
-					// --- OPTIMISATION ---
 					static const float fadeStartSq = distStart * distStart;
 					static const float maxRadiusSq = distEnd * distEnd;
 					// --- INITIALISATION ---
 					float3 N = normalize(WorldNormal);
 					float3 vDir = normalize(ViewDir);
 					float3 R = reflect(-vDir, N);
-					// F0 (Réflectance de base)
 					float3 F0 = lerp(float3(0.04, 0.04, 0.04), Color.rgb, Metallic);
 					// --- MASQUES ET DISTANCE ---
 					float luma = dot(LightmapColor, float3(0.2126, 0.7152, 0.0722));
 					float lmMask = saturate((luma - lumaStart) / max(lumaEnd - lumaStart, 1e-4));
-					float3 camDelta = _WorldSpaceCameraPos - WorldPos;
-					float playerDistSq = dot(camDelta, camDelta);
-					float fadeT = saturate((playerDistSq - fadeStartSq) / max(maxRadiusSq - fadeStartSq, 1e-4));
+					// FIX: Origin-based fade to prevent per-pixel clipping on large meshes
+					float3 objectOrigin = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
+					float3 camDelta = _WorldSpaceCameraPos - objectOrigin; 
+					float distSq = dot(camDelta, camDelta);
+					float fadeT = saturate((distSq - fadeStartSq) / max(maxRadiusSq - fadeStartSq, 1e-4));
 					float radiusFade = 1.0 - (fadeT * fadeT * (3.0 - 2.0 * fadeT));
-					// --- SORTIE PRÉCOCE ---
+					// --- EARLY EXIT ---
 					if (lmMask * Smoothness * radiusFade < 0.001 || _UdonSpecularLightCount == 0) return 0;
-					// --- MATHS SPÉCULAIRES ---
 					float shininess = exp2(10.0 * Smoothness + 1.0);
-					float normalization = (shininess + 8.0) * PI_INV_8; 
+					float normalization = (shininess + 8.0) * PI_INV_8;
 					float3 specAccum = 0;
-					// --- BOUCLE DE LUMIÈRES ---
+					// --- LIGHT LOOP ---
 					for (int i = 0; i < (int)_UdonSpecularLightCount; i++) {
 					    float4 posRange = _UdonSpecularLightPos[i];
 					    float3 L_center = posRange.xyz - WorldPos;
@@ -485,7 +484,7 @@ Shader "Meenphie/Standard/Cutout"
 					    } else {
 					        float denom = dot(dirAngle.xyz, R);
 					        float tPlane = dot(L_center, dirAngle.xyz) / (abs(denom) < 1e-3 ? 1e-3 : denom);
-					        if (tPlane <= 0.0) continue; 
+					        if (tPlane <= 0.0) continue;
 					        float3 pReflection = WorldPos + R * tPlane;
 					        float3 localP = pReflection - posRange.xyz;
 					        float2 halfSize = float2(_UdonSpecularLightRight[i].w, _UdonSpecularLightUp[i].w);
@@ -494,20 +493,17 @@ Shader "Meenphie/Standard/Cutout"
 					            -halfSize, halfSize);
 					        diff = (posRange.xyz + _UdonSpecularLightRight[i].xyz * clampedPos.x + _UdonSpecularLightUp[i].xyz * clampedPos.y) - WorldPos;
 					    }
-					    float distSq = dot(diff, diff);
-					    float3 lDir = diff * rsqrt(distSq + 1e-5);
+					    float dSq = dot(diff, diff);
+					    float3 lDir = diff * rsqrt(dSq + 1e-5);
 					    float3 H = normalize(lDir + vDir);
-					    // Fresnel Schlick - Punchy Version
+					    // Fresnel Schlick
 					    float f_inv = 1.0 - saturate(dot(H, vDir));
-					    float f2 = f_inv * f_inv;
-					    float f5 = f2 * f2 * f_inv;
-					    float3 fresnel = F0 + (1.0 - F0) * f5;
-					    // Specular
+					    float3 fresnel = F0 + (1.0 - F0) * (f_inv * f_inv * f_inv * f_inv * f_inv);
 					    float nDotH = saturate(dot(N, H));
 					    float nDotL = saturate(dot(N, lDir));
 					    float spec = exp2(shininess * nDotH - shininess) * normalization;
 					    float falloff = saturate(1.0 - distSqCenter / rangeSq);
-					    falloff = (falloff * falloff) / (distSq + 1.0);
+					    falloff = (falloff * falloff) / (dSq + 1.0);
 					    specAccum += _UdonSpecularLightCol[i].rgb * (spec * fresnel * nDotL * _UdonSpecularLightCol[i].w * falloff * spotMask);
 					}
 					return specAccum * specBoost * radiusFade * lmMask;
@@ -1298,8 +1294,8 @@ Shader "Meenphie/Standard/Cutout"
 					#endif
 					float3 temp_output_2531_0_g60028 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g60028 * _EmissionIntensity )).rgb;
 					float3 Emission86_g60028 = temp_output_2531_0_g60028;
-					float3 Color1_g60080 = oAlbedo6_g60028;
-					float Metallic1_g60080 = Metallic1239_g60028;
+					float3 Color1_g60079 = oAlbedo6_g60028;
+					float Metallic1_g60079 = Metallic1239_g60028;
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g60028 = tex2D( _GlossinessMap, UV0A2420_g60028 ).r;
 					#else
@@ -1397,9 +1393,9 @@ Shader "Meenphie/Standard/Cutout"
 					float staticSwitch15_g60078 = temp_output_19_0_g60078;
 					#endif
 					float Smoothness1399_g60028 = staticSwitch15_g60078;
-					float Smoothness1_g60080 = Smoothness1399_g60028;
+					float Smoothness1_g60079 = Smoothness1399_g60028;
 					float IOR2700_g60028 = _IOR;
-					float IOR1_g60080 = IOR2700_g60028;
+					float IOR1_g60079 = IOR2700_g60028;
 					float3 temp_cast_4 = (0.04).xxx;
 					float3 lerpResult1473_g60028 = lerp( temp_cast_4 , oAlbedo6_g60028 , Metallic1239_g60028);
 					float3 switchResult1501_g60028 = (((ase_vface>0)?(World_Normal2508_g60028):(-World_Normal2508_g60028)));
@@ -1407,13 +1403,13 @@ Shader "Meenphie/Standard/Cutout"
 					float dotResult1476_g60028 = dot( switchResult1501_g60028 , View_Direction2511_g60028 );
 					float3 lerpResult1480_g60028 = lerp( lerpResult1473_g60028 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g60028 ) ) , 5.0 ));
 					float3 Fresnel1560_g60028 = lerpResult1480_g60028;
-					float3 Fresnel1_g60080 = Fresnel1560_g60028;
+					float3 Fresnel1_g60079 = Fresnel1560_g60028;
 					float3 World_Position2505_g60028 = PositionWS;
-					float3 WorldPos1_g60080 = World_Position2505_g60028;
-					float3 WorldNormal1_g60080 = World_Normal2508_g60028;
-					float3 ViewDir1_g60080 = View_Direction2511_g60028;
-					float3 localIndirectSpecular1_g60080 = IndirectSpecular1_g60080( Color1_g60080 , Metallic1_g60080 , Smoothness1_g60080 , IOR1_g60080 , Fresnel1_g60080 , WorldPos1_g60080 , WorldNormal1_g60080 , ViewDir1_g60080 );
-					float3 temp_output_2768_0_g60028 = localIndirectSpecular1_g60080;
+					float3 WorldPos1_g60079 = World_Position2505_g60028;
+					float3 WorldNormal1_g60079 = World_Normal2508_g60028;
+					float3 ViewDir1_g60079 = View_Direction2511_g60028;
+					float3 localIndirectSpecular1_g60079 = IndirectSpecular1_g60079( Color1_g60079 , Metallic1_g60079 , Smoothness1_g60079 , IOR1_g60079 , Fresnel1_g60079 , WorldPos1_g60079 , WorldNormal1_g60079 , ViewDir1_g60079 );
+					float3 temp_output_2768_0_g60028 = localIndirectSpecular1_g60079;
 					float grayscale2713_g60028 = Luminance( Lightmap46_g60028 );
 					float smoothstepResult2430_g60028 = smoothstep( 0.0 , 0.05 , grayscale2713_g60028);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
@@ -1422,17 +1418,17 @@ Shader "Meenphie/Standard/Cutout"
 					float3 staticSwitch1469_g60028 = temp_output_2768_0_g60028;
 					#endif
 					float3 Reflections1419_g60028 = staticSwitch1469_g60028;
-					float3 Color97_g60079 = oAlbedo6_g60028;
-					float3 LightmapColor97_g60079 = Lightmap46_g60028;
-					float Metallic97_g60079 = Metallic1239_g60028;
-					float Smoothness97_g60079 = Smoothness1399_g60028;
-					float IOR97_g60079 = IOR2700_g60028;
-					float3 Fresnel97_g60079 = Fresnel1560_g60028;
-					float3 WorldPos97_g60079 = World_Position2505_g60028;
-					float3 WorldNormal97_g60079 = World_Normal2508_g60028;
-					float3 ViewDir97_g60079 = View_Direction2511_g60028;
-					float3 localDirectSpecular97_g60079 = DirectSpecular( Color97_g60079 , LightmapColor97_g60079 , Metallic97_g60079 , Smoothness97_g60079 , IOR97_g60079 , Fresnel97_g60079 , WorldPos97_g60079 , WorldNormal97_g60079 , ViewDir97_g60079 );
-					float3 Speculars2560_g60028 = localDirectSpecular97_g60079;
+					float3 Color97_g60080 = oAlbedo6_g60028;
+					float3 LightmapColor97_g60080 = Lightmap46_g60028;
+					float Metallic97_g60080 = Metallic1239_g60028;
+					float Smoothness97_g60080 = Smoothness1399_g60028;
+					float IOR97_g60080 = IOR2700_g60028;
+					float3 Fresnel97_g60080 = Fresnel1560_g60028;
+					float3 WorldPos97_g60080 = World_Position2505_g60028;
+					float3 WorldNormal97_g60080 = World_Normal2508_g60028;
+					float3 ViewDir97_g60080 = View_Direction2511_g60028;
+					float3 localDirectSpecular97_g60080 = DirectSpecular( Color97_g60080 , LightmapColor97_g60080 , Metallic97_g60080 , Smoothness97_g60080 , IOR97_g60080 , Fresnel97_g60080 , WorldPos97_g60080 , WorldNormal97_g60080 , ViewDir97_g60080 );
+					float3 Speculars2560_g60028 = localDirectSpecular97_g60080;
 					#ifdef _LIGHTMAPDEBUG
 					float3 staticSwitch1181_g60028 = Lightmap46_g60028;
 					#else
@@ -2077,11 +2073,11 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2892;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ShadowCaster;0;5;ShadowCaster;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;False;True;1;LightMode=ShadowCaster;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2893;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;SceneSelectionPass;0;6;SceneSelectionPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=SceneSelectionPass;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2894;512,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ScenePickingPass;0;7;ScenePickingPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=ScenePickingPass;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2888;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;6;Meenphie/Standard/Cutout;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;1;False;;True;3;False;;False;False;True;3;RenderType=TransparentCutout=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;3;639057697570214470;Surface;0;638915427204303550;  Blend;2;638915425920684140;  Dither Shadows;1;0;Two Sided;0;639027460080664250;Alpha Clipping;1;638915427324710130;  Use Shadow Threshold;0;638915420933436960;Deferred Pass;0;638915425282396370;Normal Space;0;0;Transmission;0;638915425258747670;  Transmission Shadow;0.5,False,;0;Translucency;0;638915425246861880;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;638922399804812020;Receive Shadows;0;638922399717523500;Receive Specular;0;638915388784334560;Receive Reflections;1;638915388803555030;GPU Instancing;1;638915411619689990;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;0;639049545902984550;Meta Pass;0;639048817054746750;Add Pass;0;639048817051401800;Override Baked GI;0;638915390973737640;Write Depth;0;638915421117196140;Extra Pre Pass;0;639048817123696260;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;False;True;False;False;False;True;False;False;False;;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2888;512,-1200;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;6;Meenphie/Standard/Transparent/Cutout;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;1;False;;True;3;False;;False;False;True;3;RenderType=TransparentCutout=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;3;639057697570214470;Surface;0;638915427204303550;  Blend;2;638915425920684140;  Dither Shadows;1;0;Two Sided;0;639027460080664250;Alpha Clipping;1;638915427324710130;  Use Shadow Threshold;0;638915420933436960;Deferred Pass;0;638915425282396370;Normal Space;0;0;Transmission;0;638915425258747670;  Transmission Shadow;0.5,False,;0;Translucency;0;638915425246861880;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;638922399804812020;Receive Shadows;0;638922399717523500;Receive Specular;0;638915388784334560;Receive Reflections;1;638915388803555030;GPU Instancing;1;638915411619689990;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;0;639049545902984550;Meta Pass;0;639048817054746750;Add Pass;0;639048817051401800;Override Baked GI;0;638915390973737640;Write Depth;0;638915421117196140;Extra Pre Pass;0;639048817123696260;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;False;True;False;False;False;True;False;False;False;;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;2887;512,-1440;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;4;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;True;True;0;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;True;True;1;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;True;True;0;False;;True;3;False;;True;False;0;False;;0;False;;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;0;False;0
 WireConnection;2888;0;2962;625
 WireConnection;2888;2;2962;624
 WireConnection;2888;7;2962;156
 WireConnection;2888;8;2962;427
 ASEEND*/
-//CHKSM=10B31D6164DEA7FE6252DE2D494AEF1C55AFB224
+//CHKSM=968D828BB78B384E0594A69D15492E69AEA1B4A9

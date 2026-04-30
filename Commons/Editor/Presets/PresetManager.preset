@@ -58,7 +58,7 @@ Preset:
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.size
-    value: 12
+    value: 13
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[0].m_Preset
@@ -202,6 +202,18 @@ Preset:
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[11].m_Disabled
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[12].m_Preset
+    value: 
+    objectReference: {fileID: 2655988077585873504, guid: 7e1e3d7790cb04db5a9553872e398a3d, type: 2}
+  - target: {fileID: 0}
+    propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[12].m_Filter
+    value: ReflectionProbe
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[12].m_Disabled
     value: 0
     objectReference: {fileID: 0}
   - target: {fileID: 0}

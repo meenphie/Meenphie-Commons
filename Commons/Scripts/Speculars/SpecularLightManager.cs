@@ -67,18 +67,15 @@ public class SpecularLightManager : UdonSharpBehaviour
     public void ToggleSpecular()
     {
         isEnabled = !isEnabled;
-
         if (!isEnabled)
         {
             ApplyToShader(0);
             _lastFinalCount = 0;
             currentActiveCount = 0;
-
             for (int i = 0; i < MAX_LIGHTS; i++)
                 _lastIndicesSorted[i] = -1;
         }
     }
-
 
     public void UpdateNearestLights()
     {
@@ -88,29 +85,22 @@ public class SpecularLightManager : UdonSharpBehaviour
             return;
         }
 
-        Vector3 playerPos = _localPlayer.GetPosition();
+        // Fixed head position tracking
+        Vector3 playerPos = _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
         int totalBaked = bakedPositions.Length;
         int count = 0;
 
-        // 🔥 Top-N nearest selection
         for (int i = 0; i < totalBaked; i++)
         {
             float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
+            if (distSq > _maxRadiusSq) continue;
 
-            if (distSq > _maxRadiusSq)
-                continue;
-
-            // insertion triée (plus proche → index 0)
             int insertIndex = count;
-
             while (insertIndex > 0 && _distances[insertIndex - 1] > distSq)
                 insertIndex--;
 
-            // si pas utile → skip
-            if (insertIndex >= activeLightCount)
-                continue;
+            if (insertIndex >= activeLightCount) continue;
 
-            // shift droite
             int maxShift = Mathf.Min(count, activeLightCount - 1);
             for (int j = maxShift; j > insertIndex; j--)
             {
@@ -118,20 +108,16 @@ public class SpecularLightManager : UdonSharpBehaviour
                 _distances[j] = _distances[j - 1];
             }
 
-            // insert
             _indices[insertIndex] = i;
             _distances[insertIndex] = distSq;
-
-            if (count < activeLightCount)
-                count++;
+            if (count < activeLightCount) 
+            count++;
         }
 
         int finalCount = count;
         currentActiveCount = finalCount;
 
-        // 🔹 Dirty check
         bool isDirty = finalCount != _lastFinalCount;
-
         if (!isDirty)
         {
             for (int i = 0; i < finalCount; i++)
@@ -144,23 +130,19 @@ public class SpecularLightManager : UdonSharpBehaviour
             }
         }
 
-        // 🔹 Update buffers
         if (isDirty)
         {
             shaderWasUpdated = true;
-
             for (int i = 0; i < MAX_LIGHTS; i++)
             {
                 if (i < finalCount)
                 {
                     int idx = _indices[i];
-
                     _shaderPosBuffer[i] = bakedPositions[idx];
                     _shaderColBuffer[i] = bakedColors[idx];
                     _shaderRightBuffer[i] = bakedRight[idx];
                     _shaderUpBuffer[i] = bakedUp[idx];
                     _shaderDirBuffer[i] = bakedDirections[idx];
-
                     _lastIndicesSorted[i] = idx;
                 }
                 else if (_lastIndicesSorted[i] != -1)
@@ -170,11 +152,9 @@ public class SpecularLightManager : UdonSharpBehaviour
                     _shaderRightBuffer[i] = Vector4.zero;
                     _shaderUpBuffer[i] = Vector4.zero;
                     _shaderDirBuffer[i] = Vector4.zero;
-
                     _lastIndicesSorted[i] = -1;
                 }
             }
-
             ApplyToShader(finalCount);
             _lastFinalCount = finalCount;
         }
