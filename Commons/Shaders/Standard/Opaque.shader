@@ -383,7 +383,7 @@ Shader "Meenphie/Standard/Opaque"
 				uniform float _IOR;
 
 
-				float3 IndirectSpecular1_g67757( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
+				float3 IndirectSpecular1_g67756( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
 					// --- 0. PARAMETERS ---
 					// À déclarer comme inputs dans ton expression Amplify :
@@ -431,41 +431,40 @@ Shader "Meenphie/Standard/Opaque"
 				
 				float3 DirectSpecular( float3 Color, float3 LightmapColor, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
-					// --- CONFIGURATION LISIBLE ---
+					// --- CONFIGURATION ---
 					float lumaStart = 0.05;
 					float lumaEnd = 1.0;
 					float specBoost = 2.0;
-					static const float PI_INV_8 = 0.0397887; 
+					static const float PI_INV_8 = 0.0397887;
 					#if defined(SHADER_API_MOBILE)
-					static const float distStart = 0.0;  
-					static const float distEnd   = 10.0; 
+					static const float distStart = 0.0;
+					static const float distEnd   = 10.0;
 					#else
-					static const float distStart = 0.0;  
-					static const float distEnd   = 20.0; 
+					static const float distStart = 0.0;
+					static const float distEnd   = 20.0;
 					#endif
-					// --- OPTIMISATION ---
 					static const float fadeStartSq = distStart * distStart;
 					static const float maxRadiusSq = distEnd * distEnd;
 					// --- INITIALISATION ---
 					float3 N = normalize(WorldNormal);
 					float3 vDir = normalize(ViewDir);
 					float3 R = reflect(-vDir, N);
-					// F0 (Réflectance de base)
 					float3 F0 = lerp(float3(0.04, 0.04, 0.04), Color.rgb, Metallic);
 					// --- MASQUES ET DISTANCE ---
 					float luma = dot(LightmapColor, float3(0.2126, 0.7152, 0.0722));
 					float lmMask = saturate((luma - lumaStart) / max(lumaEnd - lumaStart, 1e-4));
-					float3 camDelta = _WorldSpaceCameraPos - WorldPos;
-					float playerDistSq = dot(camDelta, camDelta);
-					float fadeT = saturate((playerDistSq - fadeStartSq) / max(maxRadiusSq - fadeStartSq, 1e-4));
+					// FIX: Origin-based fade to prevent per-pixel clipping on large meshes
+					float3 objectOrigin = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
+					float3 camDelta = _WorldSpaceCameraPos - objectOrigin; 
+					float distSq = dot(camDelta, camDelta);
+					float fadeT = saturate((distSq - fadeStartSq) / max(maxRadiusSq - fadeStartSq, 1e-4));
 					float radiusFade = 1.0 - (fadeT * fadeT * (3.0 - 2.0 * fadeT));
-					// --- SORTIE PRÉCOCE ---
+					// --- EARLY EXIT ---
 					if (lmMask * Smoothness * radiusFade < 0.001 || _UdonSpecularLightCount == 0) return 0;
-					// --- MATHS SPÉCULAIRES ---
 					float shininess = exp2(10.0 * Smoothness + 1.0);
-					float normalization = (shininess + 8.0) * PI_INV_8; 
+					float normalization = (shininess + 8.0) * PI_INV_8;
 					float3 specAccum = 0;
-					// --- BOUCLE DE LUMIÈRES ---
+					// --- LIGHT LOOP ---
 					for (int i = 0; i < (int)_UdonSpecularLightCount; i++) {
 					    float4 posRange = _UdonSpecularLightPos[i];
 					    float3 L_center = posRange.xyz - WorldPos;
@@ -483,7 +482,7 @@ Shader "Meenphie/Standard/Opaque"
 					    } else {
 					        float denom = dot(dirAngle.xyz, R);
 					        float tPlane = dot(L_center, dirAngle.xyz) / (abs(denom) < 1e-3 ? 1e-3 : denom);
-					        if (tPlane <= 0.0) continue; 
+					        if (tPlane <= 0.0) continue;
 					        float3 pReflection = WorldPos + R * tPlane;
 					        float3 localP = pReflection - posRange.xyz;
 					        float2 halfSize = float2(_UdonSpecularLightRight[i].w, _UdonSpecularLightUp[i].w);
@@ -492,20 +491,17 @@ Shader "Meenphie/Standard/Opaque"
 					            -halfSize, halfSize);
 					        diff = (posRange.xyz + _UdonSpecularLightRight[i].xyz * clampedPos.x + _UdonSpecularLightUp[i].xyz * clampedPos.y) - WorldPos;
 					    }
-					    float distSq = dot(diff, diff);
-					    float3 lDir = diff * rsqrt(distSq + 1e-5);
+					    float dSq = dot(diff, diff);
+					    float3 lDir = diff * rsqrt(dSq + 1e-5);
 					    float3 H = normalize(lDir + vDir);
-					    // Fresnel Schlick - Punchy Version
+					    // Fresnel Schlick
 					    float f_inv = 1.0 - saturate(dot(H, vDir));
-					    float f2 = f_inv * f_inv;
-					    float f5 = f2 * f2 * f_inv;
-					    float3 fresnel = F0 + (1.0 - F0) * f5;
-					    // Specular
+					    float3 fresnel = F0 + (1.0 - F0) * (f_inv * f_inv * f_inv * f_inv * f_inv);
 					    float nDotH = saturate(dot(N, H));
 					    float nDotL = saturate(dot(N, lDir));
 					    float spec = exp2(shininess * nDotH - shininess) * normalization;
 					    float falloff = saturate(1.0 - distSqCenter / rangeSq);
-					    falloff = (falloff * falloff) / (distSq + 1.0);
+					    falloff = (falloff * falloff) / (dSq + 1.0);
 					    specAccum += _UdonSpecularLightCol[i].rgb * (spec * fresnel * nDotL * _UdonSpecularLightCol[i].w * falloff * spotMask);
 					}
 					return specAccum * specBoost * radiusFade * lmMask;
@@ -1296,8 +1292,8 @@ Shader "Meenphie/Standard/Opaque"
 					#endif
 					float3 temp_output_2531_0_g67705 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g67705 * _EmissionIntensity )).rgb;
 					float3 Emission86_g67705 = temp_output_2531_0_g67705;
-					float3 Color1_g67757 = oAlbedo6_g67705;
-					float Metallic1_g67757 = Metallic1239_g67705;
+					float3 Color1_g67756 = oAlbedo6_g67705;
+					float Metallic1_g67756 = Metallic1239_g67705;
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g67705 = tex2D( _GlossinessMap, UV0A2420_g67705 ).r;
 					#else
@@ -1395,9 +1391,9 @@ Shader "Meenphie/Standard/Opaque"
 					float staticSwitch15_g67755 = temp_output_19_0_g67755;
 					#endif
 					float Smoothness1399_g67705 = staticSwitch15_g67755;
-					float Smoothness1_g67757 = Smoothness1399_g67705;
+					float Smoothness1_g67756 = Smoothness1399_g67705;
 					float IOR2700_g67705 = _IOR;
-					float IOR1_g67757 = IOR2700_g67705;
+					float IOR1_g67756 = IOR2700_g67705;
 					float3 temp_cast_4 = (0.04).xxx;
 					float3 lerpResult1473_g67705 = lerp( temp_cast_4 , oAlbedo6_g67705 , Metallic1239_g67705);
 					float3 switchResult1501_g67705 = (((ase_vface>0)?(World_Normal2508_g67705):(-World_Normal2508_g67705)));
@@ -1405,13 +1401,13 @@ Shader "Meenphie/Standard/Opaque"
 					float dotResult1476_g67705 = dot( switchResult1501_g67705 , View_Direction2511_g67705 );
 					float3 lerpResult1480_g67705 = lerp( lerpResult1473_g67705 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g67705 ) ) , 5.0 ));
 					float3 Fresnel1560_g67705 = lerpResult1480_g67705;
-					float3 Fresnel1_g67757 = Fresnel1560_g67705;
+					float3 Fresnel1_g67756 = Fresnel1560_g67705;
 					float3 World_Position2505_g67705 = PositionWS;
-					float3 WorldPos1_g67757 = World_Position2505_g67705;
-					float3 WorldNormal1_g67757 = World_Normal2508_g67705;
-					float3 ViewDir1_g67757 = View_Direction2511_g67705;
-					float3 localIndirectSpecular1_g67757 = IndirectSpecular1_g67757( Color1_g67757 , Metallic1_g67757 , Smoothness1_g67757 , IOR1_g67757 , Fresnel1_g67757 , WorldPos1_g67757 , WorldNormal1_g67757 , ViewDir1_g67757 );
-					float3 temp_output_2768_0_g67705 = localIndirectSpecular1_g67757;
+					float3 WorldPos1_g67756 = World_Position2505_g67705;
+					float3 WorldNormal1_g67756 = World_Normal2508_g67705;
+					float3 ViewDir1_g67756 = View_Direction2511_g67705;
+					float3 localIndirectSpecular1_g67756 = IndirectSpecular1_g67756( Color1_g67756 , Metallic1_g67756 , Smoothness1_g67756 , IOR1_g67756 , Fresnel1_g67756 , WorldPos1_g67756 , WorldNormal1_g67756 , ViewDir1_g67756 );
+					float3 temp_output_2768_0_g67705 = localIndirectSpecular1_g67756;
 					float grayscale2713_g67705 = Luminance( Lightmap46_g67705 );
 					float smoothstepResult2430_g67705 = smoothstep( 0.0 , 0.05 , grayscale2713_g67705);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
@@ -1420,17 +1416,17 @@ Shader "Meenphie/Standard/Opaque"
 					float3 staticSwitch1469_g67705 = temp_output_2768_0_g67705;
 					#endif
 					float3 Reflections1419_g67705 = staticSwitch1469_g67705;
-					float3 Color97_g67756 = oAlbedo6_g67705;
-					float3 LightmapColor97_g67756 = Lightmap46_g67705;
-					float Metallic97_g67756 = Metallic1239_g67705;
-					float Smoothness97_g67756 = Smoothness1399_g67705;
-					float IOR97_g67756 = IOR2700_g67705;
-					float3 Fresnel97_g67756 = Fresnel1560_g67705;
-					float3 WorldPos97_g67756 = World_Position2505_g67705;
-					float3 WorldNormal97_g67756 = World_Normal2508_g67705;
-					float3 ViewDir97_g67756 = View_Direction2511_g67705;
-					float3 localDirectSpecular97_g67756 = DirectSpecular( Color97_g67756 , LightmapColor97_g67756 , Metallic97_g67756 , Smoothness97_g67756 , IOR97_g67756 , Fresnel97_g67756 , WorldPos97_g67756 , WorldNormal97_g67756 , ViewDir97_g67756 );
-					float3 Speculars2560_g67705 = localDirectSpecular97_g67756;
+					float3 Color97_g67757 = oAlbedo6_g67705;
+					float3 LightmapColor97_g67757 = Lightmap46_g67705;
+					float Metallic97_g67757 = Metallic1239_g67705;
+					float Smoothness97_g67757 = Smoothness1399_g67705;
+					float IOR97_g67757 = IOR2700_g67705;
+					float3 Fresnel97_g67757 = Fresnel1560_g67705;
+					float3 WorldPos97_g67757 = World_Position2505_g67705;
+					float3 WorldNormal97_g67757 = World_Normal2508_g67705;
+					float3 ViewDir97_g67757 = View_Direction2511_g67705;
+					float3 localDirectSpecular97_g67757 = DirectSpecular( Color97_g67757 , LightmapColor97_g67757 , Metallic97_g67757 , Smoothness97_g67757 , IOR97_g67757 , Fresnel97_g67757 , WorldPos97_g67757 , WorldNormal97_g67757 , ViewDir97_g67757 );
+					float3 Speculars2560_g67705 = localDirectSpecular97_g67757;
 					#ifdef _LIGHTMAPDEBUG
 					float3 staticSwitch1181_g67705 = Lightmap46_g67705;
 					#else
@@ -2194,4 +2190,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;5739;625
 WireConnection;5280;2;5739;624
 ASEEND*/
-//CHKSM=E0FA2EC1266827AB641C5A0FB79BC1F8BB0AE0F1
+//CHKSM=BD1A88F5F3DD83CB9A77F83FE6A0D8808A6DFEFB
