@@ -38,9 +38,9 @@ public class SpecularLightManager : UdonSharpBehaviour
     private int _lastFinalCount = -1;
 
 #if UNITY_ANDROID
-    private const float MAX_RADIUS = 10f;
+    private const float MAX_RADIUS = 8f;
 #else
-    private const float MAX_RADIUS = 20f;
+    private const float MAX_RADIUS = 16f;
 #endif
 
     private float _maxRadiusSq;
