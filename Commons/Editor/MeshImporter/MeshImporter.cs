@@ -3,6 +3,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using System.Linq;
 
 public class MeshImporter : AssetPostprocessor
 {
@@ -179,34 +180,22 @@ public class MeshImporter : AssetPostprocessor
 
     private void ApplyPacking(Mesh mesh)
     {
-        List<Vector2> uv0 = new List<Vector2>();
-        List<Vector2> uv1 = new List<Vector2>();
+        var uv0 = new List<Vector2>();
+        var uv1 = new List<Vector2>();
 
         mesh.GetUVs(0, uv0);
         mesh.GetUVs(1, uv1);
 
-        // Si on n'a pas d'UV0, on ne peut rien faire
         if (uv0.Count == 0) return;
 
-        // Si l'UV1 est absent (pas de lightmap faite), 
-        // on remplit avec des Vector2.zero pour ne pas faire crash le Vector4
+        // Ensure uv1 matches uv0 length
         if (uv1.Count != uv0.Count)
-        {
             uv1 = new List<Vector2>(new Vector2[uv0.Count]);
-        }
 
-        // On crée le packing dans l'UV0
-        List<Vector4> packed = new List<Vector4>(uv0.Count);
-        for (int i = 0; i < uv0.Count; i++)
-        {
-            packed.Add(new Vector4(uv0[i].x, uv0[i].y, uv1[i].x, uv1[i].y));
-        }
+        // Pack uv0 (xy) and uv1 (zw) into a single Vector4 channel
+        var packed = uv0.Zip(uv1, (a, b) => new Vector4(a.x, a.y, b.x, b.y)).ToList();
 
-        // On injecte le pack dans l'UV0
         mesh.SetUVs(0, packed);
-
-        // IMPORTANT : On ré-injecte l'UV1 à sa place d'origine (canal 1)
-        // Cela garantit que le Lightmapper d'Unity voit toujours les coordonnées
         mesh.SetUVs(1, uv1);
     }
 }
