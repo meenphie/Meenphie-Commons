@@ -1,4 +1,4 @@
-// Made with Amplify Shader Editor v1.9.9.7
+// Made with Amplify Shader Editor v1.9.9.9
 // Available at the Unity Asset Store - http://u3d.as/y3X 
 Shader "Meenphie/Standard/Transparent/Additive"
 {
@@ -230,7 +230,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				#define ASE_LIGHTING_SIMPLE 1
 				#define _GLOSSYREFLECTIONS_OFF
 				#define ASE_NO_AMBIENT 1
-				#define ASE_VERSION 19907
+				#define ASE_VERSION 19909
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -384,7 +384,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				uniform float _IOR;
 
 
-				float3 IndirectSpecular1_g60907( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
+				float3 IndirectSpecular1_g60906( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
 					// --- 0. PARAMETERS ---
 					float maxMip = 6.0;
@@ -427,18 +427,19 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					return indirectSpec * F;
 				}
 				
-				float3 DirectSpecular( float3 Color, float3 LightmapColor, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
+				float3 DirectSpecular( float3 Color, float3 LightmapColor, float Metallic, float Smoothness, float SmoothnessAA, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
 					// --- CONFIGURATION ---
 					static const float lumaStart     = 0.05;
 					static const float lumaEnd       = 1.0;
 					static const float specBoost     = 0.02;
 					static const float specClamp     = 10.0;
-					static const float roughnessBias = 0.0;
+					static const float metalBrightness = 10.0;
+					static const float metalPeakMax = 2.0;
 					#if defined(SHADER_API_MOBILE)
-					static const float maxVisibleDist = 8.0;
+					    static const float maxVisibleDist = 8.0;
 					#else
-					static const float maxVisibleDist = 16.0;
+					    static const float maxVisibleDist = 16.0;
 					#endif
 					static const float invMaxVisibleDist = 1.0 / maxVisibleDist;
 					// --- INIT ---
@@ -449,20 +450,33 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float luma   = dot(LightmapColor, float3(0.2126, 0.7152, 0.0722));
 					float lmMask = saturate((luma - lumaStart) / max(lumaEnd - lumaStart, 1e-4));
 					if (lmMask * Smoothness < 0.0001 || _UdonSpecularLightCount < 0.5) return 0.0;
-					// --- ROUGHNESS ---
-					float roughness = 1.0 - Smoothness;
-					float alpha     = roughness * roughness;
-					float alpha2    = max(alpha * alpha, 0.0001);
-					// AA energy compensation for metals only
-					// At distance AA lowers Smoothness — we restore that lost energy for metals
-					float aaLoss          = 1.0 - Smoothness;
-					float metalEnergyComp = 1.0 + aaLoss * Metallic;
+					// --- ROUGHNESS & AA LOGIC ---
+					// 1. Original artist intent
+					float roughnessOrig = 1.0 - Smoothness;
+					float alphaOrig     = roughnessOrig * roughnessOrig;
+					float alpha2Orig    = max(alphaOrig * alphaOrig, 0.0001);
+					// 2. Geometric AA roughness (prevents flickering, used for lobe shape)
+					float roughnessAA = 1.0 - SmoothnessAA;
+					float alphaAA     = roughnessAA * roughnessAA;
+					float alpha2AA    = max(alphaAA * alphaAA, 0.0001);
+					// 3. Metal brightness control
+					// Raw ratio grows unboundedly at distance as AA crushes smoothness harder.
+					// sqrt() compresses the curve so distant surfaces don't over-brighten,
+					// then clamp to metalPeakMax as a hard safety ceiling.
+					float peakRatio          = min(sqrt(alpha2AA / alpha2Orig), metalPeakMax);
+					float metalPeakBoost     = lerp(0.0, peakRatio, metalBrightness);
+					float energyCompensation = lerp(1.0, metalPeakBoost, Metallic);
+					// 4. Perceptual falloff (dielectrics only)
+					// Metals bypass this — their intensity is owned by energyCompensation above
+					float logCurve  = 1.0 - sqrt(roughnessOrig);
+					float finalFade = lerp(logCurve, 1.0, Metallic);
+					// --- SPECULAR LOOP ---
 					float  nDotV     = max(dot(N, vDir), 1e-4);
 					float3 specAccum = 0;
-					int loopCount = (int)_UdonSpecularLightCount;
+					int    loopCount = (int)_UdonSpecularLightCount;
 					for (int i = 0; i < loopCount; i++) {
 					    float4 posRange = _UdonSpecularLightPos[i];
-					    // 1. Linear camera distance fade [0..maxVisibleDist]
+					    // Distance fade
 					    float camDist      = distance(_WorldSpaceCameraPos, posRange.xyz);
 					    float distanceFade = saturate(1.0 - (camDist * invMaxVisibleDist));
 					    if (distanceFade <= 0.0) continue;
@@ -470,7 +484,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					    float  distSq   = dot(L_vector, L_vector);
 					    float4 dirAngle = _UdonSpecularLightDir[i];
 					    float3 L_norm   = L_vector * rsqrt(max(distSq, 1e-6));
-					    // 2. Spot mask
+					    // Spot mask
 					    float spotMask = saturate((dot(-L_norm, dirAngle.xyz) - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
 					    if (spotMask <= 0.0) continue;
 					    float3 diff     = 0;
@@ -481,21 +495,21 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					        diff = L_vector;
 					    }
 					    else {
-					        // 3. MRP for area lights
+					        // MRP area light
 					        float denom  = dot(dirAngle.xyz, R);
 					        float tPlane = dot(L_vector, dirAngle.xyz) / (abs(denom) < 1e-4 ? 1e-4 : denom);
 					        if (tPlane <= 0.0) continue;
 					        float3 pReflection = WorldPos + R * tPlane;
 					        float3 lp          = pReflection - posRange.xyz;
 					        float2 localP      = float2(dot(lp, _UdonSpecularLightRight[i].xyz),
-					            dot(lp, _UdonSpecularLightUp[i].xyz));
+					        dot(lp, _UdonSpecularLightUp[i].xyz));
 					        float2 clampedPos  = clamp(localP, -halfSize, halfSize);
 					        diff = posRange.xyz
 					        + _UdonSpecularLightRight[i].xyz * clampedPos.x
 					        + _UdonSpecularLightUp[i].xyz    * clampedPos.y
 					        - WorldPos;
-					        // 4. Rectangle mask
-					        float  softness   = max(0.1, roughness * 2.0);
+					        // Rectangle mask — softness follows AA roughness
+					        float  softness   = max(0.1, roughnessAA * 2.0);
 					        float2 distToEdge = abs(localP) - halfSize;
 					        rectMask = smoothstep(softness, 0.0, length(max(distToEdge, 0.0)));
 					    }
@@ -505,34 +519,30 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					    float3 H       = normalize(lDir + vDir);
 					    float nDotH = saturate(dot(N, H));
 					    float nDotL = saturate(dot(N, lDir));
-					    // 5. GGX NDF
-					    float d_denom = nDotH * nDotH * (alpha2 - 1.0) + 1.0;
-					    float D       = alpha2 / (3.14159265 * d_denom * d_denom + 1e-7);
-					    // 6. Smith visibility
-					    float k  = alpha * 0.5;
+					    // GGX NDF — AA lobe shape for everyone
+					    float d_denom = nDotH * nDotH * (alpha2AA - 1.0) + 1.0;
+					    float D       = alpha2AA / (3.14159 * d_denom * d_denom + 1e-7);
+					    // Smith visibility — consistent with AA alpha
+					    float k  = alphaAA * 0.5;
 					    float Gv = nDotV / (nDotV * (1.0 - k) + k);
 					    float Gl = nDotL / (nDotL * (1.0 - k) + k);
 					    float G  = Gv * Gl;
-					    // 7. Cook-Torrance, no Fresnel — handled externally
+					    // Cook-Torrance, no Fresnel — handled externally
 					    float3 spec = (D * G) / max(4.0 * nDotV * nDotL, 0.001);
-					    // 8. Accumulate
-					    float3 finalResult = _UdonSpecularLightCol[i].rgb
+					    // Accumulate — max(0) guards against negatives
+					    specAccum += max(0.0, _UdonSpecularLightCol[i].rgb
 					    * _UdonSpecularLightCol[i].w
 					    * spec
 					    * nDotL
 					    * spotMask
 					    * distanceFade
-					    * rectMask;
-					    specAccum += max(0.0, finalResult);
+					    * rectMask);
 					}
-					// --- PERCEPTUAL ROUGHNESS ATTENUATION (log-like curve, no log/pow) ---
-					float logCurve      = 1.0 - sqrt(roughness);                        // log-like, smooth=1 rough=0
-					float perceptualFade = lerp(logCurve, logCurve * logCurve, roughnessBias); // bias sharpens the curve
-					perceptualFade = lerp(perceptualFade, 1.0, Metallic);          // metals bypass
 					// --- FINAL ---
-					float3 result     = specAccum * lmMask * specBoost * perceptualFade * metalEnergyComp;
-					float  resultLuma = dot(result, float3(0.2126, 0.7152, 0.0722));
-					result            = result * min(1.0, specClamp / max(resultLuma, 1e-4));
+					float3 colorTint = lerp(1.0, Color.rgb, Metallic);
+					float3 result = specAccum * colorTint * lmMask * specBoost * finalFade * energyCompensation;
+					float resLuma = dot(result, float3(0.2126, 0.7152, 0.0722));
+					result *= min(1.0, specClamp / max(resLuma, 1e-4));
 					return result;
 				}
 				
@@ -1321,8 +1331,8 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#endif
 					float3 temp_output_2531_0_g60856 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g60856 * _EmissionIntensity )).rgb;
 					float3 Emission86_g60856 = temp_output_2531_0_g60856;
-					float3 Color1_g60907 = oAlbedo6_g60856;
-					float Metallic1_g60907 = Metallic1239_g60856;
+					float3 Color1_g60906 = oAlbedo6_g60856;
+					float Metallic1_g60906 = Metallic1239_g60856;
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g60856 = tex2D( _GlossinessMap, UV0A2420_g60856 ).r;
 					#else
@@ -1401,28 +1411,28 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#else
 					float staticSwitch1004_g60856 = ( 1.0 - staticSwitch845_g60856 );
 					#endif
-					float temp_output_19_0_g60906 = staticSwitch1004_g60856;
+					float temp_output_19_0_g60907 = staticSwitch1004_g60856;
 					float3 tanToWorld0 = float3( TangentWS.x, BitangentWS.x, NormalWS.x );
 					float3 tanToWorld1 = float3( TangentWS.y, BitangentWS.y, NormalWS.y );
 					float3 tanToWorld2 = float3( TangentWS.z, BitangentWS.z, NormalWS.z );
 					float3 tanNormal2504_g60856 = Normal_Map700_g60856;
 					float3 worldNormal2504_g60856 = normalize( float3( dot( tanToWorld0, tanNormal2504_g60856 ), dot( tanToWorld1, tanNormal2504_g60856 ), dot( tanToWorld2, tanNormal2504_g60856 ) ) );
 					float3 World_Normal2508_g60856 = worldNormal2504_g60856;
-					float3 tanNormal2_g60906 = World_Normal2508_g60856;
-					float3 worldNormal2_g60906 = float3( dot( tanToWorld0, tanNormal2_g60906 ), dot( tanToWorld1, tanNormal2_g60906 ), dot( tanToWorld2, tanNormal2_g60906 ) );
-					float3 temp_output_3_0_g60906 = ddx( worldNormal2_g60906 );
-					float dotResult5_g60906 = dot( temp_output_3_0_g60906 , temp_output_3_0_g60906 );
-					float3 temp_output_4_0_g60906 = ddy( worldNormal2_g60906 );
-					float dotResult6_g60906 = dot( temp_output_4_0_g60906 , temp_output_4_0_g60906 );
+					float3 tanNormal2_g60907 = World_Normal2508_g60856;
+					float3 worldNormal2_g60907 = float3( dot( tanToWorld0, tanNormal2_g60907 ), dot( tanToWorld1, tanNormal2_g60907 ), dot( tanToWorld2, tanNormal2_g60907 ) );
+					float3 temp_output_3_0_g60907 = ddx( worldNormal2_g60907 );
+					float dotResult5_g60907 = dot( temp_output_3_0_g60907 , temp_output_3_0_g60907 );
+					float3 temp_output_4_0_g60907 = ddy( worldNormal2_g60907 );
+					float dotResult6_g60907 = dot( temp_output_4_0_g60907 , temp_output_4_0_g60907 );
 					#ifdef _USEGEOMETRICAA_ON
-					float staticSwitch15_g60906 = min( temp_output_19_0_g60906, ( 1.0 - pow( saturate( max( dotResult5_g60906, dotResult6_g60906 ) ) , 0.25 ) ) );
+					float staticSwitch15_g60907 = min( temp_output_19_0_g60907, ( 1.0 - pow( saturate( max( dotResult5_g60907, dotResult6_g60907 ) ) , 0.25 ) ) );
 					#else
-					float staticSwitch15_g60906 = temp_output_19_0_g60906;
+					float staticSwitch15_g60907 = temp_output_19_0_g60907;
 					#endif
-					float Smoothness1399_g60856 = staticSwitch15_g60906;
-					float Smoothness1_g60907 = Smoothness1399_g60856;
+					float SmoothnessAA1399_g60856 = staticSwitch15_g60907;
+					float Smoothness1_g60906 = SmoothnessAA1399_g60856;
 					float IOR2700_g60856 = _IOR;
-					float IOR1_g60907 = IOR2700_g60856;
+					float IOR1_g60906 = IOR2700_g60856;
 					float3 temp_cast_4 = (0.04).xxx;
 					float3 lerpResult1473_g60856 = lerp( temp_cast_4 , oAlbedo6_g60856 , Metallic1239_g60856);
 					float3 switchResult1501_g60856 = (((ase_vface>0)?(World_Normal2508_g60856):(-World_Normal2508_g60856)));
@@ -1430,13 +1440,13 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float dotResult1476_g60856 = dot( switchResult1501_g60856 , View_Direction2511_g60856 );
 					float3 lerpResult1480_g60856 = lerp( lerpResult1473_g60856 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g60856 ) ) , 5.0 ));
 					float3 Fresnel1560_g60856 = lerpResult1480_g60856;
-					float3 Fresnel1_g60907 = Fresnel1560_g60856;
+					float3 Fresnel1_g60906 = Fresnel1560_g60856;
 					float3 World_Position2505_g60856 = PositionWS;
-					float3 WorldPos1_g60907 = World_Position2505_g60856;
-					float3 WorldNormal1_g60907 = World_Normal2508_g60856;
-					float3 ViewDir1_g60907 = View_Direction2511_g60856;
-					float3 localIndirectSpecular1_g60907 = IndirectSpecular1_g60907( Color1_g60907 , Metallic1_g60907 , Smoothness1_g60907 , IOR1_g60907 , Fresnel1_g60907 , WorldPos1_g60907 , WorldNormal1_g60907 , ViewDir1_g60907 );
-					float3 temp_output_2805_0_g60856 = localIndirectSpecular1_g60907;
+					float3 WorldPos1_g60906 = World_Position2505_g60856;
+					float3 WorldNormal1_g60906 = World_Normal2508_g60856;
+					float3 ViewDir1_g60906 = View_Direction2511_g60856;
+					float3 localIndirectSpecular1_g60906 = IndirectSpecular1_g60906( Color1_g60906 , Metallic1_g60906 , Smoothness1_g60906 , IOR1_g60906 , Fresnel1_g60906 , WorldPos1_g60906 , WorldNormal1_g60906 , ViewDir1_g60906 );
+					float3 temp_output_2805_0_g60856 = localIndirectSpecular1_g60906;
 					float grayscale2713_g60856 = Luminance( Lightmap46_g60856 );
 					float smoothstepResult2430_g60856 = smoothstep( 0.0 , 0.05 , grayscale2713_g60856);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
@@ -1448,13 +1458,15 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float3 Color97_g60908 = oAlbedo6_g60856;
 					float3 LightmapColor97_g60908 = Lightmap46_g60856;
 					float Metallic97_g60908 = Metallic1239_g60856;
-					float Smoothness97_g60908 = Smoothness1399_g60856;
+					float Smoothness2838_g60856 = staticSwitch1004_g60856;
+					float Smoothness97_g60908 = Smoothness2838_g60856;
+					float SmoothnessAA97_g60908 = SmoothnessAA1399_g60856;
 					float IOR97_g60908 = IOR2700_g60856;
 					float3 Fresnel97_g60908 = Fresnel1560_g60856;
 					float3 WorldPos97_g60908 = World_Position2505_g60856;
 					float3 WorldNormal97_g60908 = World_Normal2508_g60856;
 					float3 ViewDir97_g60908 = View_Direction2511_g60856;
-					float3 localDirectSpecular97_g60908 = DirectSpecular( Color97_g60908 , LightmapColor97_g60908 , Metallic97_g60908 , Smoothness97_g60908 , IOR97_g60908 , Fresnel97_g60908 , WorldPos97_g60908 , WorldNormal97_g60908 , ViewDir97_g60908 );
+					float3 localDirectSpecular97_g60908 = DirectSpecular( Color97_g60908 , LightmapColor97_g60908 , Metallic97_g60908 , Smoothness97_g60908 , SmoothnessAA97_g60908 , IOR97_g60908 , Fresnel97_g60908 , WorldPos97_g60908 , WorldNormal97_g60908 , ViewDir97_g60908 );
 					float3 Speculars2560_g60856 = localDirectSpecular97_g60908;
 					#ifdef _LIGHTMAPDEBUG
 					float3 staticSwitch1181_g60856 = Lightmap46_g60856;
@@ -1543,7 +1555,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					half3 Translucency = 1;
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						float DeviceDepth = IN.pos.z;
+						IN.pos.z = IN.pos.z;
 					#endif
 
 					#ifdef _ALPHATEST_ON
@@ -1570,7 +1582,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#endif
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						outputDepth = DeviceDepth;
+						outputDepth = IN.pos.z;
 					#endif
 
 					#ifndef USING_DIRECTIONAL_LIGHT
@@ -1718,7 +1730,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				#define ASE_LIGHTING_SIMPLE 1
 				#define _GLOSSYREFLECTIONS_OFF
 				#define ASE_NO_AMBIENT 1
-				#define ASE_VERSION 19907
+				#define ASE_VERSION 19909
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -1956,7 +1968,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					half AlphaClipThresholdShadow = 0.5;
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						float DeviceDepth = IN.pos.z;
+						IN.pos.z = IN.pos.z;
 					#endif
 
 					#ifdef _ALPHATEST_SHADOW_ON
@@ -1978,7 +1990,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#endif
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						outputDepth = DeviceDepth;
+						outputDepth = IN.pos.z;
 					#endif
 
 					SHADOW_CASTER_FRAGMENT(IN)
@@ -2006,7 +2018,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				#define ASE_LIGHTING_SIMPLE 1
 				#define _GLOSSYREFLECTIONS_OFF
 				#define ASE_NO_AMBIENT 1
-				#define ASE_VERSION 19907
+				#define ASE_VERSION 19909
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -2223,7 +2235,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					half AlphaClipThreshold = 0.5;
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						float DeviceDepth = IN.pos.z;
+						IN.pos.z = IN.pos.z;
 					#endif
 
 					#ifdef _ALPHATEST_ON
@@ -2231,7 +2243,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#endif
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						outputDepth = DeviceDepth;
+						outputDepth = IN.pos.z;
 					#endif
 
 					return float4( _ObjectId, _PassValue, 1.0, 1.0 );
@@ -2244,7 +2256,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 		{
 			
 			Name "ScenePickingPass"
-			Tags { "LightMode"="ScenePickingPass" }
+			Tags { "LightMode"="Picking" }
 
 			ZWrite On
 
@@ -2259,7 +2271,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				#define ASE_LIGHTING_SIMPLE 1
 				#define _GLOSSYREFLECTIONS_OFF
 				#define ASE_NO_AMBIENT 1
-				#define ASE_VERSION 19907
+				#define ASE_VERSION 19909
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -2475,7 +2487,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					half AlphaClipThreshold = 0.5;
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						float DeviceDepth = IN.pos.z;
+						IN.pos.z = IN.pos.z;
 					#endif
 
 					#ifdef _ALPHATEST_ON
@@ -2483,7 +2495,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#endif
 
 					#if defined( ASE_DEPTH_WRITE_ON )
-						outputDepth = DeviceDepth;
+						outputDepth = IN.pos.z;
 					#endif
 
 					return _SelectionID;
@@ -2497,7 +2509,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 	Fallback Off
 }
 /*ASEBEGIN
-Version=19907
+Version=19909
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3270;192,-1152;Inherit;False;Meenphie;0;;60856;b3ba55a08dd6b49c7be16c6f35cf2033;6,1008,0,2632,0,2635,0,2636,0,2670,0,2619,0;0;5;FLOAT3;625;FLOAT3;624;FLOAT;156;FLOAT;427;FLOAT;1024
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3152;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;True;False;False;True;False;False;False;False;False;False;False;True;1;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;False;True;1;LightMode=ForwardBase;False;False;0;False;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3154;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;True;False;False;True;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;1;LightMode=ForwardAdd;False;False;0;False;0;0;Standard;0;False;0
@@ -2505,9 +2517,9 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3156;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Meta;0;4;Meta;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;True;False;False;True;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;False;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3157;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ShadowCaster;0;5;ShadowCaster;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;True;False;False;True;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;True;1;False;;True;3;False;;False;False;True;1;LightMode=ShadowCaster;False;False;0;False;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3158;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;SceneSelectionPass;0;6;SceneSelectionPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;True;False;False;True;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=SceneSelectionPass;False;False;0;False;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3159;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ScenePickingPass;0;7;ScenePickingPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;True;False;False;True;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=ScenePickingPass;False;False;0;False;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3153;512,-1152;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;6;Meenphie/Standard/Transparent/Additive;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;True;True;0;1;False;;1;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;2;False;;True;3;False;;False;False;True;3;RenderType=Transparent=RenderType;Queue=Transparent=Queue=2;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;True;False;False;True;False;False;False;False;False;False;True;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;3;639057697649873840;Surface;1;639116848959649190;  Blend;2;639116848980030270;  Dither Shadows;0;639116848994245360;Two Sided;0;639057698775949650;Alpha Clipping;0;0;  Use Shadow Threshold;0;0;Deferred Pass;0;639057697867054150;Normal Space;0;0;Transmission;0;0;  Transmission Shadow;0.5,False,;0;Translucency;0;0;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;0;Receive Shadows;1;0;Receive Specular;0;639048816484624920;Receive Reflections;0;639116847657607100;GPU Instancing;1;0;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;0;639116847860649440;Meta Pass;0;639116847863196800;Add Pass;0;639048816879073320;Override Baked GI;0;0;Write Depth;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;False;True;False;False;False;True;True;True;False;;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3159;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ScenePickingPass;0;7;ScenePickingPass;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;True;False;False;True;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;False;True;1;LightMode=Picking;False;False;0;False;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3153;512,-1152;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;3;Meenphie/Standard/Transparent/Additive;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardBase;0;1;ForwardBase;17;True;True;0;1;False;;1;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;2;False;;True;3;False;;False;False;True;3;RenderType=Transparent=RenderType;Queue=Transparent=Queue=2;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;True;False;False;True;False;False;False;False;False;False;True;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=ForwardBase;False;False;0;;0;0;Standard;44;Category;0;0;  Instanced Terrain Normals;1;0;Workflow;3;639057697649873840;Surface;1;639116848959649190;  Blend;2;639116848980030270;  Dither Shadows;0;639116848994245360;Two Sided;0;639057698775949650;Alpha Clipping;0;0;  Use Shadow Threshold;0;0;Deferred Pass;0;639057697867054150;Normal Space;0;0;Transmission;0;0;  Transmission Shadow;0.5,False,;0;Translucency;0;0;  Translucency Strength;1,False,;0;  Normal Distortion;0.5,False,;0;  Scattering;2,False,;0;  Direct;0.9,False,;0;  Ambient;0.1,False,;0;  Shadow;0.5,False,;0;Cast Shadows;1;0;Receive Shadows;1;0;Receive Specular;0;639048816484624920;Receive Reflections;0;639116847657607100;GPU Instancing;1;0;LOD CrossFade;1;0;Built-in Fog;1;0;Ambient Light;0;639116847860649440;Meta Pass;0;639116847863196800;Add Pass;0;639048816879073320;Override Baked GI;0;0;Write Depth;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Disable Batching;0;0;Vertex Position;1;0;0;8;False;True;False;False;False;True;True;True;False;;False;0
 WireConnection;3153;0;3270;625
 WireConnection;3153;2;3270;624
 ASEEND*/
-//CHKSM=A83F7EE5B5B93C9052D53879E7E6A3E1A7E8EC21
+//CHKSM=1BF531581A96ECBEF34DFB9BA4F88EE9941DF0A3
