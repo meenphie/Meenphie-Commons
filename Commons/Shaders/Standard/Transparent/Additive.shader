@@ -39,18 +39,14 @@ Shader "Meenphie/Standard/Transparent/Additive"
 		[Toggle( _STOCHASTICENABLED_ON )] _StochasticEnabled( "Stochastic Enabled", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESTOCHASTIC( "CATEGORY SPACE STOCHASTIC", Float ) = 0
 		[Meenphie_DrawerCategory(COLOR GRADING,true,0,0)] _CATEGORYCOLORGRADING( "CATEGORY COLOR GRADING", Float ) = 0
-		[KeywordEnum( 2D,3D )] _LUTMode( "LUT Mode", Float ) = 1
-		_LUTSize( "LUT Size", Float ) = 32
-		[NoScaleOffset][SingleLineTexture] _2DLut( "2D Lut", 2D ) = "black" {}
 		[NoScaleOffset][SingleLineTexture] _3DLut( "3D Lut", 3D ) = "black" {}
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACECOLORGRADING( "CATEGORY SPACE COLOR GRADING", Float ) = 0
 		[Meenphie_DrawerCategory(SPECIAL EFFECTS,true,0,0)] _CATEGORYSPECIALEFFECTS( "CATEGORY SPECIAL EFFECTS", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESPECIALEFFECTS( "CATEGORY SPACE SPECIAL EFFECTS", Float ) = 0
+		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
 		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MainTex( "Assign keyword _MAINTEX", Float ) = 1.0
-		[HideInInspector] GenKey__2DLut( "Assign keyword _2DLUT", Float ) = 1.0
-		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
-		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
 
 
@@ -281,8 +277,6 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				#pragma shader_feature_local _USELIGHTMAPPEDREFLECTIONS_ON
 				#pragma shader_feature_local _USEGEOMETRICAA_ON
 				#pragma shader_feature_local _GLOSSINESSMAP
-				#pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
-				#pragma shader_feature_local _2DLUT
 				#pragma shader_feature_local _3DLUT
 
 
@@ -343,11 +337,9 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
-				uniform sampler2D _2DLut;
-				uniform float _LUTSize;
-				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform float _UdonSpecularLightCount;
+				uniform sampler3D _3DLut;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -384,7 +376,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				uniform float _IOR;
 
 
-				float3 IndirectSpecular1_g60907( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
+				float3 IndirectSpecular1_g60900( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
 				{
 					// --- 0. PARAMETERS ---
 					float maxMip = 6.0;
@@ -754,75 +746,75 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#else
 					float4 staticSwitch1549_g60856 = _Color;
 					#endif
-					float2 temp_output_5_0_g60882 = UV0A2420_g60856;
-					float2 UV633_g60882 = temp_output_5_0_g60882;
-					float2 UV100_g60883 = UV633_g60882;
-					float2 temp_output_51_0_g60883 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60883 * float2( 3.464,3.464 ) ) );
-					float2 break55_g60883 = frac( temp_output_51_0_g60883 );
-					float temp_output_56_0_g60883 = ( ( 1.0 - break55_g60883.x ) - break55_g60883.y );
-					float2 temp_output_52_0_g60883 = floor( temp_output_51_0_g60883 );
-					float2 temp_output_125_0_g60883 = ( temp_output_52_0_g60883 + float2( 1,1 ) );
-					float2 ifLocalVar87_g60883 = 0;
-					if( temp_output_56_0_g60883 > 0.0 )
-					ifLocalVar87_g60883 = temp_output_52_0_g60883;
-					else if( temp_output_56_0_g60883 == 0.0 )
-					ifLocalVar87_g60883 = temp_output_125_0_g60883;
-					else if( temp_output_56_0_g60883 < 0.0 )
-					ifLocalVar87_g60883 = temp_output_125_0_g60883;
-					float3 temp_output_7_0_g60884 = frac( ( (ifLocalVar87_g60883).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60884 = dot( temp_output_7_0_g60884 , ( (temp_output_7_0_g60884).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60884 = ( temp_output_7_0_g60884 + dotResult8_g60884 );
-					float2 temp_output_597_0_g60882 = ( UV100_g60883 + frac( ( ( (temp_output_12_0_g60884).xx + (temp_output_12_0_g60884).yz ) * (temp_output_12_0_g60884).zy ) ) );
-					float2 DDX631_g60882 = ddx( temp_output_5_0_g60882 );
-					float2 DDY632_g60882 = ddy( temp_output_5_0_g60882 );
-					float temp_output_65_0_g60883 = ( 0.0 - temp_output_56_0_g60883 );
-					float ifLocalVar59_g60883 = 0;
-					if( temp_output_56_0_g60883 <= 0.0 )
-					ifLocalVar59_g60883 = temp_output_65_0_g60883;
+					float2 temp_output_5_0_g60875 = UV0A2420_g60856;
+					float2 UV633_g60875 = temp_output_5_0_g60875;
+					float2 UV100_g60876 = UV633_g60875;
+					float2 temp_output_51_0_g60876 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60876 * float2( 3.464,3.464 ) ) );
+					float2 break55_g60876 = frac( temp_output_51_0_g60876 );
+					float temp_output_56_0_g60876 = ( ( 1.0 - break55_g60876.x ) - break55_g60876.y );
+					float2 temp_output_52_0_g60876 = floor( temp_output_51_0_g60876 );
+					float2 temp_output_125_0_g60876 = ( temp_output_52_0_g60876 + float2( 1,1 ) );
+					float2 ifLocalVar87_g60876 = 0;
+					if( temp_output_56_0_g60876 > 0.0 )
+					ifLocalVar87_g60876 = temp_output_52_0_g60876;
+					else if( temp_output_56_0_g60876 == 0.0 )
+					ifLocalVar87_g60876 = temp_output_125_0_g60876;
+					else if( temp_output_56_0_g60876 < 0.0 )
+					ifLocalVar87_g60876 = temp_output_125_0_g60876;
+					float3 temp_output_7_0_g60877 = frac( ( (ifLocalVar87_g60876).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60877 = dot( temp_output_7_0_g60877 , ( (temp_output_7_0_g60877).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60877 = ( temp_output_7_0_g60877 + dotResult8_g60877 );
+					float2 temp_output_597_0_g60875 = ( UV100_g60876 + frac( ( ( (temp_output_12_0_g60877).xx + (temp_output_12_0_g60877).yz ) * (temp_output_12_0_g60877).zy ) ) );
+					float2 DDX631_g60875 = ddx( temp_output_5_0_g60875 );
+					float2 DDY632_g60875 = ddy( temp_output_5_0_g60875 );
+					float temp_output_65_0_g60876 = ( 0.0 - temp_output_56_0_g60876 );
+					float ifLocalVar59_g60876 = 0;
+					if( temp_output_56_0_g60876 <= 0.0 )
+					ifLocalVar59_g60876 = temp_output_65_0_g60876;
 					else
-					ifLocalVar59_g60883 = temp_output_56_0_g60883;
-					float temp_output_597_30_g60882 = ifLocalVar59_g60883;
-					float2 temp_output_90_0_g60883 = ( temp_output_52_0_g60883 + float2( 0,1 ) );
-					float2 temp_output_123_0_g60883 = ( temp_output_52_0_g60883 + float2( 1,0 ) );
-					float2 ifLocalVar88_g60883 = 0;
-					if( temp_output_56_0_g60883 > 0.0 )
-					ifLocalVar88_g60883 = temp_output_90_0_g60883;
-					else if( temp_output_56_0_g60883 == 0.0 )
-					ifLocalVar88_g60883 = temp_output_123_0_g60883;
-					else if( temp_output_56_0_g60883 < 0.0 )
-					ifLocalVar88_g60883 = temp_output_123_0_g60883;
-					float3 temp_output_7_0_g60885 = frac( ( (ifLocalVar88_g60883).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60885 = dot( temp_output_7_0_g60885 , ( (temp_output_7_0_g60885).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60885 = ( temp_output_7_0_g60885 + dotResult8_g60885 );
-					float2 temp_output_597_26_g60882 = ( UV100_g60883 + frac( ( ( (temp_output_12_0_g60885).xx + (temp_output_12_0_g60885).yz ) * (temp_output_12_0_g60885).zy ) ) );
-					float temp_output_66_0_g60883 = ( 1.0 - break55_g60883.y );
-					float ifLocalVar60_g60883 = 0;
-					if( temp_output_56_0_g60883 <= 0.0 )
-					ifLocalVar60_g60883 = temp_output_66_0_g60883;
+					ifLocalVar59_g60876 = temp_output_56_0_g60876;
+					float temp_output_597_30_g60875 = ifLocalVar59_g60876;
+					float2 temp_output_90_0_g60876 = ( temp_output_52_0_g60876 + float2( 0,1 ) );
+					float2 temp_output_123_0_g60876 = ( temp_output_52_0_g60876 + float2( 1,0 ) );
+					float2 ifLocalVar88_g60876 = 0;
+					if( temp_output_56_0_g60876 > 0.0 )
+					ifLocalVar88_g60876 = temp_output_90_0_g60876;
+					else if( temp_output_56_0_g60876 == 0.0 )
+					ifLocalVar88_g60876 = temp_output_123_0_g60876;
+					else if( temp_output_56_0_g60876 < 0.0 )
+					ifLocalVar88_g60876 = temp_output_123_0_g60876;
+					float3 temp_output_7_0_g60878 = frac( ( (ifLocalVar88_g60876).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60878 = dot( temp_output_7_0_g60878 , ( (temp_output_7_0_g60878).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60878 = ( temp_output_7_0_g60878 + dotResult8_g60878 );
+					float2 temp_output_597_26_g60875 = ( UV100_g60876 + frac( ( ( (temp_output_12_0_g60878).xx + (temp_output_12_0_g60878).yz ) * (temp_output_12_0_g60878).zy ) ) );
+					float temp_output_66_0_g60876 = ( 1.0 - break55_g60876.y );
+					float ifLocalVar60_g60876 = 0;
+					if( temp_output_56_0_g60876 <= 0.0 )
+					ifLocalVar60_g60876 = temp_output_66_0_g60876;
 					else
-					ifLocalVar60_g60883 = break55_g60883.y;
-					float temp_output_597_28_g60882 = ifLocalVar60_g60883;
-					float2 ifLocalVar89_g60883 = 0;
-					if( temp_output_56_0_g60883 > 0.0 )
-					ifLocalVar89_g60883 = temp_output_123_0_g60883;
-					else if( temp_output_56_0_g60883 == 0.0 )
-					ifLocalVar89_g60883 = temp_output_90_0_g60883;
-					else if( temp_output_56_0_g60883 < 0.0 )
-					ifLocalVar89_g60883 = temp_output_90_0_g60883;
-					float3 temp_output_7_0_g60886 = frac( ( (ifLocalVar89_g60883).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60886 = dot( temp_output_7_0_g60886 , ( (temp_output_7_0_g60886).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60886 = ( temp_output_7_0_g60886 + dotResult8_g60886 );
-					float2 temp_output_597_27_g60882 = ( UV100_g60883 + frac( ( ( (temp_output_12_0_g60886).xx + (temp_output_12_0_g60886).yz ) * (temp_output_12_0_g60886).zy ) ) );
-					float temp_output_67_0_g60883 = ( 1.0 - break55_g60883.x );
-					float ifLocalVar61_g60883 = 0;
-					if( temp_output_56_0_g60883 <= 0.0 )
-					ifLocalVar61_g60883 = temp_output_67_0_g60883;
+					ifLocalVar60_g60876 = break55_g60876.y;
+					float temp_output_597_28_g60875 = ifLocalVar60_g60876;
+					float2 ifLocalVar89_g60876 = 0;
+					if( temp_output_56_0_g60876 > 0.0 )
+					ifLocalVar89_g60876 = temp_output_123_0_g60876;
+					else if( temp_output_56_0_g60876 == 0.0 )
+					ifLocalVar89_g60876 = temp_output_90_0_g60876;
+					else if( temp_output_56_0_g60876 < 0.0 )
+					ifLocalVar89_g60876 = temp_output_90_0_g60876;
+					float3 temp_output_7_0_g60879 = frac( ( (ifLocalVar89_g60876).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60879 = dot( temp_output_7_0_g60879 , ( (temp_output_7_0_g60879).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60879 = ( temp_output_7_0_g60879 + dotResult8_g60879 );
+					float2 temp_output_597_27_g60875 = ( UV100_g60876 + frac( ( ( (temp_output_12_0_g60879).xx + (temp_output_12_0_g60879).yz ) * (temp_output_12_0_g60879).zy ) ) );
+					float temp_output_67_0_g60876 = ( 1.0 - break55_g60876.x );
+					float ifLocalVar61_g60876 = 0;
+					if( temp_output_56_0_g60876 <= 0.0 )
+					ifLocalVar61_g60876 = temp_output_67_0_g60876;
 					else
-					ifLocalVar61_g60883 = break55_g60883.x;
-					float temp_output_597_29_g60882 = ifLocalVar61_g60883;
-					float4 Output_2D293_g60882 = ( ( tex2D( _Sampler82966_g60856, temp_output_597_0_g60882, DDX631_g60882, DDY632_g60882 ) * temp_output_597_30_g60882 ) + ( tex2D( _Sampler82966_g60856, temp_output_597_26_g60882, DDX631_g60882, DDY632_g60882 ) * temp_output_597_28_g60882 ) + ( tex2D( _Sampler82966_g60856, temp_output_597_27_g60882, DDX631_g60882, DDY632_g60882 ) * temp_output_597_29_g60882 ) );
+					ifLocalVar61_g60876 = break55_g60876.x;
+					float temp_output_597_29_g60875 = ifLocalVar61_g60876;
+					float4 Output_2D293_g60875 = ( ( tex2D( _Sampler82966_g60856, temp_output_597_0_g60875, DDX631_g60875, DDY632_g60875 ) * temp_output_597_30_g60875 ) + ( tex2D( _Sampler82966_g60856, temp_output_597_26_g60875, DDX631_g60875, DDY632_g60875 ) * temp_output_597_28_g60875 ) + ( tex2D( _Sampler82966_g60856, temp_output_597_27_g60875, DDX631_g60875, DDY632_g60875 ) * temp_output_597_29_g60875 ) );
 					#ifdef _STOCHASTICENABLED_ON
-					float4 staticSwitch1001_g60856 = Output_2D293_g60882;
+					float4 staticSwitch1001_g60856 = Output_2D293_g60875;
 					#else
 					float4 staticSwitch1001_g60856 = staticSwitch1549_g60856;
 					#endif
@@ -841,76 +833,76 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#else
 					float staticSwitch846_g60856 = _Metallic;
 					#endif
-					float2 temp_output_5_0_g60877 = UV0A2420_g60856;
-					float2 UV633_g60877 = temp_output_5_0_g60877;
-					float2 UV100_g60878 = UV633_g60877;
-					float2 temp_output_51_0_g60878 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60878 * float2( 3.464,3.464 ) ) );
-					float2 break55_g60878 = frac( temp_output_51_0_g60878 );
-					float temp_output_56_0_g60878 = ( ( 1.0 - break55_g60878.x ) - break55_g60878.y );
-					float2 temp_output_52_0_g60878 = floor( temp_output_51_0_g60878 );
-					float2 temp_output_125_0_g60878 = ( temp_output_52_0_g60878 + float2( 1,1 ) );
-					float2 ifLocalVar87_g60878 = 0;
-					if( temp_output_56_0_g60878 > 0.0 )
-					ifLocalVar87_g60878 = temp_output_52_0_g60878;
-					else if( temp_output_56_0_g60878 == 0.0 )
-					ifLocalVar87_g60878 = temp_output_125_0_g60878;
-					else if( temp_output_56_0_g60878 < 0.0 )
-					ifLocalVar87_g60878 = temp_output_125_0_g60878;
-					float3 temp_output_7_0_g60879 = frac( ( (ifLocalVar87_g60878).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60879 = dot( temp_output_7_0_g60879 , ( (temp_output_7_0_g60879).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60879 = ( temp_output_7_0_g60879 + dotResult8_g60879 );
-					float2 temp_output_597_0_g60877 = ( UV100_g60878 + frac( ( ( (temp_output_12_0_g60879).xx + (temp_output_12_0_g60879).yz ) * (temp_output_12_0_g60879).zy ) ) );
-					float2 DDX631_g60877 = ddx( temp_output_5_0_g60877 );
-					float2 DDY632_g60877 = ddy( temp_output_5_0_g60877 );
-					float temp_output_65_0_g60878 = ( 0.0 - temp_output_56_0_g60878 );
-					float ifLocalVar59_g60878 = 0;
-					if( temp_output_56_0_g60878 <= 0.0 )
-					ifLocalVar59_g60878 = temp_output_65_0_g60878;
+					float2 temp_output_5_0_g60902 = UV0A2420_g60856;
+					float2 UV633_g60902 = temp_output_5_0_g60902;
+					float2 UV100_g60903 = UV633_g60902;
+					float2 temp_output_51_0_g60903 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60903 * float2( 3.464,3.464 ) ) );
+					float2 break55_g60903 = frac( temp_output_51_0_g60903 );
+					float temp_output_56_0_g60903 = ( ( 1.0 - break55_g60903.x ) - break55_g60903.y );
+					float2 temp_output_52_0_g60903 = floor( temp_output_51_0_g60903 );
+					float2 temp_output_125_0_g60903 = ( temp_output_52_0_g60903 + float2( 1,1 ) );
+					float2 ifLocalVar87_g60903 = 0;
+					if( temp_output_56_0_g60903 > 0.0 )
+					ifLocalVar87_g60903 = temp_output_52_0_g60903;
+					else if( temp_output_56_0_g60903 == 0.0 )
+					ifLocalVar87_g60903 = temp_output_125_0_g60903;
+					else if( temp_output_56_0_g60903 < 0.0 )
+					ifLocalVar87_g60903 = temp_output_125_0_g60903;
+					float3 temp_output_7_0_g60904 = frac( ( (ifLocalVar87_g60903).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60904 = dot( temp_output_7_0_g60904 , ( (temp_output_7_0_g60904).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60904 = ( temp_output_7_0_g60904 + dotResult8_g60904 );
+					float2 temp_output_597_0_g60902 = ( UV100_g60903 + frac( ( ( (temp_output_12_0_g60904).xx + (temp_output_12_0_g60904).yz ) * (temp_output_12_0_g60904).zy ) ) );
+					float2 DDX631_g60902 = ddx( temp_output_5_0_g60902 );
+					float2 DDY632_g60902 = ddy( temp_output_5_0_g60902 );
+					float temp_output_65_0_g60903 = ( 0.0 - temp_output_56_0_g60903 );
+					float ifLocalVar59_g60903 = 0;
+					if( temp_output_56_0_g60903 <= 0.0 )
+					ifLocalVar59_g60903 = temp_output_65_0_g60903;
 					else
-					ifLocalVar59_g60878 = temp_output_56_0_g60878;
-					float temp_output_597_30_g60877 = ifLocalVar59_g60878;
-					float2 temp_output_90_0_g60878 = ( temp_output_52_0_g60878 + float2( 0,1 ) );
-					float2 temp_output_123_0_g60878 = ( temp_output_52_0_g60878 + float2( 1,0 ) );
-					float2 ifLocalVar88_g60878 = 0;
-					if( temp_output_56_0_g60878 > 0.0 )
-					ifLocalVar88_g60878 = temp_output_90_0_g60878;
-					else if( temp_output_56_0_g60878 == 0.0 )
-					ifLocalVar88_g60878 = temp_output_123_0_g60878;
-					else if( temp_output_56_0_g60878 < 0.0 )
-					ifLocalVar88_g60878 = temp_output_123_0_g60878;
-					float3 temp_output_7_0_g60880 = frac( ( (ifLocalVar88_g60878).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60880 = dot( temp_output_7_0_g60880 , ( (temp_output_7_0_g60880).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60880 = ( temp_output_7_0_g60880 + dotResult8_g60880 );
-					float2 temp_output_597_26_g60877 = ( UV100_g60878 + frac( ( ( (temp_output_12_0_g60880).xx + (temp_output_12_0_g60880).yz ) * (temp_output_12_0_g60880).zy ) ) );
-					float temp_output_66_0_g60878 = ( 1.0 - break55_g60878.y );
-					float ifLocalVar60_g60878 = 0;
-					if( temp_output_56_0_g60878 <= 0.0 )
-					ifLocalVar60_g60878 = temp_output_66_0_g60878;
+					ifLocalVar59_g60903 = temp_output_56_0_g60903;
+					float temp_output_597_30_g60902 = ifLocalVar59_g60903;
+					float2 temp_output_90_0_g60903 = ( temp_output_52_0_g60903 + float2( 0,1 ) );
+					float2 temp_output_123_0_g60903 = ( temp_output_52_0_g60903 + float2( 1,0 ) );
+					float2 ifLocalVar88_g60903 = 0;
+					if( temp_output_56_0_g60903 > 0.0 )
+					ifLocalVar88_g60903 = temp_output_90_0_g60903;
+					else if( temp_output_56_0_g60903 == 0.0 )
+					ifLocalVar88_g60903 = temp_output_123_0_g60903;
+					else if( temp_output_56_0_g60903 < 0.0 )
+					ifLocalVar88_g60903 = temp_output_123_0_g60903;
+					float3 temp_output_7_0_g60905 = frac( ( (ifLocalVar88_g60903).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60905 = dot( temp_output_7_0_g60905 , ( (temp_output_7_0_g60905).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60905 = ( temp_output_7_0_g60905 + dotResult8_g60905 );
+					float2 temp_output_597_26_g60902 = ( UV100_g60903 + frac( ( ( (temp_output_12_0_g60905).xx + (temp_output_12_0_g60905).yz ) * (temp_output_12_0_g60905).zy ) ) );
+					float temp_output_66_0_g60903 = ( 1.0 - break55_g60903.y );
+					float ifLocalVar60_g60903 = 0;
+					if( temp_output_56_0_g60903 <= 0.0 )
+					ifLocalVar60_g60903 = temp_output_66_0_g60903;
 					else
-					ifLocalVar60_g60878 = break55_g60878.y;
-					float temp_output_597_28_g60877 = ifLocalVar60_g60878;
-					float2 ifLocalVar89_g60878 = 0;
-					if( temp_output_56_0_g60878 > 0.0 )
-					ifLocalVar89_g60878 = temp_output_123_0_g60878;
-					else if( temp_output_56_0_g60878 == 0.0 )
-					ifLocalVar89_g60878 = temp_output_90_0_g60878;
-					else if( temp_output_56_0_g60878 < 0.0 )
-					ifLocalVar89_g60878 = temp_output_90_0_g60878;
-					float3 temp_output_7_0_g60881 = frac( ( (ifLocalVar89_g60878).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60881 = dot( temp_output_7_0_g60881 , ( (temp_output_7_0_g60881).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60881 = ( temp_output_7_0_g60881 + dotResult8_g60881 );
-					float2 temp_output_597_27_g60877 = ( UV100_g60878 + frac( ( ( (temp_output_12_0_g60881).xx + (temp_output_12_0_g60881).yz ) * (temp_output_12_0_g60881).zy ) ) );
-					float temp_output_67_0_g60878 = ( 1.0 - break55_g60878.x );
-					float ifLocalVar61_g60878 = 0;
-					if( temp_output_56_0_g60878 <= 0.0 )
-					ifLocalVar61_g60878 = temp_output_67_0_g60878;
+					ifLocalVar60_g60903 = break55_g60903.y;
+					float temp_output_597_28_g60902 = ifLocalVar60_g60903;
+					float2 ifLocalVar89_g60903 = 0;
+					if( temp_output_56_0_g60903 > 0.0 )
+					ifLocalVar89_g60903 = temp_output_123_0_g60903;
+					else if( temp_output_56_0_g60903 == 0.0 )
+					ifLocalVar89_g60903 = temp_output_90_0_g60903;
+					else if( temp_output_56_0_g60903 < 0.0 )
+					ifLocalVar89_g60903 = temp_output_90_0_g60903;
+					float3 temp_output_7_0_g60906 = frac( ( (ifLocalVar89_g60903).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60906 = dot( temp_output_7_0_g60906 , ( (temp_output_7_0_g60906).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60906 = ( temp_output_7_0_g60906 + dotResult8_g60906 );
+					float2 temp_output_597_27_g60902 = ( UV100_g60903 + frac( ( ( (temp_output_12_0_g60906).xx + (temp_output_12_0_g60906).yz ) * (temp_output_12_0_g60906).zy ) ) );
+					float temp_output_67_0_g60903 = ( 1.0 - break55_g60903.x );
+					float ifLocalVar61_g60903 = 0;
+					if( temp_output_56_0_g60903 <= 0.0 )
+					ifLocalVar61_g60903 = temp_output_67_0_g60903;
 					else
-					ifLocalVar61_g60878 = break55_g60878.x;
-					float temp_output_597_29_g60877 = ifLocalVar61_g60878;
-					float4 Output_2D293_g60877 = ( ( tex2D( _Sampler82967_g60856, temp_output_597_0_g60877, DDX631_g60877, DDY632_g60877 ) * temp_output_597_30_g60877 ) + ( tex2D( _Sampler82967_g60856, temp_output_597_26_g60877, DDX631_g60877, DDY632_g60877 ) * temp_output_597_28_g60877 ) + ( tex2D( _Sampler82967_g60856, temp_output_597_27_g60877, DDX631_g60877, DDY632_g60877 ) * temp_output_597_29_g60877 ) );
-					float4 break31_g60877 = Output_2D293_g60877;
+					ifLocalVar61_g60903 = break55_g60903.x;
+					float temp_output_597_29_g60902 = ifLocalVar61_g60903;
+					float4 Output_2D293_g60902 = ( ( tex2D( _Sampler82967_g60856, temp_output_597_0_g60902, DDX631_g60902, DDY632_g60902 ) * temp_output_597_30_g60902 ) + ( tex2D( _Sampler82967_g60856, temp_output_597_26_g60902, DDX631_g60902, DDY632_g60902 ) * temp_output_597_28_g60902 ) + ( tex2D( _Sampler82967_g60856, temp_output_597_27_g60902, DDX631_g60902, DDY632_g60902 ) * temp_output_597_29_g60902 ) );
+					float4 break31_g60902 = Output_2D293_g60902;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1005_g60856 = break31_g60877.r;
+					float staticSwitch1005_g60856 = break31_g60902.r;
 					#else
 					float staticSwitch1005_g60856 = staticSwitch846_g60856;
 					#endif
@@ -1012,77 +1004,77 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float Lightmap_Lerp_Value969_g60856 = _UdonLightmapLerp;
 					float4 lerpResult442_g60856 = lerp( Lightmap_0925_g60856 , Lightmap_1956_g60856 , Lightmap_Lerp_Value969_g60856);
 					float4 Lightmap_Lerp932_g60856 = lerpResult442_g60856;
-					float3 appendResult139_g60902 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
-					float2 temp_output_5_0_g60872 = UV0A2420_g60856;
-					float2 UV633_g60872 = temp_output_5_0_g60872;
-					float2 UV100_g60873 = UV633_g60872;
-					float2 temp_output_51_0_g60873 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60873 * float2( 3.464,3.464 ) ) );
-					float2 break55_g60873 = frac( temp_output_51_0_g60873 );
-					float temp_output_56_0_g60873 = ( ( 1.0 - break55_g60873.x ) - break55_g60873.y );
-					float2 temp_output_52_0_g60873 = floor( temp_output_51_0_g60873 );
-					float2 temp_output_125_0_g60873 = ( temp_output_52_0_g60873 + float2( 1,1 ) );
-					float2 ifLocalVar87_g60873 = 0;
-					if( temp_output_56_0_g60873 > 0.0 )
-					ifLocalVar87_g60873 = temp_output_52_0_g60873;
-					else if( temp_output_56_0_g60873 == 0.0 )
-					ifLocalVar87_g60873 = temp_output_125_0_g60873;
-					else if( temp_output_56_0_g60873 < 0.0 )
-					ifLocalVar87_g60873 = temp_output_125_0_g60873;
-					float3 temp_output_7_0_g60874 = frac( ( (ifLocalVar87_g60873).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float3 appendResult139_g60895 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
+					float2 temp_output_5_0_g60870 = UV0A2420_g60856;
+					float2 UV633_g60870 = temp_output_5_0_g60870;
+					float2 UV100_g60871 = UV633_g60870;
+					float2 temp_output_51_0_g60871 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60871 * float2( 3.464,3.464 ) ) );
+					float2 break55_g60871 = frac( temp_output_51_0_g60871 );
+					float temp_output_56_0_g60871 = ( ( 1.0 - break55_g60871.x ) - break55_g60871.y );
+					float2 temp_output_52_0_g60871 = floor( temp_output_51_0_g60871 );
+					float2 temp_output_125_0_g60871 = ( temp_output_52_0_g60871 + float2( 1,1 ) );
+					float2 ifLocalVar87_g60871 = 0;
+					if( temp_output_56_0_g60871 > 0.0 )
+					ifLocalVar87_g60871 = temp_output_52_0_g60871;
+					else if( temp_output_56_0_g60871 == 0.0 )
+					ifLocalVar87_g60871 = temp_output_125_0_g60871;
+					else if( temp_output_56_0_g60871 < 0.0 )
+					ifLocalVar87_g60871 = temp_output_125_0_g60871;
+					float3 temp_output_7_0_g60872 = frac( ( (ifLocalVar87_g60871).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60872 = dot( temp_output_7_0_g60872 , ( (temp_output_7_0_g60872).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60872 = ( temp_output_7_0_g60872 + dotResult8_g60872 );
+					float2 temp_output_597_0_g60870 = ( UV100_g60871 + frac( ( ( (temp_output_12_0_g60872).xx + (temp_output_12_0_g60872).yz ) * (temp_output_12_0_g60872).zy ) ) );
+					float2 DDX631_g60870 = ddx( temp_output_5_0_g60870 );
+					float2 DDY632_g60870 = ddy( temp_output_5_0_g60870 );
+					float Input_Scale617_g60870 = 1.5;
+					float temp_output_65_0_g60871 = ( 0.0 - temp_output_56_0_g60871 );
+					float ifLocalVar59_g60871 = 0;
+					if( temp_output_56_0_g60871 <= 0.0 )
+					ifLocalVar59_g60871 = temp_output_65_0_g60871;
+					else
+					ifLocalVar59_g60871 = temp_output_56_0_g60871;
+					float temp_output_597_30_g60870 = ifLocalVar59_g60871;
+					float2 temp_output_90_0_g60871 = ( temp_output_52_0_g60871 + float2( 0,1 ) );
+					float2 temp_output_123_0_g60871 = ( temp_output_52_0_g60871 + float2( 1,0 ) );
+					float2 ifLocalVar88_g60871 = 0;
+					if( temp_output_56_0_g60871 > 0.0 )
+					ifLocalVar88_g60871 = temp_output_90_0_g60871;
+					else if( temp_output_56_0_g60871 == 0.0 )
+					ifLocalVar88_g60871 = temp_output_123_0_g60871;
+					else if( temp_output_56_0_g60871 < 0.0 )
+					ifLocalVar88_g60871 = temp_output_123_0_g60871;
+					float3 temp_output_7_0_g60873 = frac( ( (ifLocalVar88_g60871).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60873 = dot( temp_output_7_0_g60873 , ( (temp_output_7_0_g60873).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60873 = ( temp_output_7_0_g60873 + dotResult8_g60873 );
+					float2 temp_output_597_26_g60870 = ( UV100_g60871 + frac( ( ( (temp_output_12_0_g60873).xx + (temp_output_12_0_g60873).yz ) * (temp_output_12_0_g60873).zy ) ) );
+					float temp_output_66_0_g60871 = ( 1.0 - break55_g60871.y );
+					float ifLocalVar60_g60871 = 0;
+					if( temp_output_56_0_g60871 <= 0.0 )
+					ifLocalVar60_g60871 = temp_output_66_0_g60871;
+					else
+					ifLocalVar60_g60871 = break55_g60871.y;
+					float temp_output_597_28_g60870 = ifLocalVar60_g60871;
+					float2 ifLocalVar89_g60871 = 0;
+					if( temp_output_56_0_g60871 > 0.0 )
+					ifLocalVar89_g60871 = temp_output_123_0_g60871;
+					else if( temp_output_56_0_g60871 == 0.0 )
+					ifLocalVar89_g60871 = temp_output_90_0_g60871;
+					else if( temp_output_56_0_g60871 < 0.0 )
+					ifLocalVar89_g60871 = temp_output_90_0_g60871;
+					float3 temp_output_7_0_g60874 = frac( ( (ifLocalVar89_g60871).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
 					float dotResult8_g60874 = dot( temp_output_7_0_g60874 , ( (temp_output_7_0_g60874).yzx + 33.33 ) );
 					float3 temp_output_12_0_g60874 = ( temp_output_7_0_g60874 + dotResult8_g60874 );
-					float2 temp_output_597_0_g60872 = ( UV100_g60873 + frac( ( ( (temp_output_12_0_g60874).xx + (temp_output_12_0_g60874).yz ) * (temp_output_12_0_g60874).zy ) ) );
-					float2 DDX631_g60872 = ddx( temp_output_5_0_g60872 );
-					float2 DDY632_g60872 = ddy( temp_output_5_0_g60872 );
-					float Input_Scale617_g60872 = 1.5;
-					float temp_output_65_0_g60873 = ( 0.0 - temp_output_56_0_g60873 );
-					float ifLocalVar59_g60873 = 0;
-					if( temp_output_56_0_g60873 <= 0.0 )
-					ifLocalVar59_g60873 = temp_output_65_0_g60873;
+					float2 temp_output_597_27_g60870 = ( UV100_g60871 + frac( ( ( (temp_output_12_0_g60874).xx + (temp_output_12_0_g60874).yz ) * (temp_output_12_0_g60874).zy ) ) );
+					float temp_output_67_0_g60871 = ( 1.0 - break55_g60871.x );
+					float ifLocalVar61_g60871 = 0;
+					if( temp_output_56_0_g60871 <= 0.0 )
+					ifLocalVar61_g60871 = temp_output_67_0_g60871;
 					else
-					ifLocalVar59_g60873 = temp_output_56_0_g60873;
-					float temp_output_597_30_g60872 = ifLocalVar59_g60873;
-					float2 temp_output_90_0_g60873 = ( temp_output_52_0_g60873 + float2( 0,1 ) );
-					float2 temp_output_123_0_g60873 = ( temp_output_52_0_g60873 + float2( 1,0 ) );
-					float2 ifLocalVar88_g60873 = 0;
-					if( temp_output_56_0_g60873 > 0.0 )
-					ifLocalVar88_g60873 = temp_output_90_0_g60873;
-					else if( temp_output_56_0_g60873 == 0.0 )
-					ifLocalVar88_g60873 = temp_output_123_0_g60873;
-					else if( temp_output_56_0_g60873 < 0.0 )
-					ifLocalVar88_g60873 = temp_output_123_0_g60873;
-					float3 temp_output_7_0_g60875 = frac( ( (ifLocalVar88_g60873).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60875 = dot( temp_output_7_0_g60875 , ( (temp_output_7_0_g60875).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60875 = ( temp_output_7_0_g60875 + dotResult8_g60875 );
-					float2 temp_output_597_26_g60872 = ( UV100_g60873 + frac( ( ( (temp_output_12_0_g60875).xx + (temp_output_12_0_g60875).yz ) * (temp_output_12_0_g60875).zy ) ) );
-					float temp_output_66_0_g60873 = ( 1.0 - break55_g60873.y );
-					float ifLocalVar60_g60873 = 0;
-					if( temp_output_56_0_g60873 <= 0.0 )
-					ifLocalVar60_g60873 = temp_output_66_0_g60873;
-					else
-					ifLocalVar60_g60873 = break55_g60873.y;
-					float temp_output_597_28_g60872 = ifLocalVar60_g60873;
-					float2 ifLocalVar89_g60873 = 0;
-					if( temp_output_56_0_g60873 > 0.0 )
-					ifLocalVar89_g60873 = temp_output_123_0_g60873;
-					else if( temp_output_56_0_g60873 == 0.0 )
-					ifLocalVar89_g60873 = temp_output_90_0_g60873;
-					else if( temp_output_56_0_g60873 < 0.0 )
-					ifLocalVar89_g60873 = temp_output_90_0_g60873;
-					float3 temp_output_7_0_g60876 = frac( ( (ifLocalVar89_g60873).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60876 = dot( temp_output_7_0_g60876 , ( (temp_output_7_0_g60876).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60876 = ( temp_output_7_0_g60876 + dotResult8_g60876 );
-					float2 temp_output_597_27_g60872 = ( UV100_g60873 + frac( ( ( (temp_output_12_0_g60876).xx + (temp_output_12_0_g60876).yz ) * (temp_output_12_0_g60876).zy ) ) );
-					float temp_output_67_0_g60873 = ( 1.0 - break55_g60873.x );
-					float ifLocalVar61_g60873 = 0;
-					if( temp_output_56_0_g60873 <= 0.0 )
-					ifLocalVar61_g60873 = temp_output_67_0_g60873;
-					else
-					ifLocalVar61_g60873 = break55_g60873.x;
-					float temp_output_597_29_g60872 = ifLocalVar61_g60873;
-					float3 Output_2D_Normal641_g60872 = ( ( UnpackScaleNormal( tex2D( _Sampler82965_g60856, temp_output_597_0_g60872, DDX631_g60872, DDY632_g60872 ), Input_Scale617_g60872 ) * temp_output_597_30_g60872 ) + ( UnpackScaleNormal( tex2D( _Sampler82965_g60856, temp_output_597_26_g60872, DDX631_g60872, DDY632_g60872 ), Input_Scale617_g60872 ) * temp_output_597_28_g60872 ) + ( UnpackScaleNormal( tex2D( _Sampler82965_g60856, temp_output_597_27_g60872, DDX631_g60872, DDY632_g60872 ), Input_Scale617_g60872 ) * float3( 0,0,0 ) * temp_output_597_29_g60872 ) );
+					ifLocalVar61_g60871 = break55_g60871.x;
+					float temp_output_597_29_g60870 = ifLocalVar61_g60871;
+					float3 Output_2D_Normal641_g60870 = ( ( UnpackScaleNormal( tex2D( _Sampler82965_g60856, temp_output_597_0_g60870, DDX631_g60870, DDY632_g60870 ), Input_Scale617_g60870 ) * temp_output_597_30_g60870 ) + ( UnpackScaleNormal( tex2D( _Sampler82965_g60856, temp_output_597_26_g60870, DDX631_g60870, DDY632_g60870 ), Input_Scale617_g60870 ) * temp_output_597_28_g60870 ) + ( UnpackScaleNormal( tex2D( _Sampler82965_g60856, temp_output_597_27_g60870, DDX631_g60870, DDY632_g60870 ), Input_Scale617_g60870 ) * float3( 0,0,0 ) * temp_output_597_29_g60870 ) );
 					#ifdef _STOCHASTICENABLED_ON
-					float3 staticSwitch1003_g60856 = Output_2D_Normal641_g60872;
+					float3 staticSwitch1003_g60856 = Output_2D_Normal641_g60870;
 					#else
 					float3 staticSwitch1003_g60856 = UnpackScaleNormal( tex2D( _BumpMap, UV0A2420_g60856 ), 1.5 );
 					#endif
@@ -1092,19 +1084,19 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float3 staticSwitch980_g60856 = float3( 0, 0, 1 );
 					#endif
 					float3 Normal_Map700_g60856 = staticSwitch980_g60856;
-					float3 normalizeResult326_g60902 = normalize( Normal_Map700_g60856 );
-					float3 Normal_Map318_g60902 = normalizeResult326_g60902;
-					float dotResult121_g60902 = dot( appendResult139_g60902 , Normal_Map318_g60902 );
-					float temp_output_2_0_g60904 = saturate( dotResult121_g60902 );
-					float localStochasticTiling2_g60898 = ( 0.0 );
-					float2 UV2_g60898 = UV0B2361_g60856;
-					float4 TexelSize2_g60898 = _UdonRNMX0_TexelSize;
-					float4 Offsets2_g60898 = float4( 0,0,0,0 );
-					float2 Weights2_g60898 = float2( 0,0 );
+					float3 normalizeResult326_g60895 = normalize( Normal_Map700_g60856 );
+					float3 Normal_Map318_g60895 = normalizeResult326_g60895;
+					float dotResult121_g60895 = dot( appendResult139_g60895 , Normal_Map318_g60895 );
+					float temp_output_2_0_g60897 = saturate( dotResult121_g60895 );
+					float localStochasticTiling2_g60891 = ( 0.0 );
+					float2 UV2_g60891 = UV0B2361_g60856;
+					float4 TexelSize2_g60891 = _UdonRNMX0_TexelSize;
+					float4 Offsets2_g60891 = float4( 0,0,0,0 );
+					float2 Weights2_g60891 = float2( 0,0 );
 					{
-					UV2_g60898 = UV2_g60898 * TexelSize2_g60898.zw - 0.5;
-					float2 f = frac( UV2_g60898 );
-					UV2_g60898 -= f;
+					UV2_g60891 = UV2_g60891 * TexelSize2_g60891.zw - 0.5;
+					float2 f = frac( UV2_g60891 );
+					UV2_g60891 -= f;
 					float4 xn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.xxxx;
 					float4 yn = float4( 1.0, 2.0, 3.0, 4.0 ) - f.yyyy;
 					float4 xs = xn * xn * xn;
@@ -1113,63 +1105,63 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float3 yv = float3( ys.x, ys.y - 4.0 * ys.x, ys.z - 4.0 * ys.y + 6.0 * ys.x );
 					float4 xc = float4( xv.xyz, 6.0 - xv.x - xv.y - xv.z );
 					float4 yc = float4( yv.xyz, 6.0 - yv.x - yv.y - yv.z );
-					float4 c = float4( UV2_g60898.x - 0.5, UV2_g60898.x + 1.5, UV2_g60898.y - 0.5, UV2_g60898.y + 1.5 );
+					float4 c = float4( UV2_g60891.x - 0.5, UV2_g60891.x + 1.5, UV2_g60891.y - 0.5, UV2_g60891.y + 1.5 );
 					float4 s = float4( xc.x + xc.y, xc.z + xc.w, yc.x + yc.y, yc.z + yc.w );
 					float w0 = s.x / ( s.x + s.y );
 					float w1 = s.z / ( s.z + s.w );
-					Offsets2_g60898 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g60898.xyxy;
-					Weights2_g60898 = float2( w0, w1 );
+					Offsets2_g60891 = ( c + float4( xc.y, xc.w, yc.y, yc.w ) / s ) * TexelSize2_g60891.xyxy;
+					Weights2_g60891 = float2( w0, w1 );
 					}
-					float4 temp_output_1_34_g60897 = Offsets2_g60898;
-					float4 Input_FetchOffsets197_g60899 = temp_output_1_34_g60897;
-					float2 temp_output_1_54_g60897 = Weights2_g60898;
-					float2 Input_FetchWeights200_g60899 = temp_output_1_54_g60897;
-					float2 break187_g60899 = Input_FetchWeights200_g60899;
-					float4 lerpResult181_g60899 = lerp( tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60899).yw ) , tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60899).xw ) , break187_g60899.x);
-					float4 lerpResult182_g60899 = lerp( tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60899).yz ) , tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60899).xz ) , break187_g60899.x);
-					float4 lerpResult176_g60899 = lerp( lerpResult181_g60899 , lerpResult182_g60899 , break187_g60899.y);
-					float4 Output_Fetch2D_Auto202_g60899 = lerpResult176_g60899;
+					float4 temp_output_1_34_g60890 = Offsets2_g60891;
+					float4 Input_FetchOffsets197_g60892 = temp_output_1_34_g60890;
+					float2 temp_output_1_54_g60890 = Weights2_g60891;
+					float2 Input_FetchWeights200_g60892 = temp_output_1_54_g60890;
+					float2 break187_g60892 = Input_FetchWeights200_g60892;
+					float4 lerpResult181_g60892 = lerp( tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60892).yw ) , tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60892).xw ) , break187_g60892.x);
+					float4 lerpResult182_g60892 = lerp( tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60892).yz ) , tex2D( _UdonRNMX0, (Input_FetchOffsets197_g60892).xz ) , break187_g60892.x);
+					float4 lerpResult176_g60892 = lerp( lerpResult181_g60892 , lerpResult182_g60892 , break187_g60892.y);
+					float4 Output_Fetch2D_Auto202_g60892 = lerpResult176_g60892;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1061_g60856 = Output_Fetch2D_Auto202_g60899;
+					float4 staticSwitch1061_g60856 = Output_Fetch2D_Auto202_g60892;
 					#else
 					float4 staticSwitch1061_g60856 = tex2D( _UdonRNMX0, UV0B2361_g60856 );
 					#endif
-					float3 appendResult146_g60902 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult122_g60902 = dot( appendResult146_g60902 , Normal_Map318_g60902 );
-					float temp_output_2_0_g60903 = saturate( dotResult122_g60902 );
-					float4 Input_FetchOffsets197_g60900 = temp_output_1_34_g60897;
-					float2 Input_FetchWeights200_g60900 = temp_output_1_54_g60897;
-					float2 break187_g60900 = Input_FetchWeights200_g60900;
-					float4 lerpResult181_g60900 = lerp( tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60900).yw ) , tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60900).xw ) , break187_g60900.x);
-					float4 lerpResult182_g60900 = lerp( tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60900).yz ) , tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60900).xz ) , break187_g60900.x);
-					float4 lerpResult176_g60900 = lerp( lerpResult181_g60900 , lerpResult182_g60900 , break187_g60900.y);
-					float4 Output_Fetch2D_Auto202_g60900 = lerpResult176_g60900;
+					float3 appendResult146_g60895 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult122_g60895 = dot( appendResult146_g60895 , Normal_Map318_g60895 );
+					float temp_output_2_0_g60896 = saturate( dotResult122_g60895 );
+					float4 Input_FetchOffsets197_g60893 = temp_output_1_34_g60890;
+					float2 Input_FetchWeights200_g60893 = temp_output_1_54_g60890;
+					float2 break187_g60893 = Input_FetchWeights200_g60893;
+					float4 lerpResult181_g60893 = lerp( tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60893).yw ) , tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60893).xw ) , break187_g60893.x);
+					float4 lerpResult182_g60893 = lerp( tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60893).yz ) , tex2D( _UdonRNMY0, (Input_FetchOffsets197_g60893).xz ) , break187_g60893.x);
+					float4 lerpResult176_g60893 = lerp( lerpResult181_g60893 , lerpResult182_g60893 , break187_g60893.y);
+					float4 Output_Fetch2D_Auto202_g60893 = lerpResult176_g60893;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1062_g60856 = Output_Fetch2D_Auto202_g60900;
+					float4 staticSwitch1062_g60856 = Output_Fetch2D_Auto202_g60893;
 					#else
 					float4 staticSwitch1062_g60856 = tex2D( _UdonRNMY0, UV0B2361_g60856 );
 					#endif
-					float3 appendResult149_g60902 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult120_g60902 = dot( appendResult149_g60902 , Normal_Map318_g60902 );
-					float temp_output_2_0_g60905 = saturate( dotResult120_g60902 );
-					float4 Input_FetchOffsets197_g60901 = temp_output_1_34_g60897;
-					float2 Input_FetchWeights200_g60901 = temp_output_1_54_g60897;
-					float2 break187_g60901 = Input_FetchWeights200_g60901;
-					float4 lerpResult181_g60901 = lerp( tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60901).yw ) , tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60901).xw ) , break187_g60901.x);
-					float4 lerpResult182_g60901 = lerp( tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60901).yz ) , tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60901).xz ) , break187_g60901.x);
-					float4 lerpResult176_g60901 = lerp( lerpResult181_g60901 , lerpResult182_g60901 , break187_g60901.y);
-					float4 Output_Fetch2D_Auto202_g60901 = lerpResult176_g60901;
+					float3 appendResult149_g60895 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult120_g60895 = dot( appendResult149_g60895 , Normal_Map318_g60895 );
+					float temp_output_2_0_g60898 = saturate( dotResult120_g60895 );
+					float4 Input_FetchOffsets197_g60894 = temp_output_1_34_g60890;
+					float2 Input_FetchWeights200_g60894 = temp_output_1_54_g60890;
+					float2 break187_g60894 = Input_FetchWeights200_g60894;
+					float4 lerpResult181_g60894 = lerp( tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60894).yw ) , tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60894).xw ) , break187_g60894.x);
+					float4 lerpResult182_g60894 = lerp( tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60894).yz ) , tex2D( _UdonRNMZ0, (Input_FetchOffsets197_g60894).xz ) , break187_g60894.x);
+					float4 lerpResult176_g60894 = lerp( lerpResult181_g60894 , lerpResult182_g60894 , break187_g60894.y);
+					float4 Output_Fetch2D_Auto202_g60894 = lerpResult176_g60894;
 					#ifdef _USEBICUBICFILTERING_ON
-					float4 staticSwitch1063_g60856 = Output_Fetch2D_Auto202_g60901;
+					float4 staticSwitch1063_g60856 = Output_Fetch2D_Auto202_g60894;
 					#else
 					float4 staticSwitch1063_g60856 = tex2D( _UdonRNMZ0, UV0B2361_g60856 );
 					#endif
-					float4 RNM_0926_g60856 = ( ( ( ( ( temp_output_2_0_g60904 * temp_output_2_0_g60904 ) * staticSwitch1061_g60856 ) + ( ( temp_output_2_0_g60903 * temp_output_2_0_g60903 ) * staticSwitch1062_g60856 ) ) + ( ( temp_output_2_0_g60905 * temp_output_2_0_g60905 ) * staticSwitch1063_g60856 ) ) * 1.5 );
-					float3 appendResult139_g60868 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
-					float3 normalizeResult326_g60868 = normalize( Normal_Map700_g60856 );
-					float3 Normal_Map318_g60868 = normalizeResult326_g60868;
-					float dotResult121_g60868 = dot( appendResult139_g60868 , Normal_Map318_g60868 );
-					float temp_output_2_0_g60870 = saturate( dotResult121_g60868 );
+					float4 RNM_0926_g60856 = ( ( ( ( ( temp_output_2_0_g60897 * temp_output_2_0_g60897 ) * staticSwitch1061_g60856 ) + ( ( temp_output_2_0_g60896 * temp_output_2_0_g60896 ) * staticSwitch1062_g60856 ) ) + ( ( temp_output_2_0_g60898 * temp_output_2_0_g60898 ) * staticSwitch1063_g60856 ) ) * 1.5 );
+					float3 appendResult139_g60866 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
+					float3 normalizeResult326_g60866 = normalize( Normal_Map700_g60856 );
+					float3 Normal_Map318_g60866 = normalizeResult326_g60866;
+					float dotResult121_g60866 = dot( appendResult139_g60866 , Normal_Map318_g60866 );
+					float temp_output_2_0_g60868 = saturate( dotResult121_g60866 );
 					float localStochasticTiling2_g60858 = ( 0.0 );
 					float2 UV2_g60858 = UV0B2361_g60856;
 					float4 TexelSize2_g60858 = _UdonRNMX1_TexelSize;
@@ -1208,9 +1200,9 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#else
 					float4 staticSwitch1087_g60856 = tex2D( _UdonRNMX1, UV0B2361_g60856 );
 					#endif
-					float3 appendResult146_g60868 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult122_g60868 = dot( appendResult146_g60868 , Normal_Map318_g60868 );
-					float temp_output_2_0_g60869 = saturate( dotResult122_g60868 );
+					float3 appendResult146_g60866 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult122_g60866 = dot( appendResult146_g60866 , Normal_Map318_g60866 );
+					float temp_output_2_0_g60867 = saturate( dotResult122_g60866 );
 					float4 Input_FetchOffsets197_g60860 = temp_output_1_34_g60857;
 					float2 Input_FetchWeights200_g60860 = temp_output_1_54_g60857;
 					float2 break187_g60860 = Input_FetchWeights200_g60860;
@@ -1223,9 +1215,9 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#else
 					float4 staticSwitch1083_g60856 = tex2D( _UdonRNMY1, UV0B2361_g60856 );
 					#endif
-					float3 appendResult149_g60868 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult120_g60868 = dot( appendResult149_g60868 , Normal_Map318_g60868 );
-					float temp_output_2_0_g60871 = saturate( dotResult120_g60868 );
+					float3 appendResult149_g60866 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult120_g60866 = dot( appendResult149_g60866 , Normal_Map318_g60866 );
+					float temp_output_2_0_g60869 = saturate( dotResult120_g60866 );
 					float4 Input_FetchOffsets197_g60861 = temp_output_1_34_g60857;
 					float2 Input_FetchWeights200_g60861 = temp_output_1_54_g60857;
 					float2 break187_g60861 = Input_FetchWeights200_g60861;
@@ -1238,7 +1230,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#else
 					float4 staticSwitch1084_g60856 = tex2D( _UdonRNMZ1, UV0B2361_g60856 );
 					#endif
-					float4 RNM_11081_g60856 = ( ( ( ( ( temp_output_2_0_g60870 * temp_output_2_0_g60870 ) * staticSwitch1087_g60856 ) + ( ( temp_output_2_0_g60869 * temp_output_2_0_g60869 ) * staticSwitch1083_g60856 ) ) + ( ( temp_output_2_0_g60871 * temp_output_2_0_g60871 ) * staticSwitch1084_g60856 ) ) * 1.5 );
+					float4 RNM_11081_g60856 = ( ( ( ( ( temp_output_2_0_g60868 * temp_output_2_0_g60868 ) * staticSwitch1087_g60856 ) + ( ( temp_output_2_0_g60867 * temp_output_2_0_g60867 ) * staticSwitch1083_g60856 ) ) + ( ( temp_output_2_0_g60869 * temp_output_2_0_g60869 ) * staticSwitch1084_g60856 ) ) * 1.5 );
 					float4 lerpResult953_g60856 = lerp( RNM_0926_g60856 , RNM_11081_g60856 , Lightmap_Lerp_Value969_g60856);
 					float4 RNM_Lerp950_g60856 = lerpResult953_g60856;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -1255,182 +1247,182 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float4 staticSwitch1014_g60856 = temp_cast_1;
 					#endif
 					float3 Lightmap46_g60856 = (staticSwitch1014_g60856).rgb;
-					float2 temp_output_5_0_g60892 = UV0A2420_g60856;
-					float2 UV633_g60892 = temp_output_5_0_g60892;
-					float2 UV100_g60893 = UV633_g60892;
-					float2 temp_output_51_0_g60893 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60893 * float2( 3.464,3.464 ) ) );
-					float2 break55_g60893 = frac( temp_output_51_0_g60893 );
-					float temp_output_56_0_g60893 = ( ( 1.0 - break55_g60893.x ) - break55_g60893.y );
-					float2 temp_output_52_0_g60893 = floor( temp_output_51_0_g60893 );
-					float2 temp_output_125_0_g60893 = ( temp_output_52_0_g60893 + float2( 1,1 ) );
-					float2 ifLocalVar87_g60893 = 0;
-					if( temp_output_56_0_g60893 > 0.0 )
-					ifLocalVar87_g60893 = temp_output_52_0_g60893;
-					else if( temp_output_56_0_g60893 == 0.0 )
-					ifLocalVar87_g60893 = temp_output_125_0_g60893;
-					else if( temp_output_56_0_g60893 < 0.0 )
-					ifLocalVar87_g60893 = temp_output_125_0_g60893;
-					float3 temp_output_7_0_g60894 = frac( ( (ifLocalVar87_g60893).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60894 = dot( temp_output_7_0_g60894 , ( (temp_output_7_0_g60894).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60894 = ( temp_output_7_0_g60894 + dotResult8_g60894 );
-					float2 temp_output_597_0_g60892 = ( UV100_g60893 + frac( ( ( (temp_output_12_0_g60894).xx + (temp_output_12_0_g60894).yz ) * (temp_output_12_0_g60894).zy ) ) );
-					float2 DDX631_g60892 = ddx( temp_output_5_0_g60892 );
-					float2 DDY632_g60892 = ddy( temp_output_5_0_g60892 );
-					float temp_output_65_0_g60893 = ( 0.0 - temp_output_56_0_g60893 );
-					float ifLocalVar59_g60893 = 0;
-					if( temp_output_56_0_g60893 <= 0.0 )
-					ifLocalVar59_g60893 = temp_output_65_0_g60893;
+					float2 temp_output_5_0_g60885 = UV0A2420_g60856;
+					float2 UV633_g60885 = temp_output_5_0_g60885;
+					float2 UV100_g60886 = UV633_g60885;
+					float2 temp_output_51_0_g60886 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60886 * float2( 3.464,3.464 ) ) );
+					float2 break55_g60886 = frac( temp_output_51_0_g60886 );
+					float temp_output_56_0_g60886 = ( ( 1.0 - break55_g60886.x ) - break55_g60886.y );
+					float2 temp_output_52_0_g60886 = floor( temp_output_51_0_g60886 );
+					float2 temp_output_125_0_g60886 = ( temp_output_52_0_g60886 + float2( 1,1 ) );
+					float2 ifLocalVar87_g60886 = 0;
+					if( temp_output_56_0_g60886 > 0.0 )
+					ifLocalVar87_g60886 = temp_output_52_0_g60886;
+					else if( temp_output_56_0_g60886 == 0.0 )
+					ifLocalVar87_g60886 = temp_output_125_0_g60886;
+					else if( temp_output_56_0_g60886 < 0.0 )
+					ifLocalVar87_g60886 = temp_output_125_0_g60886;
+					float3 temp_output_7_0_g60887 = frac( ( (ifLocalVar87_g60886).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60887 = dot( temp_output_7_0_g60887 , ( (temp_output_7_0_g60887).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60887 = ( temp_output_7_0_g60887 + dotResult8_g60887 );
+					float2 temp_output_597_0_g60885 = ( UV100_g60886 + frac( ( ( (temp_output_12_0_g60887).xx + (temp_output_12_0_g60887).yz ) * (temp_output_12_0_g60887).zy ) ) );
+					float2 DDX631_g60885 = ddx( temp_output_5_0_g60885 );
+					float2 DDY632_g60885 = ddy( temp_output_5_0_g60885 );
+					float temp_output_65_0_g60886 = ( 0.0 - temp_output_56_0_g60886 );
+					float ifLocalVar59_g60886 = 0;
+					if( temp_output_56_0_g60886 <= 0.0 )
+					ifLocalVar59_g60886 = temp_output_65_0_g60886;
 					else
-					ifLocalVar59_g60893 = temp_output_56_0_g60893;
-					float temp_output_597_30_g60892 = ifLocalVar59_g60893;
-					float2 temp_output_90_0_g60893 = ( temp_output_52_0_g60893 + float2( 0,1 ) );
-					float2 temp_output_123_0_g60893 = ( temp_output_52_0_g60893 + float2( 1,0 ) );
-					float2 ifLocalVar88_g60893 = 0;
-					if( temp_output_56_0_g60893 > 0.0 )
-					ifLocalVar88_g60893 = temp_output_90_0_g60893;
-					else if( temp_output_56_0_g60893 == 0.0 )
-					ifLocalVar88_g60893 = temp_output_123_0_g60893;
-					else if( temp_output_56_0_g60893 < 0.0 )
-					ifLocalVar88_g60893 = temp_output_123_0_g60893;
-					float3 temp_output_7_0_g60895 = frac( ( (ifLocalVar88_g60893).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60895 = dot( temp_output_7_0_g60895 , ( (temp_output_7_0_g60895).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60895 = ( temp_output_7_0_g60895 + dotResult8_g60895 );
-					float2 temp_output_597_26_g60892 = ( UV100_g60893 + frac( ( ( (temp_output_12_0_g60895).xx + (temp_output_12_0_g60895).yz ) * (temp_output_12_0_g60895).zy ) ) );
-					float temp_output_66_0_g60893 = ( 1.0 - break55_g60893.y );
-					float ifLocalVar60_g60893 = 0;
-					if( temp_output_56_0_g60893 <= 0.0 )
-					ifLocalVar60_g60893 = temp_output_66_0_g60893;
+					ifLocalVar59_g60886 = temp_output_56_0_g60886;
+					float temp_output_597_30_g60885 = ifLocalVar59_g60886;
+					float2 temp_output_90_0_g60886 = ( temp_output_52_0_g60886 + float2( 0,1 ) );
+					float2 temp_output_123_0_g60886 = ( temp_output_52_0_g60886 + float2( 1,0 ) );
+					float2 ifLocalVar88_g60886 = 0;
+					if( temp_output_56_0_g60886 > 0.0 )
+					ifLocalVar88_g60886 = temp_output_90_0_g60886;
+					else if( temp_output_56_0_g60886 == 0.0 )
+					ifLocalVar88_g60886 = temp_output_123_0_g60886;
+					else if( temp_output_56_0_g60886 < 0.0 )
+					ifLocalVar88_g60886 = temp_output_123_0_g60886;
+					float3 temp_output_7_0_g60888 = frac( ( (ifLocalVar88_g60886).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60888 = dot( temp_output_7_0_g60888 , ( (temp_output_7_0_g60888).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60888 = ( temp_output_7_0_g60888 + dotResult8_g60888 );
+					float2 temp_output_597_26_g60885 = ( UV100_g60886 + frac( ( ( (temp_output_12_0_g60888).xx + (temp_output_12_0_g60888).yz ) * (temp_output_12_0_g60888).zy ) ) );
+					float temp_output_66_0_g60886 = ( 1.0 - break55_g60886.y );
+					float ifLocalVar60_g60886 = 0;
+					if( temp_output_56_0_g60886 <= 0.0 )
+					ifLocalVar60_g60886 = temp_output_66_0_g60886;
 					else
-					ifLocalVar60_g60893 = break55_g60893.y;
-					float temp_output_597_28_g60892 = ifLocalVar60_g60893;
-					float2 ifLocalVar89_g60893 = 0;
-					if( temp_output_56_0_g60893 > 0.0 )
-					ifLocalVar89_g60893 = temp_output_123_0_g60893;
-					else if( temp_output_56_0_g60893 == 0.0 )
-					ifLocalVar89_g60893 = temp_output_90_0_g60893;
-					else if( temp_output_56_0_g60893 < 0.0 )
-					ifLocalVar89_g60893 = temp_output_90_0_g60893;
-					float3 temp_output_7_0_g60896 = frac( ( (ifLocalVar89_g60893).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60896 = dot( temp_output_7_0_g60896 , ( (temp_output_7_0_g60896).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60896 = ( temp_output_7_0_g60896 + dotResult8_g60896 );
-					float2 temp_output_597_27_g60892 = ( UV100_g60893 + frac( ( ( (temp_output_12_0_g60896).xx + (temp_output_12_0_g60896).yz ) * (temp_output_12_0_g60896).zy ) ) );
-					float temp_output_67_0_g60893 = ( 1.0 - break55_g60893.x );
-					float ifLocalVar61_g60893 = 0;
-					if( temp_output_56_0_g60893 <= 0.0 )
-					ifLocalVar61_g60893 = temp_output_67_0_g60893;
+					ifLocalVar60_g60886 = break55_g60886.y;
+					float temp_output_597_28_g60885 = ifLocalVar60_g60886;
+					float2 ifLocalVar89_g60886 = 0;
+					if( temp_output_56_0_g60886 > 0.0 )
+					ifLocalVar89_g60886 = temp_output_123_0_g60886;
+					else if( temp_output_56_0_g60886 == 0.0 )
+					ifLocalVar89_g60886 = temp_output_90_0_g60886;
+					else if( temp_output_56_0_g60886 < 0.0 )
+					ifLocalVar89_g60886 = temp_output_90_0_g60886;
+					float3 temp_output_7_0_g60889 = frac( ( (ifLocalVar89_g60886).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60889 = dot( temp_output_7_0_g60889 , ( (temp_output_7_0_g60889).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60889 = ( temp_output_7_0_g60889 + dotResult8_g60889 );
+					float2 temp_output_597_27_g60885 = ( UV100_g60886 + frac( ( ( (temp_output_12_0_g60889).xx + (temp_output_12_0_g60889).yz ) * (temp_output_12_0_g60889).zy ) ) );
+					float temp_output_67_0_g60886 = ( 1.0 - break55_g60886.x );
+					float ifLocalVar61_g60886 = 0;
+					if( temp_output_56_0_g60886 <= 0.0 )
+					ifLocalVar61_g60886 = temp_output_67_0_g60886;
 					else
-					ifLocalVar61_g60893 = break55_g60893.x;
-					float temp_output_597_29_g60892 = ifLocalVar61_g60893;
-					float4 Output_2D293_g60892 = ( ( tex2D( _Sampler82968_g60856, temp_output_597_0_g60892, DDX631_g60892, DDY632_g60892 ) * temp_output_597_30_g60892 ) + ( tex2D( _Sampler82968_g60856, temp_output_597_26_g60892, DDX631_g60892, DDY632_g60892 ) * temp_output_597_28_g60892 ) + ( tex2D( _Sampler82968_g60856, temp_output_597_27_g60892, DDX631_g60892, DDY632_g60892 ) * temp_output_597_29_g60892 ) );
+					ifLocalVar61_g60886 = break55_g60886.x;
+					float temp_output_597_29_g60885 = ifLocalVar61_g60886;
+					float4 Output_2D293_g60885 = ( ( tex2D( _Sampler82968_g60856, temp_output_597_0_g60885, DDX631_g60885, DDY632_g60885 ) * temp_output_597_30_g60885 ) + ( tex2D( _Sampler82968_g60856, temp_output_597_26_g60885, DDX631_g60885, DDY632_g60885 ) * temp_output_597_28_g60885 ) + ( tex2D( _Sampler82968_g60856, temp_output_597_27_g60885, DDX631_g60885, DDY632_g60885 ) * temp_output_597_29_g60885 ) );
 					#ifdef _STOCHASTICENABLED_ON
-					float4 staticSwitch1006_g60856 = Output_2D293_g60892;
+					float4 staticSwitch1006_g60856 = Output_2D293_g60885;
 					#else
 					float4 staticSwitch1006_g60856 = tex2D( _EmissionMap, UV0A2420_g60856 );
 					#endif
 					float3 temp_output_2531_0_g60856 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g60856 * _EmissionIntensity )).rgb;
 					float3 Emission86_g60856 = temp_output_2531_0_g60856;
-					float3 Color1_g60907 = oAlbedo6_g60856;
-					float Metallic1_g60907 = Metallic1239_g60856;
+					float3 Color1_g60900 = oAlbedo6_g60856;
+					float Metallic1_g60900 = Metallic1239_g60856;
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g60856 = tex2D( _GlossinessMap, UV0A2420_g60856 ).r;
 					#else
 					float staticSwitch845_g60856 = _Glossiness;
 					#endif
-					float2 temp_output_5_0_g60887 = UV0A2420_g60856;
-					float2 UV633_g60887 = temp_output_5_0_g60887;
-					float2 UV100_g60888 = UV633_g60887;
-					float2 temp_output_51_0_g60888 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60888 * float2( 3.464,3.464 ) ) );
-					float2 break55_g60888 = frac( temp_output_51_0_g60888 );
-					float temp_output_56_0_g60888 = ( ( 1.0 - break55_g60888.x ) - break55_g60888.y );
-					float2 temp_output_52_0_g60888 = floor( temp_output_51_0_g60888 );
-					float2 temp_output_125_0_g60888 = ( temp_output_52_0_g60888 + float2( 1,1 ) );
-					float2 ifLocalVar87_g60888 = 0;
-					if( temp_output_56_0_g60888 > 0.0 )
-					ifLocalVar87_g60888 = temp_output_52_0_g60888;
-					else if( temp_output_56_0_g60888 == 0.0 )
-					ifLocalVar87_g60888 = temp_output_125_0_g60888;
-					else if( temp_output_56_0_g60888 < 0.0 )
-					ifLocalVar87_g60888 = temp_output_125_0_g60888;
-					float3 temp_output_7_0_g60889 = frac( ( (ifLocalVar87_g60888).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60889 = dot( temp_output_7_0_g60889 , ( (temp_output_7_0_g60889).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60889 = ( temp_output_7_0_g60889 + dotResult8_g60889 );
-					float2 temp_output_597_0_g60887 = ( UV100_g60888 + frac( ( ( (temp_output_12_0_g60889).xx + (temp_output_12_0_g60889).yz ) * (temp_output_12_0_g60889).zy ) ) );
-					float2 DDX631_g60887 = ddx( temp_output_5_0_g60887 );
-					float2 DDY632_g60887 = ddy( temp_output_5_0_g60887 );
-					float temp_output_65_0_g60888 = ( 0.0 - temp_output_56_0_g60888 );
-					float ifLocalVar59_g60888 = 0;
-					if( temp_output_56_0_g60888 <= 0.0 )
-					ifLocalVar59_g60888 = temp_output_65_0_g60888;
+					float2 temp_output_5_0_g60880 = UV0A2420_g60856;
+					float2 UV633_g60880 = temp_output_5_0_g60880;
+					float2 UV100_g60881 = UV633_g60880;
+					float2 temp_output_51_0_g60881 = mul( float2x2( 1, 0, -0.5773503, 1.154701 ), ( UV100_g60881 * float2( 3.464,3.464 ) ) );
+					float2 break55_g60881 = frac( temp_output_51_0_g60881 );
+					float temp_output_56_0_g60881 = ( ( 1.0 - break55_g60881.x ) - break55_g60881.y );
+					float2 temp_output_52_0_g60881 = floor( temp_output_51_0_g60881 );
+					float2 temp_output_125_0_g60881 = ( temp_output_52_0_g60881 + float2( 1,1 ) );
+					float2 ifLocalVar87_g60881 = 0;
+					if( temp_output_56_0_g60881 > 0.0 )
+					ifLocalVar87_g60881 = temp_output_52_0_g60881;
+					else if( temp_output_56_0_g60881 == 0.0 )
+					ifLocalVar87_g60881 = temp_output_125_0_g60881;
+					else if( temp_output_56_0_g60881 < 0.0 )
+					ifLocalVar87_g60881 = temp_output_125_0_g60881;
+					float3 temp_output_7_0_g60882 = frac( ( (ifLocalVar87_g60881).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60882 = dot( temp_output_7_0_g60882 , ( (temp_output_7_0_g60882).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60882 = ( temp_output_7_0_g60882 + dotResult8_g60882 );
+					float2 temp_output_597_0_g60880 = ( UV100_g60881 + frac( ( ( (temp_output_12_0_g60882).xx + (temp_output_12_0_g60882).yz ) * (temp_output_12_0_g60882).zy ) ) );
+					float2 DDX631_g60880 = ddx( temp_output_5_0_g60880 );
+					float2 DDY632_g60880 = ddy( temp_output_5_0_g60880 );
+					float temp_output_65_0_g60881 = ( 0.0 - temp_output_56_0_g60881 );
+					float ifLocalVar59_g60881 = 0;
+					if( temp_output_56_0_g60881 <= 0.0 )
+					ifLocalVar59_g60881 = temp_output_65_0_g60881;
 					else
-					ifLocalVar59_g60888 = temp_output_56_0_g60888;
-					float temp_output_597_30_g60887 = ifLocalVar59_g60888;
-					float2 temp_output_90_0_g60888 = ( temp_output_52_0_g60888 + float2( 0,1 ) );
-					float2 temp_output_123_0_g60888 = ( temp_output_52_0_g60888 + float2( 1,0 ) );
-					float2 ifLocalVar88_g60888 = 0;
-					if( temp_output_56_0_g60888 > 0.0 )
-					ifLocalVar88_g60888 = temp_output_90_0_g60888;
-					else if( temp_output_56_0_g60888 == 0.0 )
-					ifLocalVar88_g60888 = temp_output_123_0_g60888;
-					else if( temp_output_56_0_g60888 < 0.0 )
-					ifLocalVar88_g60888 = temp_output_123_0_g60888;
-					float3 temp_output_7_0_g60890 = frac( ( (ifLocalVar88_g60888).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60890 = dot( temp_output_7_0_g60890 , ( (temp_output_7_0_g60890).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60890 = ( temp_output_7_0_g60890 + dotResult8_g60890 );
-					float2 temp_output_597_26_g60887 = ( UV100_g60888 + frac( ( ( (temp_output_12_0_g60890).xx + (temp_output_12_0_g60890).yz ) * (temp_output_12_0_g60890).zy ) ) );
-					float temp_output_66_0_g60888 = ( 1.0 - break55_g60888.y );
-					float ifLocalVar60_g60888 = 0;
-					if( temp_output_56_0_g60888 <= 0.0 )
-					ifLocalVar60_g60888 = temp_output_66_0_g60888;
+					ifLocalVar59_g60881 = temp_output_56_0_g60881;
+					float temp_output_597_30_g60880 = ifLocalVar59_g60881;
+					float2 temp_output_90_0_g60881 = ( temp_output_52_0_g60881 + float2( 0,1 ) );
+					float2 temp_output_123_0_g60881 = ( temp_output_52_0_g60881 + float2( 1,0 ) );
+					float2 ifLocalVar88_g60881 = 0;
+					if( temp_output_56_0_g60881 > 0.0 )
+					ifLocalVar88_g60881 = temp_output_90_0_g60881;
+					else if( temp_output_56_0_g60881 == 0.0 )
+					ifLocalVar88_g60881 = temp_output_123_0_g60881;
+					else if( temp_output_56_0_g60881 < 0.0 )
+					ifLocalVar88_g60881 = temp_output_123_0_g60881;
+					float3 temp_output_7_0_g60883 = frac( ( (ifLocalVar88_g60881).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60883 = dot( temp_output_7_0_g60883 , ( (temp_output_7_0_g60883).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60883 = ( temp_output_7_0_g60883 + dotResult8_g60883 );
+					float2 temp_output_597_26_g60880 = ( UV100_g60881 + frac( ( ( (temp_output_12_0_g60883).xx + (temp_output_12_0_g60883).yz ) * (temp_output_12_0_g60883).zy ) ) );
+					float temp_output_66_0_g60881 = ( 1.0 - break55_g60881.y );
+					float ifLocalVar60_g60881 = 0;
+					if( temp_output_56_0_g60881 <= 0.0 )
+					ifLocalVar60_g60881 = temp_output_66_0_g60881;
 					else
-					ifLocalVar60_g60888 = break55_g60888.y;
-					float temp_output_597_28_g60887 = ifLocalVar60_g60888;
-					float2 ifLocalVar89_g60888 = 0;
-					if( temp_output_56_0_g60888 > 0.0 )
-					ifLocalVar89_g60888 = temp_output_123_0_g60888;
-					else if( temp_output_56_0_g60888 == 0.0 )
-					ifLocalVar89_g60888 = temp_output_90_0_g60888;
-					else if( temp_output_56_0_g60888 < 0.0 )
-					ifLocalVar89_g60888 = temp_output_90_0_g60888;
-					float3 temp_output_7_0_g60891 = frac( ( (ifLocalVar89_g60888).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
-					float dotResult8_g60891 = dot( temp_output_7_0_g60891 , ( (temp_output_7_0_g60891).yzx + 33.33 ) );
-					float3 temp_output_12_0_g60891 = ( temp_output_7_0_g60891 + dotResult8_g60891 );
-					float2 temp_output_597_27_g60887 = ( UV100_g60888 + frac( ( ( (temp_output_12_0_g60891).xx + (temp_output_12_0_g60891).yz ) * (temp_output_12_0_g60891).zy ) ) );
-					float temp_output_67_0_g60888 = ( 1.0 - break55_g60888.x );
-					float ifLocalVar61_g60888 = 0;
-					if( temp_output_56_0_g60888 <= 0.0 )
-					ifLocalVar61_g60888 = temp_output_67_0_g60888;
+					ifLocalVar60_g60881 = break55_g60881.y;
+					float temp_output_597_28_g60880 = ifLocalVar60_g60881;
+					float2 ifLocalVar89_g60881 = 0;
+					if( temp_output_56_0_g60881 > 0.0 )
+					ifLocalVar89_g60881 = temp_output_123_0_g60881;
+					else if( temp_output_56_0_g60881 == 0.0 )
+					ifLocalVar89_g60881 = temp_output_90_0_g60881;
+					else if( temp_output_56_0_g60881 < 0.0 )
+					ifLocalVar89_g60881 = temp_output_90_0_g60881;
+					float3 temp_output_7_0_g60884 = frac( ( (ifLocalVar89_g60881).xyx * float3( 0.1031, 0.103, 0.0973 ) ) );
+					float dotResult8_g60884 = dot( temp_output_7_0_g60884 , ( (temp_output_7_0_g60884).yzx + 33.33 ) );
+					float3 temp_output_12_0_g60884 = ( temp_output_7_0_g60884 + dotResult8_g60884 );
+					float2 temp_output_597_27_g60880 = ( UV100_g60881 + frac( ( ( (temp_output_12_0_g60884).xx + (temp_output_12_0_g60884).yz ) * (temp_output_12_0_g60884).zy ) ) );
+					float temp_output_67_0_g60881 = ( 1.0 - break55_g60881.x );
+					float ifLocalVar61_g60881 = 0;
+					if( temp_output_56_0_g60881 <= 0.0 )
+					ifLocalVar61_g60881 = temp_output_67_0_g60881;
 					else
-					ifLocalVar61_g60888 = break55_g60888.x;
-					float temp_output_597_29_g60887 = ifLocalVar61_g60888;
-					float4 Output_2D293_g60887 = ( ( tex2D( _Sampler82964_g60856, temp_output_597_0_g60887, DDX631_g60887, DDY632_g60887 ) * temp_output_597_30_g60887 ) + ( tex2D( _Sampler82964_g60856, temp_output_597_26_g60887, DDX631_g60887, DDY632_g60887 ) * temp_output_597_28_g60887 ) + ( tex2D( _Sampler82964_g60856, temp_output_597_27_g60887, DDX631_g60887, DDY632_g60887 ) * temp_output_597_29_g60887 ) );
-					float4 break31_g60887 = Output_2D293_g60887;
+					ifLocalVar61_g60881 = break55_g60881.x;
+					float temp_output_597_29_g60880 = ifLocalVar61_g60881;
+					float4 Output_2D293_g60880 = ( ( tex2D( _Sampler82964_g60856, temp_output_597_0_g60880, DDX631_g60880, DDY632_g60880 ) * temp_output_597_30_g60880 ) + ( tex2D( _Sampler82964_g60856, temp_output_597_26_g60880, DDX631_g60880, DDY632_g60880 ) * temp_output_597_28_g60880 ) + ( tex2D( _Sampler82964_g60856, temp_output_597_27_g60880, DDX631_g60880, DDY632_g60880 ) * temp_output_597_29_g60880 ) );
+					float4 break31_g60880 = Output_2D293_g60880;
 					#ifdef _STOCHASTICENABLED_ON
-					float staticSwitch1004_g60856 = ( 1.0 - break31_g60887.r );
+					float staticSwitch1004_g60856 = ( 1.0 - break31_g60880.r );
 					#else
 					float staticSwitch1004_g60856 = ( 1.0 - staticSwitch845_g60856 );
 					#endif
-					float temp_output_19_0_g60906 = staticSwitch1004_g60856;
+					float temp_output_19_0_g60899 = staticSwitch1004_g60856;
 					float3 tanToWorld0 = float3( TangentWS.x, BitangentWS.x, NormalWS.x );
 					float3 tanToWorld1 = float3( TangentWS.y, BitangentWS.y, NormalWS.y );
 					float3 tanToWorld2 = float3( TangentWS.z, BitangentWS.z, NormalWS.z );
 					float3 tanNormal2504_g60856 = Normal_Map700_g60856;
 					float3 worldNormal2504_g60856 = normalize( float3( dot( tanToWorld0, tanNormal2504_g60856 ), dot( tanToWorld1, tanNormal2504_g60856 ), dot( tanToWorld2, tanNormal2504_g60856 ) ) );
 					float3 World_Normal2508_g60856 = worldNormal2504_g60856;
-					float3 tanNormal2_g60906 = World_Normal2508_g60856;
-					float3 worldNormal2_g60906 = float3( dot( tanToWorld0, tanNormal2_g60906 ), dot( tanToWorld1, tanNormal2_g60906 ), dot( tanToWorld2, tanNormal2_g60906 ) );
-					float3 temp_output_3_0_g60906 = ddx( worldNormal2_g60906 );
-					float dotResult5_g60906 = dot( temp_output_3_0_g60906 , temp_output_3_0_g60906 );
-					float3 temp_output_4_0_g60906 = ddy( worldNormal2_g60906 );
-					float dotResult6_g60906 = dot( temp_output_4_0_g60906 , temp_output_4_0_g60906 );
+					float3 tanNormal2_g60899 = World_Normal2508_g60856;
+					float3 worldNormal2_g60899 = float3( dot( tanToWorld0, tanNormal2_g60899 ), dot( tanToWorld1, tanNormal2_g60899 ), dot( tanToWorld2, tanNormal2_g60899 ) );
+					float3 temp_output_3_0_g60899 = ddx( worldNormal2_g60899 );
+					float dotResult5_g60899 = dot( temp_output_3_0_g60899 , temp_output_3_0_g60899 );
+					float3 temp_output_4_0_g60899 = ddy( worldNormal2_g60899 );
+					float dotResult6_g60899 = dot( temp_output_4_0_g60899 , temp_output_4_0_g60899 );
 					#ifdef _USEGEOMETRICAA_ON
-					float staticSwitch15_g60906 = min( temp_output_19_0_g60906, ( 1.0 - pow( saturate( max( dotResult5_g60906, dotResult6_g60906 ) ) , 0.25 ) ) );
+					float staticSwitch15_g60899 = min( temp_output_19_0_g60899, ( 1.0 - pow( saturate( max( dotResult5_g60899, dotResult6_g60899 ) ) , 0.25 ) ) );
 					#else
-					float staticSwitch15_g60906 = temp_output_19_0_g60906;
+					float staticSwitch15_g60899 = temp_output_19_0_g60899;
 					#endif
-					float SmoothnessAA1399_g60856 = staticSwitch15_g60906;
-					float Smoothness1_g60907 = SmoothnessAA1399_g60856;
+					float SmoothnessAA1399_g60856 = staticSwitch15_g60899;
+					float Smoothness1_g60900 = SmoothnessAA1399_g60856;
 					float IOR2700_g60856 = _IOR;
-					float IOR1_g60907 = IOR2700_g60856;
+					float IOR1_g60900 = IOR2700_g60856;
 					float3 temp_cast_4 = (0.04).xxx;
 					float3 lerpResult1473_g60856 = lerp( temp_cast_4 , oAlbedo6_g60856 , Metallic1239_g60856);
 					float3 switchResult1501_g60856 = (((ase_vface>0)?(World_Normal2508_g60856):(-World_Normal2508_g60856)));
@@ -1438,13 +1430,13 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float dotResult1476_g60856 = dot( switchResult1501_g60856 , View_Direction2511_g60856 );
 					float3 lerpResult1480_g60856 = lerp( lerpResult1473_g60856 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g60856 ) ) , 5.0 ));
 					float3 Fresnel1560_g60856 = lerpResult1480_g60856;
-					float3 Fresnel1_g60907 = Fresnel1560_g60856;
+					float3 Fresnel1_g60900 = Fresnel1560_g60856;
 					float3 World_Position2505_g60856 = PositionWS;
-					float3 WorldPos1_g60907 = World_Position2505_g60856;
-					float3 WorldNormal1_g60907 = World_Normal2508_g60856;
-					float3 ViewDir1_g60907 = View_Direction2511_g60856;
-					float3 localIndirectSpecular1_g60907 = IndirectSpecular1_g60907( Color1_g60907 , Metallic1_g60907 , Smoothness1_g60907 , IOR1_g60907 , Fresnel1_g60907 , WorldPos1_g60907 , WorldNormal1_g60907 , ViewDir1_g60907 );
-					float3 temp_output_2848_0_g60856 = localIndirectSpecular1_g60907;
+					float3 WorldPos1_g60900 = World_Position2505_g60856;
+					float3 WorldNormal1_g60900 = World_Normal2508_g60856;
+					float3 ViewDir1_g60900 = View_Direction2511_g60856;
+					float3 localIndirectSpecular1_g60900 = IndirectSpecular1_g60900( Color1_g60900 , Metallic1_g60900 , Smoothness1_g60900 , IOR1_g60900 , Fresnel1_g60900 , WorldPos1_g60900 , WorldNormal1_g60900 , ViewDir1_g60900 );
+					float3 temp_output_2848_0_g60856 = localIndirectSpecular1_g60900;
 					float grayscale2713_g60856 = Luminance( Lightmap46_g60856 );
 					float smoothstepResult2430_g60856 = smoothstep( 0.0 , 0.05 , grayscale2713_g60856);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
@@ -1452,74 +1444,39 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					#else
 					float3 staticSwitch1469_g60856 = temp_output_2848_0_g60856;
 					#endif
-					float3 Reflections1419_g60856 = staticSwitch1469_g60856;
-					float3 Color97_g60908 = oAlbedo6_g60856;
-					float3 LightmapColor97_g60908 = Lightmap46_g60856;
-					float Metallic97_g60908 = Metallic1239_g60856;
+					float3 Indirect_Specular1419_g60856 = staticSwitch1469_g60856;
+					float3 Color97_g60901 = oAlbedo6_g60856;
+					float3 LightmapColor97_g60901 = Lightmap46_g60856;
+					float Metallic97_g60901 = Metallic1239_g60856;
 					float Smoothness2838_g60856 = staticSwitch1004_g60856;
-					float Smoothness97_g60908 = Smoothness2838_g60856;
-					float SmoothnessAA97_g60908 = SmoothnessAA1399_g60856;
-					float IOR97_g60908 = IOR2700_g60856;
-					float3 Fresnel97_g60908 = Fresnel1560_g60856;
-					float3 WorldPos97_g60908 = World_Position2505_g60856;
-					float3 WorldNormal97_g60908 = World_Normal2508_g60856;
-					float3 ViewDir97_g60908 = View_Direction2511_g60856;
-					float3 localDirectSpecular97_g60908 = DirectSpecular( Color97_g60908 , LightmapColor97_g60908 , Metallic97_g60908 , Smoothness97_g60908 , SmoothnessAA97_g60908 , IOR97_g60908 , Fresnel97_g60908 , WorldPos97_g60908 , WorldNormal97_g60908 , ViewDir97_g60908 );
-					float3 Speculars2560_g60856 = localDirectSpecular97_g60908;
+					float Smoothness97_g60901 = Smoothness2838_g60856;
+					float SmoothnessAA97_g60901 = SmoothnessAA1399_g60856;
+					float IOR97_g60901 = IOR2700_g60856;
+					float3 Fresnel97_g60901 = Fresnel1560_g60856;
+					float3 WorldPos97_g60901 = World_Position2505_g60856;
+					float3 WorldNormal97_g60901 = World_Normal2508_g60856;
+					float3 ViewDir97_g60901 = View_Direction2511_g60856;
+					float3 localDirectSpecular97_g60901 = DirectSpecular( Color97_g60901 , LightmapColor97_g60901 , Metallic97_g60901 , Smoothness97_g60901 , SmoothnessAA97_g60901 , IOR97_g60901 , Fresnel97_g60901 , WorldPos97_g60901 , WorldNormal97_g60901 , ViewDir97_g60901 );
+					float3 Direct_Specular2560_g60856 = localDirectSpecular97_g60901;
 					#ifdef _LIGHTMAPDEBUG
 					float3 staticSwitch1181_g60856 = Lightmap46_g60856;
 					#else
-					float3 staticSwitch1181_g60856 = ( ( aAlbedo1466_g60856 * Lightmap46_g60856 ) + Emission86_g60856 + Reflections1419_g60856 + Speculars2560_g60856 );
+					float3 staticSwitch1181_g60856 = ( ( aAlbedo1466_g60856 * Lightmap46_g60856 ) + Emission86_g60856 + Indirect_Specular1419_g60856 + Direct_Specular2560_g60856 );
 					#endif
-					float3 temp_output_35_0_g60866 = staticSwitch1181_g60856;
-					float3 Color353_g60866 = temp_output_35_0_g60866;
-					#if defined( _LUTMODE_2D )
-					float3 staticSwitch273_g60866 = saturate( temp_output_35_0_g60866 );
-					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch273_g60866 = temp_output_35_0_g60866;
-					#else
-					float3 staticSwitch273_g60866 = temp_output_35_0_g60866;
-					#endif
-					float3 Color_Saturate49_g60866 = staticSwitch273_g60866;
-					float Lut_Height213_g60866 = _LUTSize;
-					float Lut_Width216_g60866 = ( _LUTSize * Lut_Height213_g60866 );
-					float3 appendResult214_g60866 = (float3(( 1.0 / Lut_Width216_g60866 ) , ( 1.0 / Lut_Height213_g60866 ) , ( Lut_Height213_g60866 - 1.0 )));
-					float3 Scale_Offset208_g60866 = appendResult214_g60866;
-					float2 Scale_Factor292_g60866 = ( (Scale_Offset208_g60866).xy * (Scale_Offset208_g60866).z );
-					float2 Offset299_g60866 = ( (Scale_Offset208_g60866).xy * 0.5 );
-					float2 Adjusted_UV305_g60866 = ( ( (Color_Saturate49_g60866).xy * Scale_Factor292_g60866 ) + Offset299_g60866 );
-					float Scaled_Blue280_g60866 = ( (Color_Saturate49_g60866).z * (Scale_Offset208_g60866).z );
-					float Shift288_g60866 = floor( Scaled_Blue280_g60866 );
-					float Final_X313_g60866 = ( (Adjusted_UV305_g60866).x + ( Shift288_g60866 * (Scale_Offset208_g60866).y ) );
-					float2 appendResult326_g60866 = (float2(Final_X313_g60866 , (Adjusted_UV305_g60866).y));
-					float2 Final_UV325_g60866 = appendResult326_g60866;
-					float2 appendResult338_g60866 = (float2((Scale_Offset208_g60866).y , 0.0));
-					float2 Offset_UV336_g60866 = ( Final_UV325_g60866 + appendResult338_g60866 );
-					float3 lerpResult333_g60866 = lerp( tex2D( _2DLut, Final_UV325_g60866 ).rgb , tex2D( _2DLut, Offset_UV336_g60866 ).rgb , ( Scaled_Blue280_g60866 - Shift288_g60866 ));
-					#ifdef _2DLUT
-					float3 staticSwitch347_g60866 = lerpResult333_g60866;
-					#else
-					float3 staticSwitch347_g60866 = Color_Saturate49_g60866;
-					#endif
-					float3 TwoD_LUT346_g60866 = staticSwitch347_g60866;
-					float3 RGB16_g60867 = ( ( log10( ( ( Color_Saturate49_g60866 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float3 temp_output_35_0_g60907 = staticSwitch1181_g60856;
+					float3 Color353_g60907 = temp_output_35_0_g60907;
+					float3 Color_Saturate49_g60907 = saturate( temp_output_35_0_g60907 );
+					float3 RGB16_g60908 = ( ( log10( ( ( Color_Saturate49_g60907 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float3 staticSwitch194_g60866 = tex3D( _3DLut, RGB16_g60867 ).rgb;
+					float3 staticSwitch194_g60907 = tex3D( _3DLut, RGB16_g60908 ).rgb;
 					#else
-					float3 staticSwitch194_g60866 = Color_Saturate49_g60866;
+					float3 staticSwitch194_g60907 = Color_Saturate49_g60907;
 					#endif
-					float3 ThreeD_LUT51_g60866 = staticSwitch194_g60866;
-					#if defined( _LUTMODE_2D )
-					float3 staticSwitch42_g60866 = TwoD_LUT346_g60866;
-					#elif defined( _LUTMODE_3D )
-					float3 staticSwitch42_g60866 = ThreeD_LUT51_g60866;
-					#else
-					float3 staticSwitch42_g60866 = ThreeD_LUT51_g60866;
-					#endif
+					float3 ThreeD_LUT51_g60907 = staticSwitch194_g60907;
 					#ifdef SHADER_API_MOBILE
-					float3 staticSwitch41_g60866 = staticSwitch42_g60866;
+					float3 staticSwitch41_g60907 = ThreeD_LUT51_g60907;
 					#else
-					float3 staticSwitch41_g60866 = Color353_g60866;
+					float3 staticSwitch41_g60907 = Color353_g60907;
 					#endif
 					
 
@@ -1544,7 +1501,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch41_g60866;
+					o.Emission = staticSwitch41_g60907;
 					o.Alpha = 1;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
@@ -1799,11 +1756,9 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
-				uniform sampler2D _2DLut;
-				uniform float _LUTSize;
-				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform float _UdonSpecularLightCount;
+				uniform sampler3D _3DLut;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2089,11 +2044,9 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
-				uniform sampler2D _2DLut;
-				uniform float _LUTSize;
-				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform float _UdonSpecularLightCount;
+				uniform sampler3D _3DLut;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2341,11 +2294,9 @@ Shader "Meenphie/Standard/Transparent/Additive"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
-				uniform sampler2D _2DLut;
-				uniform float _LUTSize;
-				uniform sampler3D _3DLut;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform float _UdonSpecularLightCount;
+				uniform sampler3D _3DLut;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2508,7 +2459,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 }
 /*ASEBEGIN
 Version=19909
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3270;192,-1152;Inherit;False;Meenphie;0;;60856;b3ba55a08dd6b49c7be16c6f35cf2033;6,1008,0,2632,0,2635,0,2670,0,2619,0,2636,0;0;5;FLOAT3;625;FLOAT3;624;FLOAT;156;FLOAT;427;FLOAT;1024
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3270;192,-1152;Inherit;False;Meenphie;0;;60856;b3ba55a08dd6b49c7be16c6f35cf2033;6,1008,0,2632,0,2635,0,2619,0,2636,0,2670,0;0;5;FLOAT3;625;FLOAT3;624;FLOAT;156;FLOAT;427;FLOAT;1024
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3152;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;True;False;False;True;False;False;False;False;False;False;False;True;1;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;False;True;1;LightMode=ForwardBase;False;False;0;False;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3154;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;ForwardAdd;0;2;ForwardAdd;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;True;4;1;False;;1;False;;0;1;False;;0;False;;False;True;False;False;True;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;1;LightMode=ForwardAdd;False;False;0;False;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;3155;640,-1200;Float;False;False;-1;3;AmplifyShaderEditor.MaterialInspector;0;12;New Amplify Shader;ed95fe726fd7b4644bb42f4d1ddd2bcd;True;Deferred;0;3;Deferred;0;False;True;0;1;False;;0;False;;0;1;False;;0;False;;True;0;False;;0;False;;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;False;False;True;3;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;DisableBatching=False=DisableBatching;True;3;True;12;all;0;False;False;False;True;False;False;True;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;False;False;False;False;True;1;LightMode=Deferred;False;False;0;False;0;0;Standard;0;False;0
@@ -2520,4 +2471,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;3153;0;3270;625
 WireConnection;3153;2;3270;624
 ASEEND*/
-//CHKSM=D405AC5050CDCF338DD051CE0B0453690BB7273F
+//CHKSM=02A57F2B468C8505230DC5386C32F64E7BB35451
