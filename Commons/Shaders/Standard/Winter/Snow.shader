@@ -1339,6 +1339,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float4 staticSwitch1014_g5296 = temp_cast_2;
 					#endif
 					float3 Lightmap46_g5296 = (staticSwitch1014_g5296).rgb;
+					float3 temp_output_1252_0_g5296 = ( aAlbedo1466_g5296 * Lightmap46_g5296 );
 					float2 temp_output_5_0_g59692 = UV0A2420_g5296;
 					float2 UV633_g59692 = temp_output_5_0_g59692;
 					float2 UV100_g59693 = UV633_g59692;
@@ -1537,38 +1538,41 @@ Shader "Meenphie/Standard/Winter/Snow"
 					float3 staticSwitch1469_g5296 = temp_output_2848_0_g5296;
 					#endif
 					float3 Indirect_Specular1419_g5296 = staticSwitch1469_g5296;
-					float3 Color97_g59752 = oAlbedo6_g5296;
-					float3 LightmapColor97_g59752 = Lightmap46_g5296;
-					float Metallic97_g59752 = Metallic1239_g5296;
+					float3 Color97_g59766 = oAlbedo6_g5296;
+					float3 LightmapColor97_g59766 = Lightmap46_g5296;
+					float Metallic97_g59766 = Metallic1239_g5296;
 					float Smoothness2838_g5296 = staticSwitch1004_g5296;
-					float Smoothness97_g59752 = Smoothness2838_g5296;
-					float SmoothnessAA97_g59752 = SmoothnessAA1399_g5296;
-					float IOR97_g59752 = IOR2700_g5296;
-					float3 Fresnel97_g59752 = Fresnel1560_g5296;
-					float3 WorldPos97_g59752 = World_Position2505_g5296;
-					float3 WorldNormal97_g59752 = World_Normal2508_g5296;
-					float3 ViewDir97_g59752 = View_Direction2511_g5296;
-					float3 localDirectSpecular97_g59752 = DirectSpecular( Color97_g59752 , LightmapColor97_g59752 , Metallic97_g59752 , Smoothness97_g59752 , SmoothnessAA97_g59752 , IOR97_g59752 , Fresnel97_g59752 , WorldPos97_g59752 , WorldNormal97_g59752 , ViewDir97_g59752 );
-					float3 Direct_Specular2560_g5296 = localDirectSpecular97_g59752;
+					float Smoothness97_g59766 = Smoothness2838_g5296;
+					float SmoothnessAA97_g59766 = SmoothnessAA1399_g5296;
+					float IOR97_g59766 = IOR2700_g5296;
+					float3 Fresnel97_g59766 = Fresnel1560_g5296;
+					float3 WorldPos97_g59766 = World_Position2505_g5296;
+					float3 WorldNormal97_g59766 = World_Normal2508_g5296;
+					float3 ViewDir97_g59766 = View_Direction2511_g5296;
+					float3 localDirectSpecular97_g59766 = DirectSpecular( Color97_g59766 , LightmapColor97_g59766 , Metallic97_g59766 , Smoothness97_g59766 , SmoothnessAA97_g59766 , IOR97_g59766 , Fresnel97_g59766 , WorldPos97_g59766 , WorldNormal97_g59766 , ViewDir97_g59766 );
+					float3 Direct_Specular2560_g5296 = localDirectSpecular97_g59766;
+					#ifdef SHADER_API_MOBILE
+					float3 staticSwitch2856_g5296 = ( temp_output_1252_0_g5296 + Emission86_g5296 + Indirect_Specular1419_g5296 + Direct_Specular2560_g5296 );
+					#else
+					float3 staticSwitch2856_g5296 = ( temp_output_1252_0_g5296 + Emission86_g5296 );
+					#endif
 					#ifdef _LIGHTMAPDEBUG
 					float3 staticSwitch1181_g5296 = Lightmap46_g5296;
 					#else
-					float3 staticSwitch1181_g5296 = ( ( aAlbedo1466_g5296 * Lightmap46_g5296 ) + Emission86_g5296 + Indirect_Specular1419_g5296 + Direct_Specular2560_g5296 );
+					float3 staticSwitch1181_g5296 = staticSwitch2856_g5296;
 					#endif
-					float3 temp_output_35_0_g59764 = staticSwitch1181_g5296;
-					float3 Color353_g59764 = temp_output_35_0_g59764;
-					float3 Color_Saturate49_g59764 = saturate( temp_output_35_0_g59764 );
-					float3 RGB16_g59765 = ( ( log10( ( ( Color_Saturate49_g59764 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float3 Color_Saturate49_g59767 = saturate( staticSwitch1181_g5296 );
+					float3 RGB16_g59768 = ( ( log10( ( ( Color_Saturate49_g59767 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
 					#ifdef _3DLUT
-					float3 staticSwitch194_g59764 = tex3D( _3DLut, RGB16_g59765 ).rgb;
+					float3 staticSwitch194_g59767 = tex3D( _3DLut, RGB16_g59768 ).rgb;
 					#else
-					float3 staticSwitch194_g59764 = Color_Saturate49_g59764;
+					float3 staticSwitch194_g59767 = Color_Saturate49_g59767;
 					#endif
-					float3 ThreeD_LUT51_g59764 = staticSwitch194_g59764;
+					float3 ThreeD_LUT51_g59767 = staticSwitch194_g59767;
 					#ifdef SHADER_API_MOBILE
-					float3 staticSwitch41_g59764 = ThreeD_LUT51_g59764;
+					float3 staticSwitch2854_g5296 = ThreeD_LUT51_g59767;
 					#else
-					float3 staticSwitch41_g59764 = Color353_g59764;
+					float3 staticSwitch2854_g5296 = staticSwitch1181_g5296;
 					#endif
 					
 
@@ -1593,7 +1597,7 @@ Shader "Meenphie/Standard/Winter/Snow"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch41_g59764;
+					o.Emission = staticSwitch2854_g5296;
 					o.Alpha = 1;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
@@ -2066,4 +2070,4 @@ WireConnection;2888;3;3038;0
 WireConnection;2888;5;3039;0
 WireConnection;2888;2;3034;624
 ASEEND*/
-//CHKSM=B01A56ADF9371A7BD1DAAF4E13A6FA69EBE7A5CE
+//CHKSM=ECC11834F68DC4B1A2F8BC8071E95677CA66D6C4
