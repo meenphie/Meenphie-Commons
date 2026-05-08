@@ -18,11 +18,7 @@ Shader "Meenphie/UI/UI Image"
         [Toggle(UNITY_UI_ALPHACLIP)] _UseUIAlphaClip ("Use Alpha Clip", Float) = 0
 
         [HDR] ColorHDR( "Color", Color ) = ( 1, 1, 1, 1 )
-        [KeywordEnum( 2D,3D )] _LUTMode( "LUT Mode", Float ) = 1
-        _LUTSize( "LUT Size", Float ) = 32
-        [NoScaleOffset][SingleLineTexture] _2DLut( "2D Lut", 2D ) = "black" {}
         [NoScaleOffset][SingleLineTexture] _3DLut( "3D Lut", 3D ) = "black" {}
-        [HideInInspector] GenKey__2DLut( "Assign keyword _2DLUT", Float ) = 1.0
         [HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
 
     }
@@ -70,8 +66,6 @@ Shader "Meenphie/UI/UI Image"
             #define ASE_NEEDS_FRAG_COLOR
             #define ASE_NEEDS_TEXTURE_COORDINATES0
             #define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
-            #pragma shader_feature_local _LUTMODE_2D _LUTMODE_3D
-            #pragma shader_feature_local _2DLUT
             #pragma shader_feature_local _3DLUT
 
 
@@ -103,8 +97,6 @@ Shader "Meenphie/UI/UI Image"
             float _UIMaskSoftnessX;
             float _UIMaskSoftnessY;
 
-            uniform sampler2D _2DLut;
-            uniform float _LUTSize;
             uniform sampler3D _3DLut;
             uniform float4 ColorHDR;
 
@@ -147,59 +139,17 @@ Shader "Meenphie/UI/UI Image"
                 float2 uv_MainTex = IN.texcoord.xy * _MainTex_ST.xy + _MainTex_ST.zw;
                 float4 tex2DNode114 = tex2D( _MainTex, uv_MainTex );
                 clip( tex2DNode114.a - 0.5);
-                float3 temp_output_35_0_g70 = ( IN.color * tex2DNode114 * ColorHDR ).rgb;
-                float3 Color353_g70 = temp_output_35_0_g70;
-                #if defined( _LUTMODE_2D )
-                float3 staticSwitch273_g70 = saturate( temp_output_35_0_g70 );
-                #elif defined( _LUTMODE_3D )
-                float3 staticSwitch273_g70 = temp_output_35_0_g70;
-                #else
-                float3 staticSwitch273_g70 = temp_output_35_0_g70;
-                #endif
-                float3 Color_Saturate49_g70 = staticSwitch273_g70;
-                float Lut_Height213_g70 = _LUTSize;
-                float Lut_Width216_g70 = ( _LUTSize * Lut_Height213_g70 );
-                float3 appendResult214_g70 = (float3(( 1.0 / Lut_Width216_g70 ) , ( 1.0 / Lut_Height213_g70 ) , ( Lut_Height213_g70 - 1.0 )));
-                float3 Scale_Offset208_g70 = appendResult214_g70;
-                float2 Scale_Factor292_g70 = ( (Scale_Offset208_g70).xy * (Scale_Offset208_g70).z );
-                float2 Offset299_g70 = ( (Scale_Offset208_g70).xy * 0.5 );
-                float2 Adjusted_UV305_g70 = ( ( (Color_Saturate49_g70).xy * Scale_Factor292_g70 ) + Offset299_g70 );
-                float Scaled_Blue280_g70 = ( (Color_Saturate49_g70).z * (Scale_Offset208_g70).z );
-                float Shift288_g70 = floor( Scaled_Blue280_g70 );
-                float Final_X313_g70 = ( (Adjusted_UV305_g70).x + ( Shift288_g70 * (Scale_Offset208_g70).y ) );
-                float2 appendResult326_g70 = (float2(Final_X313_g70 , (Adjusted_UV305_g70).y));
-                float2 Final_UV325_g70 = appendResult326_g70;
-                float2 appendResult338_g70 = (float2((Scale_Offset208_g70).y , 0.0));
-                float2 Offset_UV336_g70 = ( Final_UV325_g70 + appendResult338_g70 );
-                float3 lerpResult333_g70 = lerp( tex2D( _2DLut, Final_UV325_g70 ).rgb , tex2D( _2DLut, Offset_UV336_g70 ).rgb , ( Scaled_Blue280_g70 - Shift288_g70 ));
-                #ifdef _2DLUT
-                float3 staticSwitch347_g70 = lerpResult333_g70;
-                #else
-                float3 staticSwitch347_g70 = Color_Saturate49_g70;
-                #endif
-                float3 TwoD_LUT346_g70 = staticSwitch347_g70;
-                float3 RGB16_g71 = ( ( log10( ( ( Color_Saturate49_g70 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+                float4 Color_Saturate49_g70 = saturate( ( IN.color * tex2DNode114 * ColorHDR ) );
+                float3 RGB16_g71 = ( ( log10( ( ( (Color_Saturate49_g70).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
                 #ifdef _3DLUT
-                float3 staticSwitch194_g70 = tex3D( _3DLut, RGB16_g71 ).rgb;
+                float4 staticSwitch194_g70 = tex3D( _3DLut, RGB16_g71 );
                 #else
-                float3 staticSwitch194_g70 = Color_Saturate49_g70;
+                float4 staticSwitch194_g70 = Color_Saturate49_g70;
                 #endif
-                float3 ThreeD_LUT51_g70 = staticSwitch194_g70;
-                #if defined( _LUTMODE_2D )
-                float3 staticSwitch42_g70 = TwoD_LUT346_g70;
-                #elif defined( _LUTMODE_3D )
-                float3 staticSwitch42_g70 = ThreeD_LUT51_g70;
-                #else
-                float3 staticSwitch42_g70 = ThreeD_LUT51_g70;
-                #endif
-                #ifdef SHADER_API_MOBILE
-                float3 staticSwitch41_g70 = staticSwitch42_g70;
-                #else
-                float3 staticSwitch41_g70 = Color353_g70;
-                #endif
+                float4 ThreeD_LUT51_g70 = staticSwitch194_g70;
                 
 
-                half4 color = float4( staticSwitch41_g70 , 0.0 );
+                half4 color = ThreeD_LUT51_g70;
 
                 #ifdef UNITY_UI_CLIP_RECT
                 half2 m = saturate((_ClipRect.zw - _ClipRect.xy - abs(IN.mask.xy)) * IN.mask.zw);
@@ -229,7 +179,7 @@ Node;AmplifyShaderEditor.ClipNode, AmplifyShaderEditor, Version=0.0.0.0, Culture
 Node;AmplifyShaderEditor.VertexColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;31;-752,-304;Inherit;False;0;5;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
 Node;AmplifyShaderEditor.ColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;78;-784,48;Inherit;False;Property;ColorHDR;Color;0;1;[HDR];Create;False;0;0;0;False;0;False;1,1,1,1;0,0.18374,0.2830189,0.2509804;True;True;0;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
 Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;77;-384,-128;Inherit;False;3;3;0;COLOR;0,0,0,0;False;1;COLOR;1,1,1,1;False;2;COLOR;0,0,0,0;False;1;COLOR;0
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;157;-160,-128;Inherit;False;LUT;1;;70;0baaa08160114780391fed4ef3e2d57e;0;1;35;FLOAT3;0,0,0;False;1;FLOAT3;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;157;-160,-128;Inherit;False;LUT;1;;70;0baaa08160114780391fed4ef3e2d57e;0;1;35;FLOAT4;0,0,0,0;False;1;FLOAT4;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;139;128,-128;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;13;Meenphie/UI/UI Image;5056123faa0c79b47ab6ad7e8bf059a4;True;Default;0;0;Default;2;False;True;3;1;False;;10;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;True;True;True;True;True;0;True;_ColorMask;False;False;False;False;False;False;False;True;True;0;True;_Stencil;255;True;_StencilReadMask;255;True;_StencilWriteMask;0;True;_StencilComp;0;True;_StencilOp;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;2;False;;True;0;True;unity_GUIZTestMode;False;False;True;5;Queue=Transparent=Queue=0;IgnoreProjector=True;RenderType=Transparent=RenderType;PreviewType=Plane;CanUseSpriteAtlas=True;False;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;3;False;0;;0;0;Standard;0;0;1;True;False;;False;0
 WireConnection;114;0;113;0
 WireConnection;124;0;114;0
@@ -240,4 +190,4 @@ WireConnection;77;2;78;0
 WireConnection;157;35;77;0
 WireConnection;139;0;157;0
 ASEEND*/
-//CHKSM=24F19799761C2DB61EE6B2AE8531EDE1AAFC9C66
+//CHKSM=34CDD9C0B53002C884938484B6792A74F86A30D0
