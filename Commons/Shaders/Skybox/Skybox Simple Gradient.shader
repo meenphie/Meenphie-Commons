@@ -5,11 +5,10 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 	Properties
 	{
 		_FogColor( "Fog Color", Color ) = ( 0, 0.8235294, 1 )
-		[NoScaleOffset][SingleLineTexture] _3DLut( "3D Lut", 3D ) = "black" {}
+		[NoScaleOffset][SingleLineTexture] _LUT( "LUT", 3D ) = "black" {}
 		_FogHeight( "Fog Height", Range( 0, 2 ) ) = 2
 		_FogSmoothness( "Fog Smoothness", Range( 0.01, 1 ) ) = 0.925
 		_FogFill( "Fog Fill", Range( -1, 1 ) ) = 0
-		[HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
 
 	}
 
@@ -63,7 +62,6 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 				#include "UnityCG.cginc"
 
 				#include "UnityShaderVariables.cginc"
-				#pragma shader_feature_local _3DLUT
 
 
 				struct appdata
@@ -82,7 +80,7 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 					UNITY_VERTEX_OUTPUT_STEREO
 				};
 
-				uniform sampler3D _3DLut;
+				uniform sampler3D _LUT;
 				uniform float3 _FogColor;
 				uniform half _FogHeight;
 				uniform half _FogSmoothness;
@@ -147,12 +145,7 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 					half FOG_MASK359 = lerpResult678;
 					float4 lerpResult317 = lerp( ( unity_AmbientEquator * float4( _FogColor , 0.0 ) ) , float4( color1198 , 0.0 ) , FOG_MASK359);
 					float4 Color357_g5 = lerpResult317;
-					#ifdef _3DLUT
-					float4 staticSwitch194_g5 = tex3D( _3DLut, ( ( log10( ( ( (Color357_g5).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
-					#else
-					float4 staticSwitch194_g5 = Color357_g5;
-					#endif
-					float4 LUT51_g5 = staticSwitch194_g5;
+					float4 LUT51_g5 = tex3D( _LUT, ( ( log10( ( ( (Color357_g5).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 					#ifdef SHADER_API_MOBILE
 					float4 staticSwitch359_g5 = LUT51_g5;
 					#else
@@ -233,7 +226,7 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 					float _TessMaxDisp;
 				#endif
 
-				uniform sampler3D _3DLut;
+				uniform sampler3D _LUT;
 
 
 				
@@ -369,4 +362,4 @@ WireConnection;317;2;436;0
 WireConnection;1201;35;317;0
 WireConnection;1202;0;1201;0
 ASEEND*/
-//CHKSM=51B58DAA9D64BE7A91A39AF1F87E8B70B524B6B5
+//CHKSM=F3E934594161AECD547588E24006511F4A6CF08C

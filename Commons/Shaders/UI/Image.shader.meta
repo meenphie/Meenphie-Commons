@@ -3,7 +3,7 @@ guid: e3a7a0de24b7c7013b0b0172946d2eac
 ShaderImporter:
   externalObjects: {}
   defaultTextures:
-  - _3DLut: {fileID: 11700000, guid: badd745f61a987f2b9f88cfbda64467f, type: 3}
+  - _LUT: {fileID: 11700000, guid: badd745f61a987f2b9f88cfbda64467f, type: 3}
   nonModifiableTextures: []
   userData: 
   assetBundleName: 

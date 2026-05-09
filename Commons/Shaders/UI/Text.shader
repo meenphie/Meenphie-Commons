@@ -18,8 +18,7 @@ Shader "Meenphie/UI/UI"
         [Toggle(UNITY_UI_ALPHACLIP)] _UseUIAlphaClip ("Use Alpha Clip", Float) = 0
 
         [HDR] ColorHDR( "Color", Color ) = ( 1, 1, 1, 1 )
-        [NoScaleOffset][SingleLineTexture] _3DLut( "3D Lut", 3D ) = "black" {}
-        [HideInInspector] GenKey__3DLut( "Assign keyword _3DLUT", Float ) = 1.0
+        [NoScaleOffset][SingleLineTexture] _LUT( "LUT", 3D ) = "black" {}
 
     }
 
@@ -66,7 +65,6 @@ Shader "Meenphie/UI/UI"
             #define ASE_NEEDS_TEXTURE_COORDINATES0
             #define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
             #define ASE_NEEDS_FRAG_COLOR
-            #pragma shader_feature_local _3DLUT
 
 
             struct appdata_t
@@ -97,7 +95,7 @@ Shader "Meenphie/UI/UI"
             float _UIMaskSoftnessX;
             float _UIMaskSoftnessY;
 
-            uniform sampler3D _3DLut;
+            uniform sampler3D _LUT;
             uniform float4 ColorHDR;
 
 
@@ -139,12 +137,7 @@ Shader "Meenphie/UI/UI"
                 float2 uv_MainTex = IN.texcoord.xy * _MainTex_ST.xy + _MainTex_ST.zw;
                 float4 temp_output_77_0 = ( IN.color * ColorHDR );
                 float4 Color357_g73 = temp_output_77_0;
-                #ifdef _3DLUT
-                float4 staticSwitch194_g73 = tex3D( _3DLut, ( ( log10( ( ( (Color357_g73).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
-                #else
-                float4 staticSwitch194_g73 = Color357_g73;
-                #endif
-                float4 LUT51_g73 = staticSwitch194_g73;
+                float4 LUT51_g73 = tex3D( _LUT, ( ( log10( ( ( (Color357_g73).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
                 #ifdef SHADER_API_MOBILE
                 float4 staticSwitch359_g73 = LUT51_g73;
                 #else
@@ -200,4 +193,4 @@ WireConnection;118;0;114;4
 WireConnection;118;1;141;0
 WireConnection;112;0;118;0
 ASEEND*/
-//CHKSM=6BAC463618BFF3FC3A0798791488CB0D40CC9A14
+//CHKSM=A15296FD29C5E796E62666C0EE8DF437C934E4F7
