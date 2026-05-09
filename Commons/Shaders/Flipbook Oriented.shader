@@ -162,16 +162,20 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 				// *** END Flipbook UV Animation vars ***
 				int flipbookFrame7 = ( ( int )fbcurrenttileindex7);
 				float4 tex2DNode1 = tex2D( _BaseColor, fbuv7 );
-				float4 Color_Saturate49_g9 = saturate( tex2DNode1 );
-				float3 RGB16_g10 = ( ( log10( ( ( (Color_Saturate49_g9).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+				float4 Color357_g9 = tex2DNode1;
 				#ifdef _3DLUT
-				float4 staticSwitch194_g9 = tex3D( _3DLut, RGB16_g10 );
+				float4 staticSwitch194_g9 = tex3D( _3DLut, ( ( log10( ( ( (Color357_g9).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 				#else
-				float4 staticSwitch194_g9 = Color_Saturate49_g9;
+				float4 staticSwitch194_g9 = Color357_g9;
 				#endif
-				float4 ThreeD_LUT51_g9 = staticSwitch194_g9;
+				float4 LUT51_g9 = staticSwitch194_g9;
 				#ifdef SHADER_API_MOBILE
-				float4 staticSwitch40 = ThreeD_LUT51_g9;
+				float4 staticSwitch359_g9 = LUT51_g9;
+				#else
+				float4 staticSwitch359_g9 = Color357_g9;
+				#endif
+				#ifdef SHADER_API_MOBILE
+				float4 staticSwitch40 = staticSwitch359_g9;
 				#else
 				float4 staticSwitch40 = tex2DNode1;
 				#endif
@@ -206,4 +210,4 @@ WireConnection;40;0;39;0
 WireConnection;30;0;40;0
 WireConnection;30;1;31;0
 ASEEND*/
-//CHKSM=6DF1C54540A750F3D0A3A8CAEF67BFB1C0753D03
+//CHKSM=49E3C49BFB34834A862882D2D52E74FDF34A8A45

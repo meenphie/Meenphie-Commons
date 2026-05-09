@@ -136,20 +136,28 @@ Shader "Meenphie/UI/UI Image"
                 const half invAlphaPrecision = half(1.0/alphaPrecision);
                 IN.color.a = round(IN.color.a * alphaPrecision)*invAlphaPrecision;
 
-                float2 uv_MainTex = IN.texcoord.xy * _MainTex_ST.xy + _MainTex_ST.zw;
-                float4 tex2DNode114 = tex2D( _MainTex, uv_MainTex );
-                clip( tex2DNode114.a - 0.5);
-                float4 Color_Saturate49_g70 = saturate( ( IN.color * tex2DNode114 * ColorHDR ) );
-                float3 RGB16_g71 = ( ( log10( ( ( (Color_Saturate49_g70).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+                float4 temp_output_165_0 = ( ColorHDR * IN.color );
+                float4 Color357_g79 = temp_output_165_0;
                 #ifdef _3DLUT
-                float4 staticSwitch194_g70 = tex3D( _3DLut, RGB16_g71 );
+                float4 staticSwitch194_g79 = tex3D( _3DLut, ( ( log10( ( ( (Color357_g79).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
                 #else
-                float4 staticSwitch194_g70 = Color_Saturate49_g70;
+                float4 staticSwitch194_g79 = Color357_g79;
                 #endif
-                float4 ThreeD_LUT51_g70 = staticSwitch194_g70;
+                float4 LUT51_g79 = staticSwitch194_g79;
+                #ifdef SHADER_API_MOBILE
+                float4 staticSwitch359_g79 = LUT51_g79;
+                #else
+                float4 staticSwitch359_g79 = Color357_g79;
+                #endif
+                #ifdef SHADER_API_MOBILE
+                float4 staticSwitch1_g81 = staticSwitch359_g79;
+                #else
+                float4 staticSwitch1_g81 = temp_output_165_0;
+                #endif
+                float2 texCoord162 = IN.texcoord.xy * float2( 1,1 ) + float2( 0,0 );
                 
 
-                half4 color = ThreeD_LUT51_g70;
+                half4 color = ( staticSwitch1_g81 * tex2D( _MainTex, texCoord162 ).a );
 
                 #ifdef UNITY_UI_CLIP_RECT
                 half2 m = saturate((_ClipRect.zw - _ClipRect.xy - abs(IN.mask.xy)) * IN.mask.zw);
@@ -173,21 +181,25 @@ Shader "Meenphie/UI/UI Image"
 }
 /*ASEBEGIN
 Version=19909
-Node;AmplifyShaderEditor.TemplateShaderPropertyNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;113;-1440,-96;Inherit;False;0;0;_MainTex;Shader;False;0;5;SAMPLER2D;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
-Node;AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;114;-1184,-96;Inherit;True;Property;_TextureSample3;Texture Sample 3;6;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;False;8;0;SAMPLER2D;0;False;1;FLOAT2;0,0;False;2;FLOAT;10;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
-Node;AmplifyShaderEditor.ClipNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;124;-752,-96;Inherit;False;3;0;COLOR;0,0,0,0;False;1;FLOAT;1;False;2;FLOAT;0.5;False;1;COLOR;0
-Node;AmplifyShaderEditor.VertexColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;31;-752,-304;Inherit;False;0;5;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
-Node;AmplifyShaderEditor.ColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;78;-784,48;Inherit;False;Property;ColorHDR;Color;0;1;[HDR];Create;False;0;0;0;False;0;False;1,1,1,1;0,0.18374,0.2830189,0.2509804;True;True;0;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
-Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;77;-384,-128;Inherit;False;3;3;0;COLOR;0,0,0,0;False;1;COLOR;1,1,1,1;False;2;COLOR;0,0,0,0;False;1;COLOR;0
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;157;-160,-128;Inherit;False;LUT;1;;70;0baaa08160114780391fed4ef3e2d57e;0;1;35;FLOAT4;0,0,0,0;False;1;FLOAT4;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;139;128,-128;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;13;Meenphie/UI/UI Image;5056123faa0c79b47ab6ad7e8bf059a4;True;Default;0;0;Default;2;False;True;3;1;False;;10;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;True;True;True;True;True;0;True;_ColorMask;False;False;False;False;False;False;False;True;True;0;True;_Stencil;255;True;_StencilReadMask;255;True;_StencilWriteMask;0;True;_StencilComp;0;True;_StencilOp;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;2;False;;True;0;True;unity_GUIZTestMode;False;False;True;5;Queue=Transparent=Queue=0;IgnoreProjector=True;RenderType=Transparent=RenderType;PreviewType=Plane;CanUseSpriteAtlas=True;False;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;3;False;0;;0;0;Standard;0;0;1;True;False;;False;0
-WireConnection;114;0;113;0
-WireConnection;124;0;114;0
-WireConnection;124;1;114;4
-WireConnection;77;0;31;0
-WireConnection;77;1;124;0
-WireConnection;77;2;78;0
-WireConnection;157;35;77;0
-WireConnection;139;0;157;0
+Node;AmplifyShaderEditor.VertexColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;160;-944,-144;Inherit;False;0;5;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
+Node;AmplifyShaderEditor.ColorNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;78;-976,-352;Inherit;False;Property;ColorHDR;Color;0;1;[HDR];Create;False;0;0;0;False;0;False;1,1,1,1;8,8,8,1;True;True;0;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
+Node;AmplifyShaderEditor.TextureCoordinatesNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;162;-416,96;Inherit;False;0;-1;2;3;2;SAMPLER2D;;False;0;FLOAT2;1,1;False;1;FLOAT2;0,0;False;5;FLOAT2;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
+Node;AmplifyShaderEditor.TemplateShaderPropertyNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;163;-416,0;Inherit;False;0;0;_MainTex;Shader;False;0;5;SAMPLER2D;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
+Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;165;-688,-256;Inherit;False;2;2;0;COLOR;0,0,0,0;False;1;COLOR;0,0,0,0;False;1;COLOR;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;170;-416,-144;Inherit;False;LUT;1;;79;0baaa08160114780391fed4ef3e2d57e;0;1;35;FLOAT4;0,0,0,0;False;1;FLOAT4;0
+Node;AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;166;-112,0;Inherit;True;Property;_TextureSample0;Texture Sample 0;0;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;False;8;0;SAMPLER2D;0,0,0,0;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;167;-112,-256;Inherit;False;Shader API Mobile;-1;;81;d21f28cae49dc1f458b3f0ffc78cad0d;0;2;2;FLOAT4;0,0,0,0;False;3;FLOAT4;0,0,0,0;False;1;FLOAT4;0
+Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;168;288,-128;Inherit;False;2;2;0;FLOAT4;0,0,0,0;False;1;FLOAT;0;False;1;FLOAT4;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;139;512,-128;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;13;Meenphie/UI/UI Image;5056123faa0c79b47ab6ad7e8bf059a4;True;Default;0;0;Default;2;False;True;3;1;False;;10;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;True;True;True;True;True;0;True;_ColorMask;False;False;False;False;False;False;False;True;True;0;True;_Stencil;255;True;_StencilReadMask;255;True;_StencilWriteMask;0;True;_StencilComp;0;True;_StencilOp;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;2;False;;True;0;True;unity_GUIZTestMode;False;False;True;5;Queue=Transparent=Queue=0;IgnoreProjector=True;RenderType=Transparent=RenderType;PreviewType=Plane;CanUseSpriteAtlas=True;False;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;3;False;0;;0;0;Standard;0;0;1;True;False;;False;0
+WireConnection;165;0;78;0
+WireConnection;165;1;160;0
+WireConnection;170;35;165;0
+WireConnection;166;0;163;0
+WireConnection;166;1;162;0
+WireConnection;167;2;165;0
+WireConnection;167;3;170;0
+WireConnection;168;0;167;0
+WireConnection;168;1;166;4
+WireConnection;139;0;168;0
 ASEEND*/
-//CHKSM=34CDD9C0B53002C884938484B6792A74F86A30D0
+//CHKSM=7965956D6225D5E70526B19A4D18CA76556A89F6

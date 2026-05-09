@@ -28,10 +28,9 @@ MonoBehaviour:
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;12;-784,-16;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;13;-384,64;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.Log10OpNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;14;-592,-16;Inherit;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.SimpleAddOpNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;15;-160,144;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.RegisterLocalVarNode,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;16;48,144;Inherit;False;RGB;-1;True;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;15;-160,144;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT;0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.ComponentMaskNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;17;-1296,-320;Inherit;False;True;True;True;False;1;0;FLOAT4;0,0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;288,144;Inherit;False;True;-1;YXZ;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;10;0;17;0\nWireConnection;10;1;4;0\nWireConnection;12;0;10;0\nWireConnection;12;1;5;0\nWireConnection;13;0;14;0\nWireConnection;13;1;6;0\nWireConnection;14;0;12;0\nWireConnection;15;0;13;0\nWireConnection;15;1;7;0\nWireConnection;16;0;15;0\nWireConnection;17;0;11;0\nWireConnection;0;0;16;0\nASEEND*/\n//CHKSM=C258467D05312550F6E8422E94C34E9A8438A60F"
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;32,144;Inherit;False;True;-1;YXZ;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;10;0;17;0\nWireConnection;10;1;4;0\nWireConnection;12;0;10;0\nWireConnection;12;1;5;0\nWireConnection;13;0;14;0\nWireConnection;13;1;6;0\nWireConnection;14;0;12;0\nWireConnection;15;0;13;0\nWireConnection;15;1;7;0\nWireConnection;17;0;11;0\nWireConnection;0;0;15;0\nASEEND*/\n//CHKSM=0616167D693ABD2D01802A8E46C897BDADD40A0B"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

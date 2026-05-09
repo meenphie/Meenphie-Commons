@@ -146,17 +146,21 @@ Shader "Meenphie/Skybox/Skybox Simple Gradient"
 					float lerpResult678 = lerp( saturate( pow(  (0.0 + ( abs( normalizeResult319.y ) - 0.0 ) * ( 1.0 - 0.0 ) / ( _FogHeight - 0.0 ) ) , ( 1.0 - _FogSmoothness ) ) ) , 0.0 , _FogFill);
 					half FOG_MASK359 = lerpResult678;
 					float4 lerpResult317 = lerp( ( unity_AmbientEquator * float4( _FogColor , 0.0 ) ) , float4( color1198 , 0.0 ) , FOG_MASK359);
-					float4 Color_Saturate49_g5 = saturate( lerpResult317 );
-					float3 RGB16_g7 = ( ( log10( ( ( (Color_Saturate49_g5).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 );
+					float4 Color357_g5 = lerpResult317;
 					#ifdef _3DLUT
-					float4 staticSwitch194_g5 = tex3D( _3DLut, RGB16_g7 );
+					float4 staticSwitch194_g5 = tex3D( _3DLut, ( ( log10( ( ( (Color357_g5).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 					#else
-					float4 staticSwitch194_g5 = Color_Saturate49_g5;
+					float4 staticSwitch194_g5 = Color357_g5;
 					#endif
-					float4 ThreeD_LUT51_g5 = staticSwitch194_g5;
+					float4 LUT51_g5 = staticSwitch194_g5;
+					#ifdef SHADER_API_MOBILE
+					float4 staticSwitch359_g5 = LUT51_g5;
+					#else
+					float4 staticSwitch359_g5 = Color357_g5;
+					#endif
 					
 
-					float4 Color = ThreeD_LUT51_g5;
+					float4 Color = staticSwitch359_g5;
 					float Alpha = 1;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
@@ -365,4 +369,4 @@ WireConnection;317;2;436;0
 WireConnection;1201;35;317;0
 WireConnection;1202;0;1201;0
 ASEEND*/
-//CHKSM=C646AABA2BF67666168674C654B2CFEDDAE4A89F
+//CHKSM=51B58DAA9D64BE7A91A39AF1F87E8B70B524B6B5
