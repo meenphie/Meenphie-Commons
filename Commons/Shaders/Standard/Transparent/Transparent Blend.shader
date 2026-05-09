@@ -1462,14 +1462,14 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float3 aAlbedo1466_g59553 = ( temp_output_2532_0_g59553 * ( 1.0 - Metallic1239_g59553 ) );
 					float3 temp_output_1252_0_g59553 = ( aAlbedo1466_g59553 * Lightmap46_g59553 );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch1_g59827 = float4( ( temp_output_1252_0_g59553 + Emission86_g59553 ) , 0.0 );
+					float4 staticSwitch1_g59830 = float4( ( temp_output_1252_0_g59553 + Emission86_g59553 + Indirect_Specular1419_g59553 ) , 0.0 );
 					#else
-					float4 staticSwitch1_g59827 = float4( ( Emission86_g59553 + Indirect_Specular1419_g59553 + Direct_Specular2560_g59553 + temp_output_1252_0_g59553 ) , 0.0 );
+					float4 staticSwitch1_g59830 = float4( ( Emission86_g59553 + Indirect_Specular1419_g59553 + Direct_Specular2560_g59553 + temp_output_1252_0_g59553 ) , 0.0 );
 					#endif
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g59553 = float4( Lightmap46_g59553 , 0.0 );
 					#else
-					float4 staticSwitch1181_g59553 = staticSwitch1_g59827;
+					float4 staticSwitch1181_g59553 = staticSwitch1_g59830;
 					#endif
 					float4 Color357_g59828 = staticSwitch1181_g59553;
 					#ifdef _3DLUT
@@ -2762,4 +2762,4 @@ WireConnection;2;0;12;625
 WireConnection;2;2;12;624
 WireConnection;2;7;12;156
 ASEEND*/
-//CHKSM=CA9702C7B5DEA676B202D73FE5D12FBEC6F4894B
+//CHKSM=18BA31DCCE2C23A0867A4EBF71C0978BC19502B4

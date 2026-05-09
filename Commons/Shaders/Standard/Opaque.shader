@@ -1461,14 +1461,14 @@ Shader "Meenphie/Standard/Opaque"
 					float3 aAlbedo1466_g1 = ( temp_output_2532_0_g1 * ( 1.0 - Metallic1239_g1 ) );
 					float3 temp_output_1252_0_g1 = ( aAlbedo1466_g1 * Lightmap46_g1 );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch1_g59827 = float4( ( temp_output_1252_0_g1 + Emission86_g1 ) , 0.0 );
+					float4 staticSwitch1_g59830 = float4( ( temp_output_1252_0_g1 + Emission86_g1 + Indirect_Specular1419_g1 ) , 0.0 );
 					#else
-					float4 staticSwitch1_g59827 = float4( ( Emission86_g1 + Indirect_Specular1419_g1 + Direct_Specular2560_g1 + temp_output_1252_0_g1 ) , 0.0 );
+					float4 staticSwitch1_g59830 = float4( ( Emission86_g1 + Indirect_Specular1419_g1 + Direct_Specular2560_g1 + temp_output_1252_0_g1 ) , 0.0 );
 					#endif
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g1 = float4( Lightmap46_g1 , 0.0 );
 					#else
-					float4 staticSwitch1181_g1 = staticSwitch1_g59827;
+					float4 staticSwitch1181_g1 = staticSwitch1_g59830;
 					#endif
 					float4 Color357_g59828 = staticSwitch1181_g1;
 					#ifdef _3DLUT
@@ -2186,4 +2186,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;5280;0;6146;625
 WireConnection;5280;2;6146;624
 ASEEND*/
-//CHKSM=81DEDF0C87C107DAE3B13893CB44F8A10352BBB5
+//CHKSM=CCA6B807897A432E8E76387A2EF0AE969E6CE0B5

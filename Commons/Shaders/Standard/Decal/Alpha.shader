@@ -1500,26 +1500,26 @@ Shader "Meenphie/Standard/Decal/Alpha"
 					float3 aAlbedo1466_g59916 = ( temp_output_2532_0_g59916 * ( 1.0 - Metallic1239_g59916 ) );
 					float3 temp_output_1252_0_g59916 = ( aAlbedo1466_g59916 * Lightmap46_g59916 );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch1_g59968 = float4( ( temp_output_1252_0_g59916 + Emission86_g59916 ) , 0.0 );
+					float4 staticSwitch1_g59970 = float4( ( temp_output_1252_0_g59916 + Emission86_g59916 + Indirect_Specular1419_g59916 ) , 0.0 );
 					#else
-					float4 staticSwitch1_g59968 = float4( ( Emission86_g59916 + Indirect_Specular1419_g59916 + Direct_Specular2560_g59916 + temp_output_1252_0_g59916 ) , 0.0 );
+					float4 staticSwitch1_g59970 = float4( ( Emission86_g59916 + Indirect_Specular1419_g59916 + Direct_Specular2560_g59916 + temp_output_1252_0_g59916 ) , 0.0 );
 					#endif
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g59916 = float4( Lightmap46_g59916 , 0.0 );
 					#else
-					float4 staticSwitch1181_g59916 = staticSwitch1_g59968;
+					float4 staticSwitch1181_g59916 = staticSwitch1_g59970;
 					#endif
-					float4 Color357_g59969 = staticSwitch1181_g59916;
+					float4 Color357_g59968 = staticSwitch1181_g59916;
 					#ifdef _3DLUT
-					float4 staticSwitch194_g59969 = tex3D( _3DLut, ( ( log10( ( ( (Color357_g59969).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
+					float4 staticSwitch194_g59968 = tex3D( _3DLut, ( ( log10( ( ( (Color357_g59968).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 					#else
-					float4 staticSwitch194_g59969 = Color357_g59969;
+					float4 staticSwitch194_g59968 = Color357_g59968;
 					#endif
-					float4 LUT51_g59969 = staticSwitch194_g59969;
+					float4 LUT51_g59968 = staticSwitch194_g59968;
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch359_g59969 = LUT51_g59969;
+					float4 staticSwitch359_g59968 = LUT51_g59968;
 					#else
-					float4 staticSwitch359_g59969 = Color357_g59969;
+					float4 staticSwitch359_g59968 = Color357_g59968;
 					#endif
 					
 					#ifdef _LIGHTMAPDEBUG
@@ -1550,7 +1550,7 @@ Shader "Meenphie/Standard/Decal/Alpha"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch359_g59969.xyz;
+					o.Emission = staticSwitch359_g59968.xyz;
 					o.Alpha = staticSwitch1191_g59916;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
@@ -2122,4 +2122,4 @@ WireConnection;2888;2;3020;624
 WireConnection;2888;7;3020;156
 WireConnection;2888;15;3020;1024
 ASEEND*/
-//CHKSM=5B395C4A9E22086D8128F506CB21E307267D6232
+//CHKSM=9F22523C5AE2966A2CFCD6E34AEF81CFBE29AA1D
