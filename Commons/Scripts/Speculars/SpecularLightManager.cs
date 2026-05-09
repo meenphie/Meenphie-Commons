@@ -10,11 +10,7 @@ public class SpecularLightManager : UdonSharpBehaviour
     public float updateInterval = 0.5f;
 
     private const int MAX_LIGHTS = 32;
-#if UNITY_ANDROID
-    private const float MAX_RADIUS = 10f;
-#else
     private const float MAX_RADIUS = 20f;
-#endif
     private float _maxRadiusSq;
     [Range(1, MAX_LIGHTS)] public int activeLightCount = MAX_LIGHTS;
 

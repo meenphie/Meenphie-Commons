@@ -336,8 +336,8 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
-				uniform float _UdonSpecularLightCount;
 				uniform sampler3D _LUT;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -420,7 +420,7 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					// --- CONFIGURATION ---
 					static const float specBoost  = 0.01;
 					static const float lumaStart  = 0.02;
-					static const float lumaEnd    = 0.5;
+					static const float lumaEnd    = 1.0;
 					static const float metalBrightness = 10.0;
 					static const float metalPeakMax    = 2.0;
 					static const float maxVisibleDist = 16.0;
@@ -1435,28 +1435,28 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float4 staticSwitch1014_g59553 = temp_cast_3;
 					#endif
 					float3 Lightmap46_g59553 = (staticSwitch1014_g59553).rgb;
-					float3 temp_output_6_0_g59800 = Lightmap46_g59553;
-					float grayscale4_g59800 = Luminance( temp_output_6_0_g59800 );
-					float smoothstepResult2_g59800 = smoothstep( 0.0 , 0.02 , grayscale4_g59800);
+					float3 temp_output_6_0_g59841 = Lightmap46_g59553;
+					float grayscale4_g59841 = Luminance( temp_output_6_0_g59841 );
+					float smoothstepResult2_g59841 = smoothstep( 0.0 , 0.04 , grayscale4_g59841);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
-					float3 staticSwitch1469_g59553 = ( temp_output_2848_0_g59553 * smoothstepResult2_g59800 );
+					float3 staticSwitch1469_g59553 = ( temp_output_2848_0_g59553 * smoothstepResult2_g59841 );
 					#else
 					float3 staticSwitch1469_g59553 = temp_output_2848_0_g59553;
 					#endif
 					float3 Indirect_Specular1419_g59553 = staticSwitch1469_g59553;
-					float3 Color97_g59826 = oAlbedo6_g59553;
-					float Metallic97_g59826 = Metallic1239_g59553;
+					float3 Color97_g59842 = oAlbedo6_g59553;
+					float Metallic97_g59842 = Metallic1239_g59553;
 					float Smoothness2838_g59553 = staticSwitch1004_g59553;
-					float Smoothness97_g59826 = Smoothness2838_g59553;
-					float SmoothnessAA97_g59826 = SmoothnessAA1399_g59553;
-					float IOR97_g59826 = IOR2700_g59553;
-					float3 Fresnel97_g59826 = Fresnel1560_g59553;
-					float3 Lightmap97_g59826 = Lightmap46_g59553;
-					float3 WorldPos97_g59826 = World_Position2505_g59553;
-					float3 WorldNormal97_g59826 = World_Normal2508_g59553;
-					float3 ViewDir97_g59826 = View_Direction2511_g59553;
-					float3 localDirectSpecular97_g59826 = DirectSpecular( Color97_g59826 , Metallic97_g59826 , Smoothness97_g59826 , SmoothnessAA97_g59826 , IOR97_g59826 , Fresnel97_g59826 , Lightmap97_g59826 , WorldPos97_g59826 , WorldNormal97_g59826 , ViewDir97_g59826 );
-					float3 Direct_Specular2560_g59553 = localDirectSpecular97_g59826;
+					float Smoothness97_g59842 = Smoothness2838_g59553;
+					float SmoothnessAA97_g59842 = SmoothnessAA1399_g59553;
+					float IOR97_g59842 = IOR2700_g59553;
+					float3 Fresnel97_g59842 = Fresnel1560_g59553;
+					float3 Lightmap97_g59842 = Lightmap46_g59553;
+					float3 WorldPos97_g59842 = World_Position2505_g59553;
+					float3 WorldNormal97_g59842 = World_Normal2508_g59553;
+					float3 ViewDir97_g59842 = View_Direction2511_g59553;
+					float3 localDirectSpecular97_g59842 = DirectSpecular( Color97_g59842 , Metallic97_g59842 , Smoothness97_g59842 , SmoothnessAA97_g59842 , IOR97_g59842 , Fresnel97_g59842 , Lightmap97_g59842 , WorldPos97_g59842 , WorldNormal97_g59842 , ViewDir97_g59842 );
+					float3 Direct_Specular2560_g59553 = localDirectSpecular97_g59842;
 					float3 aAlbedo1466_g59553 = ( temp_output_2532_0_g59553 * ( 1.0 - Metallic1239_g59553 ) );
 					float3 temp_output_1252_0_g59553 = ( aAlbedo1466_g59553 * Lightmap46_g59553 );
 					#ifdef SHADER_API_MOBILE
@@ -1765,8 +1765,8 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
-				uniform float _UdonSpecularLightCount;
 				uniform sampler3D _LUT;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2146,8 +2146,8 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
-				uniform float _UdonSpecularLightCount;
 				uniform sampler3D _LUT;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2489,8 +2489,8 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
-				uniform float _UdonSpecularLightCount;
 				uniform sampler3D _LUT;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2755,4 +2755,4 @@ WireConnection;2;0;12;625
 WireConnection;2;2;12;624
 WireConnection;2;7;12;156
 ASEEND*/
-//CHKSM=2DBA2403B4B9D3CB7E81E2F0ABDE67C5A7878757
+//CHKSM=EAA641DD3D8FDD54BB45569362C2371EC67068EA

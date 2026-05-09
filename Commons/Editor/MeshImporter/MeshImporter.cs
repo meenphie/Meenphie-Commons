@@ -16,6 +16,10 @@ public class MeshImporter : AssetPostprocessor
         Process(true);
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Process
+    // ─────────────────────────────────────────────────────────────────────────
+
     private static void Process(bool assign)
     {
         string projectRoot = Path.GetDirectoryName(Application.dataPath);
@@ -64,6 +68,10 @@ public class MeshImporter : AssetPostprocessor
         Debug.Log($"{TAG} Terminé. {count} matériaux synchronisés.");
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Apply
+    // ─────────────────────────────────────────────────────────────────────────
+
     private static bool Apply(Material mat, Dictionary<string, string> data)
     {
         // 1. Base Color & Alpha
@@ -75,8 +83,7 @@ public class MeshImporter : AssetPostprocessor
         }
 
         // 2. Metallic & Smoothness
-        float metallicValue = ParseF(GetValue(data, "MetallicValue", "0"));
-        mat.SetFloat("_Metallic", metallicValue);
+        mat.SetFloat("_Metallic", ParseF(GetValue(data, "MetallicValue", "0")));
         mat.SetFloat("_Glossiness", ParseF(GetValue(data, "RoughnessValue", "0.5")));
 
         // 3. Emission
@@ -92,42 +99,70 @@ public class MeshImporter : AssetPostprocessor
             else mat.DisableKeyword("_EMISSIONENABLED_ON");
         }
 
-        // 4. Textures
+        // 4. Textures — toujours setter, null si absent du JSON ou texture introuvable
         SetTex(mat, data, "Base Color", "_MainTex");
-        SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", true);
+        SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", isNormal: true);
         SetTex(mat, data, "Roughness", "_GlossinessMap");
         SetTex(mat, data, "Emission", "_EmissionMap");
 
         return true;
     }
 
-    private static string GetValue(Dictionary<string, string> dict, string key, string defaultValue)
+    // ─────────────────────────────────────────────────────────────────────────
+    // Clear
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static bool Clear(Material mat)
     {
-        return dict.ContainsKey(key) ? dict[key] : defaultValue;
+        string[] texProps = { "_MainTex", "_BumpMap", "_MetallicMap", "_GlossinessMap", "_EmissionMap" };
+        foreach (var p in texProps)
+            if (mat.HasProperty(p)) mat.SetTexture(p, null);
+
+        mat.SetColor("_Color", Color.white);
+        mat.SetColor("_EmissionColor", Color.black);
+        mat.SetFloat("_Metallic", 0);
+        mat.SetFloat("_Glossiness", 0);
+        mat.DisableKeyword("_NORMALMAP");
+        return true;
     }
 
-    private static bool SetTex(Material mat, Dictionary<string, string> data, string key, string prop, string keyword = "", bool isNormal = false)
-    {
-        if (!data.ContainsKey(key)) return false;
-        string fileName = data[key];
+    // ─────────────────────────────────────────────────────────────────────────
+    // SetTex — null la propriété si clé absente ou texture introuvable
+    // ─────────────────────────────────────────────────────────────────────────
 
-        if (string.IsNullOrEmpty(fileName)) return false;
+    private static bool SetTex(Material mat, Dictionary<string, string> data,
+                                string key, string prop,
+                                string keyword = "", bool isNormal = false)
+    {
+        if (!mat.HasProperty(prop)) return false;
+
+        // Clé absente ou vide → on null + disable keyword
+        if (!data.TryGetValue(key, out string fileName) || string.IsNullOrEmpty(fileName))
+        {
+            mat.SetTexture(prop, null);
+            if (!string.IsNullOrEmpty(keyword)) mat.DisableKeyword(keyword);
+            return false;
+        }
 
         Texture2D tex = FindAndFixTex(fileName, isNormal);
 
-        if (tex == null) return false;
-
-        if (mat.GetTexture(prop) != tex)
+        // Texture introuvable → idem, on null
+        if (tex == null)
         {
-            mat.SetTexture(prop, tex);
-            if (!string.IsNullOrEmpty(keyword))
-            {
-                if (tex != null) mat.EnableKeyword(keyword);
-                else mat.DisableKeyword(keyword);
-            }
+            mat.SetTexture(prop, null);
+            if (!string.IsNullOrEmpty(keyword)) mat.DisableKeyword(keyword);
+            Debug.LogWarning($"{TAG} Texture introuvable : {fileName} (prop: {prop})");
+            return false;
         }
+
+        mat.SetTexture(prop, tex);
+        if (!string.IsNullOrEmpty(keyword)) mat.EnableKeyword(keyword);
         return true;
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FindAndFixTex
+    // ─────────────────────────────────────────────────────────────────────────
 
     private static Texture2D FindAndFixTex(string fileName, bool isNormal)
     {
@@ -137,45 +172,45 @@ public class MeshImporter : AssetPostprocessor
         foreach (var g in guids)
         {
             string p = AssetDatabase.GUIDToAssetPath(g);
-            if (Path.GetFileName(p).Equals(fileName, System.StringComparison.OrdinalIgnoreCase))
+            if (!Path.GetFileName(p).Equals(fileName, System.StringComparison.OrdinalIgnoreCase)) continue;
+
+            if (isNormal)
             {
-                if (isNormal)
+                TextureImporter importer = AssetImporter.GetAtPath(p) as TextureImporter;
+                if (importer != null && importer.textureType != TextureImporterType.NormalMap)
                 {
-                    TextureImporter importer = AssetImporter.GetAtPath(p) as TextureImporter;
-                    if (importer != null && importer.textureType != TextureImporterType.NormalMap)
-                    {
-                        importer.textureType = TextureImporterType.NormalMap;
-                        importer.SaveAndReimport();
-                    }
+                    importer.textureType = TextureImporterType.NormalMap;
+                    importer.SaveAndReimport();
                 }
-                return AssetDatabase.LoadAssetAtPath<Texture2D>(p);
             }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(p);
         }
+
         return null;
     }
 
-    private static bool Clear(Material mat)
-    {
-        string[] texProps = { "_MainTex", "_BumpMap", "_MetallicMap", "_GlossinessMap", "_EmissionMap" };
-        foreach (var p in texProps) if (mat.HasProperty(p)) mat.SetTexture(p, null);
-        mat.SetColor("_Color", Color.white);
-        mat.SetColor("_EmissionColor", Color.black);
-        mat.SetFloat("_Metallic", 0);
-        mat.SetFloat("_Glossiness", 0);
-        mat.DisableKeyword("_NORMALMAP");
-        return true;
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
 
-    private static float ParseF(string s) => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 0;
+    private static string GetValue(Dictionary<string, string> dict, string key, string defaultValue)
+        => dict.ContainsKey(key) ? dict[key] : defaultValue;
+
+    private static float ParseF(string s)
+        => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 0;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // OnPostprocessModel
+    // ─────────────────────────────────────────────────────────────────────────
 
     void OnPostprocessModel(GameObject g)
     {
         foreach (MeshFilter filter in g.GetComponentsInChildren<MeshFilter>())
-        {
             if (filter.sharedMesh != null) ApplyPacking(filter.sharedMesh);
-        }
-        Light[] lights = g.GetComponentsInChildren<Light>();
-        foreach (Light light in lights) light.intensity *= 0.1f;
+
+        foreach (Light light in g.GetComponentsInChildren<Light>())
+            light.intensity *= 0.1f;
     }
 
     private void ApplyPacking(Mesh mesh)
@@ -188,11 +223,11 @@ public class MeshImporter : AssetPostprocessor
 
         if (uv0.Count == 0) return;
 
-        // Ensure uv1 matches uv0 length
+        // S'assurer que uv1 a la même longueur que uv0
         if (uv1.Count != uv0.Count)
             uv1 = new List<Vector2>(new Vector2[uv0.Count]);
 
-        // Pack uv0 (xy) and uv1 (zw) into a single Vector4 channel
+        // Pack uv0 (xy) + uv1 (zw) dans un seul canal Vector4
         var packed = uv0.Zip(uv1, (a, b) => new Vector4(a.x, a.y, b.x, b.y)).ToList();
 
         mesh.SetUVs(0, packed);

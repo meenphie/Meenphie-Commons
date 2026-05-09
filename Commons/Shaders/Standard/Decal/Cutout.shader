@@ -343,8 +343,8 @@ Shader "Meenphie/Standard/Decal/Cutout"
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
-				uniform float _UdonSpecularLightCount;
 				uniform sampler3D _LUT;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -428,7 +428,7 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					// --- CONFIGURATION ---
 					static const float specBoost  = 0.01;
 					static const float lumaStart  = 0.02;
-					static const float lumaEnd    = 0.5;
+					static const float lumaEnd    = 1.0;
 					static const float metalBrightness = 10.0;
 					static const float metalPeakMax    = 2.0;
 					static const float maxVisibleDist = 16.0;
@@ -1299,10 +1299,10 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					float Lightmap_Lerp_Value969_g59838 = _UdonLightmapLerp;
 					float4 lerpResult442_g59838 = lerp( Lightmap_0925_g59838 , Lightmap_1956_g59838 , Lightmap_Lerp_Value969_g59838);
 					float4 Lightmap_Lerp932_g59838 = lerpResult442_g59838;
-					float3 appendResult139_g59889 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
-					float3 Normal_Map318_g59889 = Normal_Map700_g59838;
-					float dotResult121_g59889 = dot( appendResult139_g59889 , Normal_Map318_g59889 );
-					float temp_output_2_0_g59891 = saturate( dotResult121_g59889 );
+					float3 appendResult139_g59887 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
+					float3 Normal_Map318_g59887 = Normal_Map700_g59838;
+					float dotResult121_g59887 = dot( appendResult139_g59887 , Normal_Map318_g59887 );
+					float temp_output_2_0_g59889 = saturate( dotResult121_g59887 );
 					float localStochasticTiling2_g59869 = ( 0.0 );
 					float2 UV2_g59869 = UV0B2361_g59838;
 					float4 TexelSize2_g59869 = _UdonRNMX0_TexelSize;
@@ -1341,9 +1341,9 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#else
 					float4 staticSwitch1061_g59838 = tex2D( _UdonRNMX0, UV0B2361_g59838 );
 					#endif
-					float3 appendResult146_g59889 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult122_g59889 = dot( appendResult146_g59889 , Normal_Map318_g59889 );
-					float temp_output_2_0_g59890 = saturate( dotResult122_g59889 );
+					float3 appendResult146_g59887 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult122_g59887 = dot( appendResult146_g59887 , Normal_Map318_g59887 );
+					float temp_output_2_0_g59888 = saturate( dotResult122_g59887 );
 					float4 Input_FetchOffsets197_g59871 = temp_output_1_34_g59868;
 					float2 Input_FetchWeights200_g59871 = temp_output_1_54_g59868;
 					float2 break187_g59871 = Input_FetchWeights200_g59871;
@@ -1356,9 +1356,9 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#else
 					float4 staticSwitch1062_g59838 = tex2D( _UdonRNMY0, UV0B2361_g59838 );
 					#endif
-					float3 appendResult149_g59889 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult120_g59889 = dot( appendResult149_g59889 , Normal_Map318_g59889 );
-					float temp_output_2_0_g59892 = saturate( dotResult120_g59889 );
+					float3 appendResult149_g59887 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult120_g59887 = dot( appendResult149_g59887 , Normal_Map318_g59887 );
+					float temp_output_2_0_g59890 = saturate( dotResult120_g59887 );
 					float4 Input_FetchOffsets197_g59872 = temp_output_1_34_g59868;
 					float2 Input_FetchWeights200_g59872 = temp_output_1_54_g59868;
 					float2 break187_g59872 = Input_FetchWeights200_g59872;
@@ -1371,17 +1371,17 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#else
 					float4 staticSwitch1063_g59838 = tex2D( _UdonRNMZ0, UV0B2361_g59838 );
 					#endif
-					float4 temp_output_24_0_g59889 = ( ( ( ( temp_output_2_0_g59891 * temp_output_2_0_g59891 ) * staticSwitch1061_g59838 ) + ( ( temp_output_2_0_g59890 * temp_output_2_0_g59890 ) * staticSwitch1062_g59838 ) ) + ( ( temp_output_2_0_g59892 * temp_output_2_0_g59892 ) * staticSwitch1063_g59838 ) );
+					float4 temp_output_24_0_g59887 = ( ( ( ( temp_output_2_0_g59889 * temp_output_2_0_g59889 ) * staticSwitch1061_g59838 ) + ( ( temp_output_2_0_g59888 * temp_output_2_0_g59888 ) * staticSwitch1062_g59838 ) ) + ( ( temp_output_2_0_g59890 * temp_output_2_0_g59890 ) * staticSwitch1063_g59838 ) );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch372_g59889 = ( temp_output_24_0_g59889 * 1.2 );
+					float4 staticSwitch372_g59887 = ( temp_output_24_0_g59887 * 1.2 );
 					#else
-					float4 staticSwitch372_g59889 = temp_output_24_0_g59889;
+					float4 staticSwitch372_g59887 = temp_output_24_0_g59887;
 					#endif
-					float4 RNM_0926_g59838 = staticSwitch372_g59889;
-					float3 appendResult139_g59885 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
-					float3 Normal_Map318_g59885 = Normal_Map700_g59838;
-					float dotResult121_g59885 = dot( appendResult139_g59885 , Normal_Map318_g59885 );
-					float temp_output_2_0_g59887 = saturate( dotResult121_g59885 );
+					float4 RNM_0926_g59838 = staticSwitch372_g59887;
+					float3 appendResult139_g59883 = (float3(sqrt( ( 2.0 / 3.0 ) ) , 0.0 , ( 1.0 / sqrt( 3.0 ) )));
+					float3 Normal_Map318_g59883 = Normal_Map700_g59838;
+					float dotResult121_g59883 = dot( appendResult139_g59883 , Normal_Map318_g59883 );
+					float temp_output_2_0_g59885 = saturate( dotResult121_g59883 );
 					float localStochasticTiling2_g59840 = ( 0.0 );
 					float2 UV2_g59840 = UV0B2361_g59838;
 					float4 TexelSize2_g59840 = _UdonRNMX1_TexelSize;
@@ -1420,9 +1420,9 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#else
 					float4 staticSwitch1087_g59838 = tex2D( _UdonRNMX1, UV0B2361_g59838 );
 					#endif
-					float3 appendResult146_g59885 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult122_g59885 = dot( appendResult146_g59885 , Normal_Map318_g59885 );
-					float temp_output_2_0_g59886 = saturate( dotResult122_g59885 );
+					float3 appendResult146_g59883 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( 1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult122_g59883 = dot( appendResult146_g59883 , Normal_Map318_g59883 );
+					float temp_output_2_0_g59884 = saturate( dotResult122_g59883 );
 					float4 Input_FetchOffsets197_g59842 = temp_output_1_34_g59839;
 					float2 Input_FetchWeights200_g59842 = temp_output_1_54_g59839;
 					float2 break187_g59842 = Input_FetchWeights200_g59842;
@@ -1435,9 +1435,9 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#else
 					float4 staticSwitch1083_g59838 = tex2D( _UdonRNMY1, UV0B2361_g59838 );
 					#endif
-					float3 appendResult149_g59885 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
-					float dotResult120_g59885 = dot( appendResult149_g59885 , Normal_Map318_g59885 );
-					float temp_output_2_0_g59888 = saturate( dotResult120_g59885 );
+					float3 appendResult149_g59883 = (float3(( -1.0 / sqrt( 6.0 ) ) , ( -1.0 / sqrt( 2.0 ) ) , ( 1.0 / sqrt( 3.0 ) )));
+					float dotResult120_g59883 = dot( appendResult149_g59883 , Normal_Map318_g59883 );
+					float temp_output_2_0_g59886 = saturate( dotResult120_g59883 );
 					float4 Input_FetchOffsets197_g59843 = temp_output_1_34_g59839;
 					float2 Input_FetchWeights200_g59843 = temp_output_1_54_g59839;
 					float2 break187_g59843 = Input_FetchWeights200_g59843;
@@ -1450,13 +1450,13 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#else
 					float4 staticSwitch1084_g59838 = tex2D( _UdonRNMZ1, UV0B2361_g59838 );
 					#endif
-					float4 temp_output_24_0_g59885 = ( ( ( ( temp_output_2_0_g59887 * temp_output_2_0_g59887 ) * staticSwitch1087_g59838 ) + ( ( temp_output_2_0_g59886 * temp_output_2_0_g59886 ) * staticSwitch1083_g59838 ) ) + ( ( temp_output_2_0_g59888 * temp_output_2_0_g59888 ) * staticSwitch1084_g59838 ) );
+					float4 temp_output_24_0_g59883 = ( ( ( ( temp_output_2_0_g59885 * temp_output_2_0_g59885 ) * staticSwitch1087_g59838 ) + ( ( temp_output_2_0_g59884 * temp_output_2_0_g59884 ) * staticSwitch1083_g59838 ) ) + ( ( temp_output_2_0_g59886 * temp_output_2_0_g59886 ) * staticSwitch1084_g59838 ) );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch372_g59885 = ( temp_output_24_0_g59885 * 1.2 );
+					float4 staticSwitch372_g59883 = ( temp_output_24_0_g59883 * 1.2 );
 					#else
-					float4 staticSwitch372_g59885 = temp_output_24_0_g59885;
+					float4 staticSwitch372_g59883 = temp_output_24_0_g59883;
 					#endif
-					float4 RNM_11081_g59838 = staticSwitch372_g59885;
+					float4 RNM_11081_g59838 = staticSwitch372_g59883;
 					float4 lerpResult953_g59838 = lerp( RNM_0926_g59838 , RNM_11081_g59838 , Lightmap_Lerp_Value969_g59838);
 					float4 RNM_Lerp950_g59838 = lerpResult953_g59838;
 					#if defined( _LIGHTMAPMODE_DISABLED )
@@ -1473,46 +1473,46 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					float4 staticSwitch1014_g59838 = temp_cast_3;
 					#endif
 					float3 Lightmap46_g59838 = (staticSwitch1014_g59838).rgb;
-					float3 temp_output_6_0_g59880 = Lightmap46_g59838;
-					float grayscale4_g59880 = Luminance( temp_output_6_0_g59880 );
-					float smoothstepResult2_g59880 = smoothstep( 0.0 , 0.02 , grayscale4_g59880);
+					float3 temp_output_6_0_g59891 = Lightmap46_g59838;
+					float grayscale4_g59891 = Luminance( temp_output_6_0_g59891 );
+					float smoothstepResult2_g59891 = smoothstep( 0.0 , 0.04 , grayscale4_g59891);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
-					float3 staticSwitch1469_g59838 = ( temp_output_2848_0_g59838 * smoothstepResult2_g59880 );
+					float3 staticSwitch1469_g59838 = ( temp_output_2848_0_g59838 * smoothstepResult2_g59891 );
 					#else
 					float3 staticSwitch1469_g59838 = temp_output_2848_0_g59838;
 					#endif
 					float3 Indirect_Specular1419_g59838 = staticSwitch1469_g59838;
-					float3 Color97_g59881 = oAlbedo6_g59838;
-					float Metallic97_g59881 = Metallic1239_g59838;
+					float3 Color97_g59892 = oAlbedo6_g59838;
+					float Metallic97_g59892 = Metallic1239_g59838;
 					float Smoothness2838_g59838 = staticSwitch1004_g59838;
-					float Smoothness97_g59881 = Smoothness2838_g59838;
-					float SmoothnessAA97_g59881 = SmoothnessAA1399_g59838;
-					float IOR97_g59881 = IOR2700_g59838;
-					float3 Fresnel97_g59881 = Fresnel1560_g59838;
-					float3 Lightmap97_g59881 = Lightmap46_g59838;
-					float3 WorldPos97_g59881 = World_Position2505_g59838;
-					float3 WorldNormal97_g59881 = World_Normal2508_g59838;
-					float3 ViewDir97_g59881 = View_Direction2511_g59838;
-					float3 localDirectSpecular97_g59881 = DirectSpecular( Color97_g59881 , Metallic97_g59881 , Smoothness97_g59881 , SmoothnessAA97_g59881 , IOR97_g59881 , Fresnel97_g59881 , Lightmap97_g59881 , WorldPos97_g59881 , WorldNormal97_g59881 , ViewDir97_g59881 );
-					float3 Direct_Specular2560_g59838 = localDirectSpecular97_g59881;
+					float Smoothness97_g59892 = Smoothness2838_g59838;
+					float SmoothnessAA97_g59892 = SmoothnessAA1399_g59838;
+					float IOR97_g59892 = IOR2700_g59838;
+					float3 Fresnel97_g59892 = Fresnel1560_g59838;
+					float3 Lightmap97_g59892 = Lightmap46_g59838;
+					float3 WorldPos97_g59892 = World_Position2505_g59838;
+					float3 WorldNormal97_g59892 = World_Normal2508_g59838;
+					float3 ViewDir97_g59892 = View_Direction2511_g59838;
+					float3 localDirectSpecular97_g59892 = DirectSpecular( Color97_g59892 , Metallic97_g59892 , Smoothness97_g59892 , SmoothnessAA97_g59892 , IOR97_g59892 , Fresnel97_g59892 , Lightmap97_g59892 , WorldPos97_g59892 , WorldNormal97_g59892 , ViewDir97_g59892 );
+					float3 Direct_Specular2560_g59838 = localDirectSpecular97_g59892;
 					float3 aAlbedo1466_g59838 = ( temp_output_2532_0_g59838 * ( 1.0 - Metallic1239_g59838 ) );
 					float3 temp_output_1252_0_g59838 = ( aAlbedo1466_g59838 * Lightmap46_g59838 );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch1_g59882 = float4( ( temp_output_1252_0_g59838 + Emission86_g59838 + Indirect_Specular1419_g59838 ) , 0.0 );
+					float4 staticSwitch1_g59880 = float4( ( temp_output_1252_0_g59838 + Emission86_g59838 + Indirect_Specular1419_g59838 ) , 0.0 );
 					#else
-					float4 staticSwitch1_g59882 = float4( ( Emission86_g59838 + Indirect_Specular1419_g59838 + Direct_Specular2560_g59838 + temp_output_1252_0_g59838 ) , 0.0 );
+					float4 staticSwitch1_g59880 = float4( ( Emission86_g59838 + Indirect_Specular1419_g59838 + Direct_Specular2560_g59838 + temp_output_1252_0_g59838 ) , 0.0 );
 					#endif
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g59838 = float4( Lightmap46_g59838 , 0.0 );
 					#else
-					float4 staticSwitch1181_g59838 = staticSwitch1_g59882;
+					float4 staticSwitch1181_g59838 = staticSwitch1_g59880;
 					#endif
-					float4 Color357_g59883 = staticSwitch1181_g59838;
-					float4 LUT51_g59883 = tex3D( _LUT, ( ( log10( ( ( (Color357_g59883).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
+					float4 Color357_g59881 = staticSwitch1181_g59838;
+					float4 LUT51_g59881 = tex3D( _LUT, ( ( log10( ( ( (Color357_g59881).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch359_g59883 = LUT51_g59883;
+					float4 staticSwitch359_g59881 = LUT51_g59881;
 					#else
-					float4 staticSwitch359_g59883 = Color357_g59883;
+					float4 staticSwitch359_g59881 = Color357_g59881;
 					#endif
 					
 					#ifdef _LIGHTMAPDEBUG
@@ -1543,7 +1543,7 @@ Shader "Meenphie/Standard/Decal/Cutout"
 						o.Smoothness = Smoothness;
 					#endif
 
-					o.Emission = staticSwitch359_g59883.xyz;
+					o.Emission = staticSwitch359_g59881.xyz;
 					o.Alpha = staticSwitch1191_g59838;
 					half AlphaClipThreshold = _MaskClipValue;
 					half AlphaClipThresholdShadow = 0.5;
@@ -1803,8 +1803,8 @@ Shader "Meenphie/Standard/Decal/Cutout"
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
-				uniform float _UdonSpecularLightCount;
 				uniform sampler3D _LUT;
+				uniform float _UdonSpecularLightCount;
 				uniform float4 _UdonSpecularLightUp[32];
 				uniform float4 _UdonSpecularLightDir[32];
 				uniform float4 _UdonSpecularLightCol[32];
@@ -2115,4 +2115,4 @@ WireConnection;2888;7;3018;156
 WireConnection;2888;8;3018;427
 WireConnection;2888;15;3018;1024
 ASEEND*/
-//CHKSM=E0EBC0871D9E6909B43193ABB9EE5B8FEA849F60
+//CHKSM=592FD04A55BDAC8E15DA985E9C48F55C705E9152
