@@ -255,7 +255,9 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					#define ENABLE_TERRAIN_PERPIXEL_NORMAL
 				#endif
 
+				#include "Packages/com.meenphie.commons/Commons/Shaders/Custom Expressions/IndirectSpecular.cginc"
 				#include "UnityStandardUtils.cginc"
+				#include "Packages/com.meenphie.commons/Commons/Shaders/Custom Expressions/DirectSpecular.cginc"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_WORLD_TANGENT
 				#define ASE_NEEDS_FRAG_WORLD_TANGENT
@@ -337,12 +339,6 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform sampler3D _LUT;
-				uniform float _UdonSpecularLightCount;
-				uniform float4 _UdonSpecularLightUp[32];
-				uniform float4 _UdonSpecularLightDir[32];
-				uniform float4 _UdonSpecularLightCol[32];
-				uniform float4 _UdonSpecularLightPos[32];
-				uniform float4 _UdonSpecularLightRight[32];
 				uniform half4 _Color;
 				uniform sampler2D _MainTex;
 				sampler2D _Sampler82966_g59553;
@@ -374,157 +370,7 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform sampler2D _UdonRNMZ1;
 
 
-				float3 IndirectSpecular1_g59751( float3 Color, float Metallic, float Smoothness, float IOR, float3 Fresnel, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
-				{
-					// --- 0. PARAMETERS ---
-					float maxMip = 6.0;
-					// --- 1. VECTORS ---
-					float3 N     = normalize(WorldNormal);
-					float3 V     = normalize(ViewDir);
-					float3 R     = reflect(-V, N);
-					float  nDotV = saturate(dot(N, V));
-					// --- 2. BOX PROJECTION ---
-					float3 ray = R;
-					[branch]
-					if (unity_SpecCube0_ProbePosition.w > 0.0) {
-					    float3 safeRay  = max(abs(ray), 1e-5) * sign(ray);
-					    float3 rbMax    = (unity_SpecCube0_BoxMax.xyz - WorldPos) / safeRay;
-					    float3 rbMin    = (unity_SpecCube0_BoxMin.xyz - WorldPos) / safeRay;
-					    float3 rbMinMax = (ray > 0) ? rbMax : rbMin;
-					    float  fa       = min(min(rbMinMax.x, rbMinMax.y), rbMinMax.z);
-					    ray = ray * fa + (WorldPos - unity_SpecCube0_ProbePosition.xyz);
-					}
-					// --- 3. F0 (IOR-BASED) ---
-					float  iorTerm = (IOR - 1.0) / (IOR + 1.0);
-					float  f0_base = iorTerm * iorTerm;
-					float3 F0      = lerp(f0_base.xxx, Color.rgb, Metallic);
-					// --- 4. ROUGHNESS (PERCEPTUAL) ---
-					float roughnessOrig       = 1.0 - Smoothness;
-					float perceptualRoughness = saturate(roughnessOrig);
-					// --- 5. MIP MAPPING ---
-					float angleThreshold = smoothstep(0.0, 0.1, nDotV);
-					float mipLevel       = clamp(perceptualRoughness * angleThreshold * maxMip, 0.0, maxMip);
-					// --- 6. FRESNEL PBR ---
-					float3 F = F0 + (max(float3(Smoothness, Smoothness, Smoothness), F0) - F0) * pow(1.0 - nDotV, 5.0);
-					// --- 7. ATTENUATION ---
-					float logCurve  = 1.0 - sqrt(roughnessOrig);
-					float finalFade = lerp(logCurve, 1.0, Metallic);
-					// --- 8. SAMPLING ---
-					float4 sampleCube   = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, ray, mipLevel);
-					float3 indirectSpec = DecodeHDR(sampleCube, unity_SpecCube0_HDR);
-					return indirectSpec * F * finalFade;
-				}
 				
-				float3 DirectSpecular( float3 Color, float Metallic, float Smoothness, float SmoothnessAA, float IOR, float3 Fresnel, float3 Lightmap, float3 WorldPos, float3 WorldNormal, float3 ViewDir )
-				{
-					// --- CONFIGURATION ---
-					static const float specBoost  = 0.01;
-					static const float lumaStart  = 0.02;
-					static const float lumaEnd    = 1.0;
-					static const float metalBrightness = 10.0;
-					static const float metalPeakMax    = 2.0;
-					static const float maxVisibleDist = 16.0;
-					static const float fadeStart      = 8.0;
-					// --- INIT ---
-					float3 N    = normalize(WorldNormal);
-					float3 vDir = normalize(ViewDir);
-					float3 R    = reflect(-vDir, N);
-					// --- LIGHTMAP MASK ---
-					float  luma   = dot(Lightmap, float3(0.2126, 0.7152, 0.0722));
-					float  lmMask = smoothstep(lumaStart, lumaEnd, luma);
-					float3 lmTint = lmMask * lerp(1.0, Lightmap / max(luma, 1e-4), Metallic);
-					if (Smoothness < 0.0001 || _UdonSpecularLightCount < 0.5 || lmMask <= 0.0001) return 0.0;
-					// --- ROUGHNESS & AA LOGIC ---
-					// 1. Original artist intent
-					float roughnessOrig = 1.0 - Smoothness;
-					float alphaOrig     = roughnessOrig * roughnessOrig;
-					float alpha2Orig    = max(alphaOrig * alphaOrig, 0.0001);
-					// 2. Geometric AA roughness (prevents flickering, used for lobe shape)
-					float roughnessAA = 1.0 - SmoothnessAA;
-					float alphaAA     = roughnessAA * roughnessAA;
-					float alpha2AA    = max(alphaAA * alphaAA, 0.0001);
-					// 3. Metal brightness control
-					float peakRatio          = min(sqrt(alpha2AA / alpha2Orig), metalPeakMax);
-					float metalPeakBoost     = lerp(0.0, peakRatio, metalBrightness);
-					float energyCompensation = lerp(1.0, metalPeakBoost, Metallic);
-					// 4. Perceptual falloff (dielectrics only)
-					float logCurve  = 1.0 - sqrt(roughnessOrig);
-					float finalFade = lerp(logCurve, 1.0, Metallic);
-					// --- SPECULAR LOOP ---
-					float  nDotV     = max(dot(N, vDir), 1e-4);
-					float3 specAccum = 0;
-					int    loopCount = (int)_UdonSpecularLightCount;
-					for (int i = 0; i < loopCount; i++) {
-					    float4 posRange = _UdonSpecularLightPos[i];
-					    // Distance fade — full brightness within fadeStart, then linear falloff to maxVisibleDist
-					    float camDist      = distance(_WorldSpaceCameraPos, posRange.xyz);
-					    float distanceFade = saturate(1.0 - (camDist - fadeStart) / max(maxVisibleDist - fadeStart, 1e-4));
-					    if (distanceFade <= 0.0) continue;
-					    float3 L_vector = posRange.xyz - WorldPos;
-					    float  distSq   = dot(L_vector, L_vector);
-					    float4 dirAngle = _UdonSpecularLightDir[i];
-					    float3 L_norm   = L_vector * rsqrt(max(distSq, 1e-6));
-					    // Spot mask
-					    float spotMask = saturate((dot(-L_norm, dirAngle.xyz) - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
-					    if (spotMask <= 0.0) continue;
-					    float3 diff     = 0;
-					    float  rectMask = 1.0;
-					    float2 halfSize = float2(_UdonSpecularLightRight[i].w, _UdonSpecularLightUp[i].w);
-					    [branch]
-					    if (dirAngle.w < -0.9) {
-					        diff = L_vector;
-					    }
-					    else {
-					        // MRP area light
-					        float denom  = dot(dirAngle.xyz, R);
-					        float tPlane = dot(L_vector, dirAngle.xyz) / (abs(denom) < 1e-4 ? 1e-4 : denom);
-					        if (tPlane <= 0.0) continue;
-					        float3 pReflection = WorldPos + R * tPlane;
-					        float3 lp          = pReflection - posRange.xyz;
-					        float2 localP      = float2(dot(lp, _UdonSpecularLightRight[i].xyz),
-					            dot(lp, _UdonSpecularLightUp[i].xyz));
-					        float2 clampedPos  = clamp(localP, -halfSize, halfSize);
-					        diff = posRange.xyz
-					        + _UdonSpecularLightRight[i].xyz * clampedPos.x
-					        + _UdonSpecularLightUp[i].xyz    * clampedPos.y
-					        - WorldPos;
-					        // Rectangle mask — softness follows AA roughness
-					        float  softness   = max(0.1, roughnessAA * 2.0);
-					        float2 distToEdge = abs(localP) - halfSize;
-					        rectMask = smoothstep(softness, 0.0, length(max(distToEdge, 0.0)));
-					    }
-					    if (rectMask <= 0.0) continue;
-					    float  dSqDiff = dot(diff, diff);
-					    float3 lDir    = diff * rsqrt(max(dSqDiff, 1e-6));
-					    float3 H       = normalize(lDir + vDir);
-					    float nDotH = saturate(dot(N, H));
-					    float nDotL = saturate(dot(N, lDir));
-					    // GGX NDF — AA lobe shape for everyone
-					    float d_denom = nDotH * nDotH * (alpha2AA - 1.0) + 1.0;
-					    float D       = alpha2AA / (3.14159 * d_denom * d_denom + 1e-7);
-					    // Smith visibility — consistent with AA alpha
-					    float k  = alphaAA * 0.5;
-					    float Gv = nDotV / (nDotV * (1.0 - k) + k);
-					    float Gl = nDotL / (nDotL * (1.0 - k) + k);
-					    float G  = Gv * Gl;
-					    // Cook-Torrance, no Fresnel — handled externally
-					    float3 spec = (D * G) / max(4.0 * nDotV * nDotL, 0.001);
-					    // Accumulate — max(0) guards against negatives
-					    specAccum += max(0.0, _UdonSpecularLightCol[i].rgb
-					        * _UdonSpecularLightCol[i].w
-					        * spec
-					        * nDotL
-					        * spotMask
-					        * distanceFade
-					        * rectMask);
-					}
-					// --- FINAL ---
-					float3 colorTint = lerp(1.0, Color.rgb, Metallic);
-					float3 result = specAccum * colorTint * lmTint * specBoost * finalFade * energyCompensation;
-					return result;
-				}
-				
-
 				v2f VertexFunction( appdata v  )
 				{
 					UNITY_SETUP_INSTANCE_ID(v);
@@ -890,7 +736,7 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					#endif
 					float3 temp_output_2531_0_g59553 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g59553 * _EmissionIntensity )).rgb;
 					float3 Emission86_g59553 = temp_output_2531_0_g59553;
-					float3 Color1_g59751 = oAlbedo6_g59553;
+					float3 Color1_g59851 = oAlbedo6_g59553;
 					#ifdef _METALLICMAP
 					float staticSwitch846_g59553 = tex2D( _MetallicMap, UV0A2420_g59553 ).r;
 					#else
@@ -970,7 +816,7 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float staticSwitch1005_g59553 = staticSwitch846_g59553;
 					#endif
 					float Metallic1239_g59553 = staticSwitch1005_g59553;
-					float Metallic1_g59751 = Metallic1239_g59553;
+					float Metallic1_g59851 = Metallic1239_g59553;
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g59553 = tex2D( _GlossinessMap, UV0A2420_g59553 ).r;
 					#else
@@ -1049,7 +895,7 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					#else
 					float staticSwitch1004_g59553 = ( 1.0 - staticSwitch845_g59553 );
 					#endif
-					float temp_output_19_0_g59745 = staticSwitch1004_g59553;
+					float temp_output_19_0_g59852 = staticSwitch1004_g59553;
 					float2 temp_output_5_0_g59660 = UV0A2420_g59553;
 					float2 UV633_g59660 = temp_output_5_0_g59660;
 					float2 UV100_g59661 = UV633_g59660;
@@ -1136,21 +982,21 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float3 tanNormal2504_g59553 = Normal_Map700_g59553;
 					float3 worldNormal2504_g59553 = normalize( float3( dot( tanToWorld0, tanNormal2504_g59553 ), dot( tanToWorld1, tanNormal2504_g59553 ), dot( tanToWorld2, tanNormal2504_g59553 ) ) );
 					float3 World_Normal2508_g59553 = worldNormal2504_g59553;
-					float3 tanNormal2_g59745 = World_Normal2508_g59553;
-					float3 worldNormal2_g59745 = float3( dot( tanToWorld0, tanNormal2_g59745 ), dot( tanToWorld1, tanNormal2_g59745 ), dot( tanToWorld2, tanNormal2_g59745 ) );
-					float3 temp_output_3_0_g59745 = ddx( worldNormal2_g59745 );
-					float dotResult5_g59745 = dot( temp_output_3_0_g59745 , temp_output_3_0_g59745 );
-					float3 temp_output_4_0_g59745 = ddy( worldNormal2_g59745 );
-					float dotResult6_g59745 = dot( temp_output_4_0_g59745 , temp_output_4_0_g59745 );
+					float3 tanNormal2_g59852 = World_Normal2508_g59553;
+					float3 worldNormal2_g59852 = float3( dot( tanToWorld0, tanNormal2_g59852 ), dot( tanToWorld1, tanNormal2_g59852 ), dot( tanToWorld2, tanNormal2_g59852 ) );
+					float3 temp_output_3_0_g59852 = ddx( worldNormal2_g59852 );
+					float dotResult5_g59852 = dot( temp_output_3_0_g59852 , temp_output_3_0_g59852 );
+					float3 temp_output_4_0_g59852 = ddy( worldNormal2_g59852 );
+					float dotResult6_g59852 = dot( temp_output_4_0_g59852 , temp_output_4_0_g59852 );
 					#ifdef _USEGEOMETRICAA_ON
-					float staticSwitch15_g59745 = min( temp_output_19_0_g59745, ( 1.0 - pow( saturate( max( dotResult5_g59745, dotResult6_g59745 ) ) , 0.25 ) ) );
+					float staticSwitch15_g59852 = min( temp_output_19_0_g59852, ( 1.0 - pow( saturate( max( dotResult5_g59852, dotResult6_g59852 ) ) , 0.25 ) ) );
 					#else
-					float staticSwitch15_g59745 = temp_output_19_0_g59745;
+					float staticSwitch15_g59852 = temp_output_19_0_g59852;
 					#endif
-					float SmoothnessAA1399_g59553 = staticSwitch15_g59745;
-					float Smoothness1_g59751 = SmoothnessAA1399_g59553;
+					float Smoothness1399_g59553 = staticSwitch15_g59852;
+					float Smoothness1_g59851 = Smoothness1399_g59553;
 					float IOR2700_g59553 = _IOR;
-					float IOR1_g59751 = IOR2700_g59553;
+					float IOR1_g59851 = IOR2700_g59553;
 					float3 temp_cast_2 = (0.04).xxx;
 					float3 lerpResult1473_g59553 = lerp( temp_cast_2 , oAlbedo6_g59553 , Metallic1239_g59553);
 					float3 switchResult1501_g59553 = (((ase_vface>0)?(World_Normal2508_g59553):(-World_Normal2508_g59553)));
@@ -1158,13 +1004,13 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float dotResult1476_g59553 = dot( switchResult1501_g59553 , View_Direction2511_g59553 );
 					float3 lerpResult1480_g59553 = lerp( lerpResult1473_g59553 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g59553 ) ) , 5.0 ));
 					float3 Fresnel1560_g59553 = lerpResult1480_g59553;
-					float3 Fresnel1_g59751 = Fresnel1560_g59553;
+					float3 Fresnel1_g59851 = Fresnel1560_g59553;
 					float3 World_Position2505_g59553 = PositionWS;
-					float3 WorldPos1_g59751 = World_Position2505_g59553;
-					float3 WorldNormal1_g59751 = World_Normal2508_g59553;
-					float3 ViewDir1_g59751 = View_Direction2511_g59553;
-					float3 localIndirectSpecular1_g59751 = IndirectSpecular1_g59751( Color1_g59751 , Metallic1_g59751 , Smoothness1_g59751 , IOR1_g59751 , Fresnel1_g59751 , WorldPos1_g59751 , WorldNormal1_g59751 , ViewDir1_g59751 );
-					float3 temp_output_2848_0_g59553 = localIndirectSpecular1_g59751;
+					float3 WorldPos1_g59851 = World_Position2505_g59553;
+					float3 WorldNormal1_g59851 = World_Normal2508_g59553;
+					float3 ViewDir1_g59851 = View_Direction2511_g59553;
+					float3 localIndirectSpecular1_g59851 = IndirectSpecular( Color1_g59851 , Metallic1_g59851 , Smoothness1_g59851 , IOR1_g59851 , Fresnel1_g59851 , WorldPos1_g59851 , WorldNormal1_g59851 , ViewDir1_g59851 );
+					float3 temp_output_2958_0_g59553 = localIndirectSpecular1_g59851;
 					float White38_g59553 = 1.0;
 					float4 temp_cast_3 = (White38_g59553).xxxx;
 					float4 texCoord2426_g59553 = IN.ase_texcoord6;
@@ -1439,24 +1285,22 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float grayscale4_g59841 = Luminance( temp_output_6_0_g59841 );
 					float smoothstepResult2_g59841 = smoothstep( 0.0 , 0.04 , grayscale4_g59841);
 					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
-					float3 staticSwitch1469_g59553 = ( temp_output_2848_0_g59553 * smoothstepResult2_g59841 );
+					float3 staticSwitch1469_g59553 = ( temp_output_2958_0_g59553 * smoothstepResult2_g59841 );
 					#else
-					float3 staticSwitch1469_g59553 = temp_output_2848_0_g59553;
+					float3 staticSwitch1469_g59553 = temp_output_2958_0_g59553;
 					#endif
 					float3 Indirect_Specular1419_g59553 = staticSwitch1469_g59553;
-					float3 Color97_g59842 = oAlbedo6_g59553;
-					float Metallic97_g59842 = Metallic1239_g59553;
-					float Smoothness2838_g59553 = staticSwitch1004_g59553;
-					float Smoothness97_g59842 = Smoothness2838_g59553;
-					float SmoothnessAA97_g59842 = SmoothnessAA1399_g59553;
-					float IOR97_g59842 = IOR2700_g59553;
-					float3 Fresnel97_g59842 = Fresnel1560_g59553;
-					float3 Lightmap97_g59842 = Lightmap46_g59553;
-					float3 WorldPos97_g59842 = World_Position2505_g59553;
-					float3 WorldNormal97_g59842 = World_Normal2508_g59553;
-					float3 ViewDir97_g59842 = View_Direction2511_g59553;
-					float3 localDirectSpecular97_g59842 = DirectSpecular( Color97_g59842 , Metallic97_g59842 , Smoothness97_g59842 , SmoothnessAA97_g59842 , IOR97_g59842 , Fresnel97_g59842 , Lightmap97_g59842 , WorldPos97_g59842 , WorldNormal97_g59842 , ViewDir97_g59842 );
-					float3 Direct_Specular2560_g59553 = localDirectSpecular97_g59842;
+					float3 Color97_g59849 = oAlbedo6_g59553;
+					float Metallic97_g59849 = Metallic1239_g59553;
+					float Smoothness97_g59849 = Smoothness1399_g59553;
+					float IOR97_g59849 = IOR2700_g59553;
+					float3 Fresnel97_g59849 = Fresnel1560_g59553;
+					float3 Lightmap97_g59849 = Lightmap46_g59553;
+					float3 WorldPos97_g59849 = World_Position2505_g59553;
+					float3 WorldNormal97_g59849 = World_Normal2508_g59553;
+					float3 WorldDir97_g59849 = View_Direction2511_g59553;
+					float3 localDirectSpecular97_g59849 = DirectSpecular( Color97_g59849 , Metallic97_g59849 , Smoothness97_g59849 , IOR97_g59849 , Fresnel97_g59849 , Lightmap97_g59849 , WorldPos97_g59849 , WorldNormal97_g59849 , WorldDir97_g59849 );
+					float3 Direct_Specular2560_g59553 = localDirectSpecular97_g59849;
 					float3 aAlbedo1466_g59553 = ( temp_output_2532_0_g59553 * ( 1.0 - Metallic1239_g59553 ) );
 					float3 temp_output_1252_0_g59553 = ( aAlbedo1466_g59553 * Lightmap46_g59553 );
 					#ifdef SHADER_API_MOBILE
@@ -1766,12 +1610,6 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform sampler3D _LUT;
-				uniform float _UdonSpecularLightCount;
-				uniform float4 _UdonSpecularLightUp[32];
-				uniform float4 _UdonSpecularLightDir[32];
-				uniform float4 _UdonSpecularLightCol[32];
-				uniform float4 _UdonSpecularLightPos[32];
-				uniform float4 _UdonSpecularLightRight[32];
 				uniform half4 _Color;
 				uniform sampler2D _MainTex;
 				sampler2D _Sampler82966_g59553;
@@ -2147,12 +1985,6 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform sampler3D _LUT;
-				uniform float _UdonSpecularLightCount;
-				uniform float4 _UdonSpecularLightUp[32];
-				uniform float4 _UdonSpecularLightDir[32];
-				uniform float4 _UdonSpecularLightCol[32];
-				uniform float4 _UdonSpecularLightPos[32];
-				uniform float4 _UdonSpecularLightRight[32];
 				uniform half4 _Color;
 				uniform sampler2D _MainTex;
 				sampler2D _Sampler82966_g59553;
@@ -2490,12 +2322,6 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 				uniform float _CATEGORYSPECIALEFFECTS;
 				uniform float _CATEGORYSPACESURFACEOPTIONS;
 				uniform sampler3D _LUT;
-				uniform float _UdonSpecularLightCount;
-				uniform float4 _UdonSpecularLightUp[32];
-				uniform float4 _UdonSpecularLightDir[32];
-				uniform float4 _UdonSpecularLightCol[32];
-				uniform float4 _UdonSpecularLightPos[32];
-				uniform float4 _UdonSpecularLightRight[32];
 				uniform half4 _Color;
 				uniform sampler2D _MainTex;
 				sampler2D _Sampler82966_g59553;
@@ -2755,4 +2581,4 @@ WireConnection;2;0;12;625
 WireConnection;2;2;12;624
 WireConnection;2;7;12;156
 ASEEND*/
-//CHKSM=EAA641DD3D8FDD54BB45569362C2371EC67068EA
+//CHKSM=33D3112B89126A583528A29713F3547E2C46B835

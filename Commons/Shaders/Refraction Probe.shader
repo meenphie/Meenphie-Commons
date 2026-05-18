@@ -276,12 +276,6 @@ Shader "Meenphie/FX/Refraction Probe"
 					float _TessMaxDisp;
 				#endif
 
-				uniform float _UdonSpecularLightCount;
-				uniform float4 _UdonSpecularLightUp[32];
-				uniform float4 _UdonSpecularLightDir[32];
-				uniform float4 _UdonSpecularLightCol[32];
-				uniform float4 _UdonSpecularLightPos[32];
-				uniform float4 _UdonSpecularLightRight[32];
 				uniform sampler2D _BumpMap;
 				uniform float3 _Color;
 				uniform float _Roughness;
@@ -565,8 +559,7 @@ Shader "Meenphie/FX/Refraction Probe"
 					float3 World_Normal63 = worldNormal62;
 					float3 WorldNormal1_g139 = World_Normal63;
 					float3 Color1_g139 = _Color;
-					float temp_output_24_0 = ( 1.0 - _Roughness );
-					float Smoothness1_g139 = temp_output_24_0;
+					float Smoothness1_g139 = ( 1.0 - _Roughness );
 					float SingularityRadius1_g139 = _SingularityRadius;
 					float LensStrength1_g139 = _LensStrength;
 					float RotationSpeed1_g139 = _RotationSpeed;
@@ -839,13 +832,7 @@ Shader "Meenphie/FX/Refraction Probe"
 					float _TessMaxDisp;
 				#endif
 
-				uniform float _UdonSpecularLightCount;
-				uniform float4 _UdonSpecularLightUp[32];
-				uniform float4 _UdonSpecularLightDir[32];
-				uniform float4 _UdonSpecularLightCol[32];
-				uniform float4 _UdonSpecularLightPos[32];
-				uniform float4 _UdonSpecularLightRight[32];
-
+				
 
 				
 				v2f VertexFunction( appdata v  )
@@ -1074,13 +1061,7 @@ Shader "Meenphie/FX/Refraction Probe"
 					float _TessMaxDisp;
 				#endif
 
-				uniform float _UdonSpecularLightCount;
-				uniform float4 _UdonSpecularLightUp[32];
-				uniform float4 _UdonSpecularLightDir[32];
-				uniform float4 _UdonSpecularLightCol[32];
-				uniform float4 _UdonSpecularLightPos[32];
-				uniform float4 _UdonSpecularLightRight[32];
-
+				
 
 				
 				v2f VertexFunction( appdata v  )
@@ -1260,7 +1241,7 @@ Node;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, 
 Node;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;59;-2432,1248;Inherit;False;65;View Direction;1;0;OBJECT;;False;1;FLOAT3;0
 Node;AmplifyShaderEditor.RegisterLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;61;-1216,896;Inherit;False;Fresnel;-1;True;1;0;FLOAT;0;False;1;FLOAT;0
 Node;AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;69;-206.2295,-225.222;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;1;FLOAT3;0
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;124;-576,-272;Inherit;False;Direct Specular;-1;;53;479acf9fbe823bd4fb88fabc66bdb3e1;0;10;111;FLOAT3;0,0,0;False;100;FLOAT3;1,1,1;False;110;FLOAT;0;False;99;FLOAT;0.5;False;114;FLOAT;0.5;False;112;FLOAT;1.5;False;113;FLOAT3;1.5,0,0;False;107;FLOAT3;0,0,0;False;98;FLOAT3;0,0,0;False;106;FLOAT3;0,0,0;False;1;FLOAT3;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;124;-576,-272;Inherit;False;Direct Specular;-1;;53;479acf9fbe823bd4fb88fabc66bdb3e1;0;9;111;FLOAT3;0,0,0;False;110;FLOAT;0;False;114;FLOAT;0.5;False;112;FLOAT;1.5;False;113;FLOAT3;1.5,0,0;False;115;FLOAT3;0,0,0;False;107;FLOAT3;0,0,0;False;98;FLOAT3;0,0,0;False;106;FLOAT3;0,0,0;False;1;FLOAT3;0
 Node;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;50;-2032,1008;Inherit;False;66;Metallic;1;0;OBJECT;;False;1;FLOAT;0
 Node;AmplifyShaderEditor.LerpOp, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;48;-1808,912;Inherit;False;3;0;FLOAT;1;False;1;FLOAT;1;False;2;FLOAT;0;False;1;FLOAT;0
 Node;AmplifyShaderEditor.LerpOp, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;53;-1456,896;Inherit;False;3;0;FLOAT;0;False;1;FLOAT;1;False;2;FLOAT;0;False;1;FLOAT;0
@@ -1302,9 +1283,7 @@ WireConnection;65;0;7;0
 WireConnection;61;0;53;0
 WireConnection;69;0;124;0
 WireConnection;124;111;116;0
-WireConnection;124;100;76;0
 WireConnection;124;110;84;0
-WireConnection;124;99;24;0
 WireConnection;124;112;22;0
 WireConnection;124;107;6;0
 WireConnection;124;98;64;0
@@ -1325,4 +1304,4 @@ WireConnection;221;29;192;0
 WireConnection;221;24;126;0
 WireConnection;108;2;221;0
 ASEEND*/
-//CHKSM=CEACF81283C6B61C3F57E287ECB7A54DE5C5A456
+//CHKSM=679459F14CF0EAB1A26A8BE5F9C3A125DD1163CE
