@@ -6,11 +6,10 @@ using VRC.SDKBase;
 public class SpecularLightManager : UdonSharpBehaviour
 {
     [Header("Settings")]
-    public bool isEnabled = true;
     public float updateInterval = 0.5f;
 
     private const int MAX_LIGHTS = 32;
-    private const float MAX_RADIUS = 20f;
+    private const float MAX_RADIUS = 32f;
     private float _maxRadiusSq;
     [Range(1, MAX_LIGHTS)] public int activeLightCount = MAX_LIGHTS;
 
@@ -39,8 +38,6 @@ public class SpecularLightManager : UdonSharpBehaviour
     private VRCPlayerApi _localPlayer;
     private int _lastFinalCount = -1;
 
-
-
     void Start()
     {
         _localPlayer = Networking.LocalPlayer;
@@ -60,28 +57,30 @@ public class SpecularLightManager : UdonSharpBehaviour
         UpdateNearestLights();
     }
 
-    public void ToggleSpecular()
+    void OnEnable()
     {
-        isEnabled = !isEnabled;
-        if (!isEnabled)
-        {
-            ApplyToShader(0);
-            _lastFinalCount = 0;
-            currentActiveCount = 0;
-            for (int i = 0; i < MAX_LIGHTS; i++)
-                _lastIndicesSorted[i] = -1;
-        }
+        if (_localPlayer == null) return;
+        UpdateNearestLights();
+    }
+
+    void OnDisable()
+    {
+        ApplyToShader(0);
+        _lastFinalCount = 0;
+        currentActiveCount = 0;
+        for (int i = 0; i < MAX_LIGHTS; i++)
+            _lastIndicesSorted[i] = -1;
     }
 
     public void UpdateNearestLights()
     {
-        if (!isEnabled || _localPlayer == null)
+        if (!gameObject.activeInHierarchy || !enabled) return;
+        if (_localPlayer == null)
         {
             SendCustomEventDelayedSeconds(nameof(UpdateNearestLights), updateInterval);
             return;
         }
 
-        // Fixed head position tracking
         Vector3 playerPos = _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
         int totalBaked = bakedPositions.Length;
         int count = 0;
@@ -106,8 +105,7 @@ public class SpecularLightManager : UdonSharpBehaviour
 
             _indices[insertIndex] = i;
             _distances[insertIndex] = distSq;
-            if (count < activeLightCount)
-                count++;
+            if (count < activeLightCount) count++;
         }
 
         int finalCount = count;
@@ -118,11 +116,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         {
             for (int i = 0; i < finalCount; i++)
             {
-                if (_indices[i] != _lastIndicesSorted[i])
-                {
-                    isDirty = true;
-                    break;
-                }
+                if (_indices[i] != _lastIndicesSorted[i]) { isDirty = true; break; }
             }
         }
 

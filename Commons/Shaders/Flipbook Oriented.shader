@@ -159,8 +159,8 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 				float2 fbuv7 = texCoord8 * fbtiling7 + fboffset7;
 				// *** END Flipbook UV Animation vars ***
 				int flipbookFrame7 = ( ( int )fbcurrenttileindex7);
-				float4 tex2DNode1 = tex2D( _BaseColor, fbuv7 );
-				float4 Color357_g35 = tex2DNode1;
+				float4 temp_output_57_0 = ( _Color * tex2D( _BaseColor, fbuv7 ) );
+				float4 Color357_g35 = temp_output_57_0;
 				float4 LUT51_g35 = tex3D( _LUT, ( ( log10( ( ( (Color357_g35).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 				#ifdef SHADER_API_MOBILE
 				float4 staticSwitch359_g35 = LUT51_g35;
@@ -170,7 +170,7 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 				#ifdef SHADER_API_MOBILE
 				float4 staticSwitch40 = staticSwitch359_g35;
 				#else
-				float4 staticSwitch40 = tex2DNode1;
+				float4 staticSwitch40 = temp_output_57_0;
 				#endif
 				
 				fixed4 c = staticSwitch40;
@@ -188,19 +188,23 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 Version=19909
 Node;AmplifyShaderEditor.TextureCoordinatesNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;8;-992,0;Inherit;False;0;-1;2;3;2;SAMPLER2D;;False;0;FLOAT2;1,1;False;1;FLOAT2;0,0;False;5;FLOAT2;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
 Node;AmplifyShaderEditor.TFHCFlipBookUVAnimation, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;7;-672,0;Inherit;False;0;0;7;0;FLOAT2;0,0;False;1;FLOAT;16;False;2;FLOAT;21;False;3;FLOAT;30;False;4;FLOAT;0;False;5;FLOAT;0;False;6;FLOAT;330;False;4;FLOAT2;0;FLOAT;1;FLOAT;2;INT;3
-Node;AmplifyShaderEditor.PosVertexDataNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;34;256,192;Inherit;False;0;0;5;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
-Node;AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;-320,0;Inherit;True;Property;_BaseColor;Base Color;0;2;[NoScaleOffset];[SingleLineTexture];Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;False;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;55;128,96;Inherit;False;LUT;1;;35;0baaa08160114780391fed4ef3e2d57e;0;1;35;FLOAT4;0,0,0,0;False;1;FLOAT4;0
-Node;AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;31;480,176;Inherit;False;// 1. Caméra en espace local$float3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz@$$// 2. Axe de rotation (Y local du tuyau)$float3 up = float3(0, 1, 0)@$$// 3. Direction vers la caméra (projetée sur le plan XZ local)$// On ajoute un epsilon pour éviter le normalize(0) si la caméra est pile au-dessus$float3 forward = normalize(float3(localCamPos.x, 0, localCamPos.z) + 0.0001)@$$// 4. Vecteur Right perpendiculaire$float3 right = cross(up, forward)@$$// 5. Reconstruction du vertex$// Si ton quad est un "Plane" Unity ou un Quad Blender standard :$// InPos.x est la largeur, InPos.y la hauteur.$float3 rotatedPos = InPos.x * right + InPos.y * up + InPos.z * forward@$$return rotatedPos - InPos@;3;Create;1;True;InPos;FLOAT3;0,0,0;In;;Inherit;False;Local Sprite;True;False;0;;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0
-Node;AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;40;448,0;Inherit;False;Property;SHADER_API_MOBILE;SHADER_API_MOBILE;1;0;Create;False;0;0;0;False;0;False;0;0;0;False;SHADER_API_MOBILE;Toggle;2;Key0;Key1;Fetch;False;False;All;9;1;COLOR;0,0,0,0;False;0;COLOR;0,0,0,0;False;2;COLOR;0,0,0,0;False;3;COLOR;0,0,0,0;False;4;COLOR;0,0,0,0;False;5;COLOR;0,0,0,0;False;6;COLOR;0,0,0,0;False;7;COLOR;0,0,0,0;False;8;COLOR;0,0,0,0;False;1;COLOR;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;30;752,0;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;Meenphie/Sprite/Flipbook Oriented;0f8ba0101102bb14ebf021ddadce9b49;True;SubShader 0 Pass 0;0;0;SubShader 0 Pass 0;2;True;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;6;Queue=Transparent=Queue=1;IgnoreProjector=True;RenderType=Transparent=RenderType;PreviewType=Plane;CanUseSpriteAtlas=True;DisableBatching=True=DisableBatching;False;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;3;False;0;;0;0;Standard;0;0;1;True;False;;False;0
+Node;AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;1;-320,0;Inherit;True;Property;_BaseColor;Base Color;0;2;[NoScaleOffset];[SingleLineTexture];Create;True;0;0;0;False;0;False;-1;None;ca98fe8f84b89108c9fbdd459d36e9a6;True;0;False;white;Auto;False;Object;-1;Auto;Texture2D;False;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
+Node;AmplifyShaderEditor.TemplateShaderPropertyNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;56;-256,-208;Inherit;False;0;0;_Color;Shader;False;0;5;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
+Node;AmplifyShaderEditor.PosVertexDataNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;34;480,192;Inherit;False;0;0;5;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;55;368,80;Inherit;False;LUT;1;;35;0baaa08160114780391fed4ef3e2d57e;0;1;35;FLOAT4;0,0,0,0;False;1;FLOAT4;0
+Node;AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;57;64,0;Inherit;False;2;2;0;COLOR;0,0,0,0;False;1;COLOR;0,0,0,0;False;1;COLOR;0
+Node;AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;40;672,0;Inherit;False;Property;SHADER_API_MOBILE;SHADER_API_MOBILE;1;0;Create;False;0;0;0;False;0;False;0;0;0;False;SHADER_API_MOBILE;Toggle;2;Key0;Key1;Fetch;False;False;All;9;1;COLOR;0,0,0,0;False;0;COLOR;0,0,0,0;False;2;COLOR;0,0,0,0;False;3;COLOR;0,0,0,0;False;4;COLOR;0,0,0,0;False;5;COLOR;0,0,0,0;False;6;COLOR;0,0,0,0;False;7;COLOR;0,0,0,0;False;8;COLOR;0,0,0,0;False;1;COLOR;0
+Node;AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;31;736,176;Inherit;False;// 1. Caméra en espace local$float3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz@$$// 2. Axe de rotation (Y local du tuyau)$float3 up = float3(0, 1, 0)@$$// 3. Direction vers la caméra (projetée sur le plan XZ local)$// On ajoute un epsilon pour éviter le normalize(0) si la caméra est pile au-dessus$float3 forward = normalize(float3(localCamPos.x, 0, localCamPos.z) + 0.0001)@$$// 4. Vecteur Right perpendiculaire$float3 right = cross(up, forward)@$$// 5. Reconstruction du vertex$// Si ton quad est un "Plane" Unity ou un Quad Blender standard :$// InPos.x est la largeur, InPos.y la hauteur.$float3 rotatedPos = InPos.x * right + InPos.y * up + InPos.z * forward@$$return rotatedPos - InPos@;3;Create;1;True;InPos;FLOAT3;0,0,0;In;;Inherit;False;Local Sprite;True;False;0;;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;30;1024,0;Float;False;True;-1;3;AmplifyShaderEditor.MaterialInspector;0;1;Meenphie/Sprite/Flipbook Oriented;0f8ba0101102bb14ebf021ddadce9b49;True;SubShader 0 Pass 0;0;0;SubShader 0 Pass 0;2;True;True;4;1;False;;1;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;True;6;Queue=Transparent=Queue=1;IgnoreProjector=True;RenderType=Transparent=RenderType;PreviewType=Plane;CanUseSpriteAtlas=True;DisableBatching=True=DisableBatching;False;False;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;3;False;0;;0;0;Standard;0;0;1;True;False;;False;0
 WireConnection;7;0;8;0
 WireConnection;1;1;7;0
-WireConnection;55;35;1;0
-WireConnection;31;0;34;0
-WireConnection;40;1;1;0
+WireConnection;55;35;57;0
+WireConnection;57;0;56;0
+WireConnection;57;1;1;0
+WireConnection;40;1;57;0
 WireConnection;40;0;55;0
+WireConnection;31;0;34;0
 WireConnection;30;0;40;0
 WireConnection;30;1;31;0
 ASEEND*/
-//CHKSM=6F638B9AAB1FBBF89902ADCC694E0963DC707091
+//CHKSM=9397C3E77AAF702EB338EB716A418DFE8379A779
