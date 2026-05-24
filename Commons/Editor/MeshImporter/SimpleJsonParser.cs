@@ -7,7 +7,16 @@ public static class SimpleJsonParser
         var result = new Dictionary<string, Dictionary<string, string>>();
         json = json.Replace("\r", "").Replace("\n", "");
         string[] materials = json.Split(new string[] { "}," }, System.StringSplitOptions.RemoveEmptyEntries);
-        string[] keys = { "Base Color", "Normal", "Roughness", "Metallic", "Emission", "ColorHex", "EmissionHex", "MetallicValue", "RoughnessValue", "EmissionIntensity", "AlphaValue" };
+        
+        // ─────────────────────────────────────────────────────────────────
+        // Ajout des clés "type", "size_x", "size_y" et "intensity" ici 👇
+        // ─────────────────────────────────────────────────────────────────
+        string[] keys = { 
+            "Base Color", "Normal", "Roughness", "Metallic", "Emission", 
+            "ColorHex", "EmissionHex", "MetallicValue", "RoughnessValue", 
+            "EmissionIntensity", "AlphaValue",
+            "type", "size_x", "size_y", "intensity" 
+        };
 
         foreach (var m in materials)
         {

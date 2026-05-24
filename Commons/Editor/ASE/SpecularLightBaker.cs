@@ -4,7 +4,9 @@ using System.Collections.Generic;
 
 public class SpecularLightBaker : EditorWindow
 {
-    private const int MAX_LIGHTS = 32;
+    private const int   MAX_LIGHTS           = 32;
+    private const float MERGE_THRESHOLD_SQ   = 0.5f;
+    private const float DIR_CONFLICT_DOT     = 0.5f; // en dessous → directions trop divergentes → area bidirectionnelle
 
     // --- SHARED ---
     private static Component FindManager()
@@ -64,14 +66,12 @@ public class SpecularLightBaker : EditorWindow
         if (manager == null) return;
 
         Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
-        List<Vector4> finalPosRange   = new();
-        List<Vector4> finalColorInt   = new();
-        List<Vector4> finalRightWidth = new();
-        List<Vector4> finalUpHeight   = new();
-        List<Vector4> finalDirAngle   = new();
+        List<Vector4> finalPosRange     = new();
+        List<Vector4> finalColorInt     = new();
+        List<Vector4> finalRightWidth   = new();
+        List<Vector4> finalUpHeight     = new();
+        List<Vector4> finalDirAngle     = new();
         List<float>   groupMaxIntensity = new();
-
-        float mergeThresholdSq = 0.5f;
 
         foreach (Light l in sceneLights)
         {
@@ -99,32 +99,51 @@ public class SpecularLightBaker : EditorWindow
             for (int i = 0; i < finalPosRange.Count; i++)
             {
                 float distSq = ((Vector3)finalPosRange[i] - pos).sqrMagnitude;
-                if (distSq >= mergeThresholdSq) continue;
+                if (distSq >= MERGE_THRESHOLD_SQ) continue;
 
-                float currentSum = finalColorInt[i].w;
-                float newSum     = currentSum + intensity;
+                Vector3 existingForward = new Vector3(
+                    finalDirAngle[i].x,
+                    finalDirAngle[i].y,
+                    finalDirAngle[i].z);
 
-                if (intensity > groupMaxIntensity[i])
+                bool isAlreadyOmni      = finalDirAngle[i].w < -0.1f;
+                bool directionsConflict = !isAlreadyOmni &&
+                                          Vector3.Dot(existingForward, forward) < DIR_CONFLICT_DOT;
+
+                float currentMax = groupMaxIntensity[i];
+                float newMax     = Mathf.Max(currentMax, intensity);
+
+                if (intensity > currentMax)
                 {
                     finalPosRange[i]   = new Vector4(pos.x, pos.y, pos.z, rawRange);
                     finalRightWidth[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
                     finalUpHeight[i]   = new Vector4(l.transform.up.x,    l.transform.up.y,    l.transform.up.z,    height);
-                    finalDirAngle[i]   = new Vector4(forward.x, forward.y, forward.z, cosOuter);
+
+                    float resolvedCosOuter = directionsConflict ? -0.5f : cosOuter;
+                    finalDirAngle[i] = new Vector4(forward.x, forward.y, forward.z, resolvedCosOuter);
 
                     float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
-                    finalColorInt[i]      = new Vector4(l.color.r / maxRGB, l.color.g / maxRGB, l.color.b / maxRGB, newSum);
-                    groupMaxIntensity[i]  = intensity;
+                    finalColorInt[i]     = new Vector4(l.color.r / maxRGB, l.color.g / maxRGB, l.color.b / maxRGB, newMax);
+                    groupMaxIntensity[i] = newMax;
                 }
                 else
                 {
-                    Vector4 c  = finalColorInt[i];
-                    float weight = intensity / newSum;
+                    if (directionsConflict)
+                    {
+                        Vector4 d = finalDirAngle[i];
+                        finalDirAngle[i] = new Vector4(d.x, d.y, d.z, -0.5f);
+                    }
+
+                    // Blend couleur, intensité reste le max
+                    Vector4 c      = finalColorInt[i];
+                    float   weight = intensity / (currentMax + intensity);
                     c.x = Mathf.Lerp(c.x, l.color.r, weight);
                     c.y = Mathf.Lerp(c.y, l.color.g, weight);
                     c.z = Mathf.Lerp(c.z, l.color.b, weight);
-                    c.w = newSum;
+                    c.w = newMax;
                     finalColorInt[i] = c;
                 }
+
                 merged = true;
                 break;
             }
@@ -141,7 +160,6 @@ public class SpecularLightBaker : EditorWindow
             }
         }
 
-        // Save to manager
         SerializedObject soManager = new SerializedObject(manager);
         FillProperty(soManager.FindProperty("bakedPositions"),  finalPosRange);
         FillProperty(soManager.FindProperty("bakedColors"),     finalColorInt);
@@ -153,7 +171,6 @@ public class SpecularLightBaker : EditorWindow
         EditorUtility.SetDirty(manager);
         AssetDatabase.SaveAssets();
 
-        // Push to shader immediately
         PushToShader(finalPosRange, finalColorInt, finalRightWidth, finalUpHeight, finalDirAngle);
 
         Debug.Log($"[Bake Success] {finalPosRange.Count} groupes de lumières enregistrés.");

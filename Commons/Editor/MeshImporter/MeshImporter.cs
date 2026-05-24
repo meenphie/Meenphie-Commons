@@ -204,13 +204,50 @@ public class MeshImporter : AssetPostprocessor
     // OnPostprocessModel
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // OnPostprocessModel
+    // ─────────────────────────────────────────────────────────────────────────
+
     void OnPostprocessModel(GameObject g)
     {
+        // 1. Packing des UVs
         foreach (MeshFilter filter in g.GetComponentsInChildren<MeshFilter>())
+        {
             if (filter.sharedMesh != null) ApplyPacking(filter.sharedMesh);
+        }
 
+        // 2. Traitement des lumières
+        string projectRoot = Path.GetDirectoryName(Application.dataPath);
+        string lightsJsonPath = Path.Combine(projectRoot, "Blender", "lights_map.json");
+        Dictionary<string, Dictionary<string, string>> lightsData = null;
+
+        // Charger le JSON des lumières s'il existe
+        if (File.Exists(lightsJsonPath))
+        {
+            lightsData = SimpleJsonParser.Parse(File.ReadAllText(lightsJsonPath));
+        }
+
+        // Appliquer les données aux lumières du modèle
         foreach (Light light in g.GetComponentsInChildren<Light>())
+        {
+            // Ton réglage d'intensité de base
             light.intensity *= 0.1f;
+
+            // Si c'est une Area Light et qu'on a des données JSON correspondantes
+            if (light.type == LightType.Area && lightsData != null && lightsData.ContainsKey(light.name))
+            {
+                var lData = lightsData[light.name];
+
+                float sizeX = ParseF(GetValue(lData, "size_x", "1.0"));
+                float sizeY = ParseF(GetValue(lData, "size_y", "1.0"));
+
+                // Assigne la taille de l'Area Light
+                light.areaSize = new Vector2(sizeX, sizeY);
+
+                // Optionnel : Tu pourrais aussi surcharger l'intensité ici si tu le souhaites
+                // light.intensity = ParseF(GetValue(lData, "intensity", "1.0"));
+            }
+        }
     }
 
     private void ApplyPacking(Mesh mesh)
