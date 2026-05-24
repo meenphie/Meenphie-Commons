@@ -1343,10 +1343,10 @@ Shader "Meenphie/Standard/Decal/Alpha"
 					float Metallic97_g59970 = Metallic1239_g59916;
 					float Smoothness97_g59970 = Smoothness1399_g59916;
 					float3 Lightmap97_g59970 = Lightmap46_g59916;
+					float3 WorldDir97_g59970 = View_Direction2511_g59916;
 					float3 WorldPos97_g59970 = World_Position2505_g59916;
 					float3 WorldNormal97_g59970 = World_Normal2508_g59916;
-					float3 WorldDir97_g59970 = View_Direction2511_g59916;
-					float3 localDirectSpecular97_g59970 = DirectSpecular( Color97_g59970 , Metallic97_g59970 , Smoothness97_g59970 , Lightmap97_g59970 , WorldPos97_g59970 , WorldNormal97_g59970 , WorldDir97_g59970 );
+					float3 localDirectSpecular97_g59970 = DirectSpecular( Color97_g59970 , Metallic97_g59970 , Smoothness97_g59970 , Lightmap97_g59970 , WorldDir97_g59970 , WorldPos97_g59970 , WorldNormal97_g59970 );
 					#ifdef _DIRECTSPECULAR_ON
 					float3 staticSwitch2969_g59916 = localDirectSpecular97_g59970;
 					#else
@@ -1967,4 +1967,4 @@ WireConnection;2888;2;3020;624
 WireConnection;2888;7;3020;156
 WireConnection;2888;15;3020;1024
 ASEEND*/
-//CHKSM=EF3E5FF780B2C0338990F773D68D340DCF13CAA4
+//CHKSM=B2300A6360C6D4B101CDCA6CBFF11C3422500D2D

@@ -16,16 +16,8 @@ MonoBehaviour:
     Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19909\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;110;-608,-240;Inherit;False;Metallic;1;1;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;114;-640,-160;Inherit;False;Smoothness;1;2;False;1;0;FLOAT;0.5;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;113;-608,0;Inherit;False;Fresnel;3;4;False;1;0;FLOAT3;1.5,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;107;-640,160;Inherit;False;World
-    Position;3;6;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;98;-640,240;Inherit;False;World
-    Normal;3;7;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;106;-640,320;Inherit;False;View
-    Direction;3;8;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;111;-608,-320;Inherit;False;Color;3;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;112;-608,-80;Inherit;False;IOR;1;3;False;1;0;FLOAT;1.5;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionInput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;115;-608,80;Inherit;False;Lightmap;3;5;False;1;0;FLOAT3;1,1,1;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;115;-608,-80;Inherit;False;Lightmap;3;3;False;1;0;FLOAT3;1,1,1;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.CustomExpressionNode,
     AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;97;-320,-128;Inherit;False;//
     --- CONFIGURATION ---$static const float specBoost      = 0.01@$static const
     float lumaStart      = 0.02@$static const float lumaEnd        = 1.0@$static
@@ -71,9 +63,15 @@ MonoBehaviour:
     * _UdonSpecularLightCol[i].w$        * spec$        * nDotL$        * spotMask$       
     * distanceFade$        * rectMask)@$}$$// --- FINAL ---$float3 colorTint = lerp(1.0,
     Color.rgb, Metallic)@$float3 result    = specAccum * colorTint * lmTint * specBoost@$$return
-    result@;3;File;7;True;Color;FLOAT3;0,0,0;In;;Inherit;False;True;Metallic;FLOAT;0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;Lightmap;FLOAT3;1,1,1;In;;Inherit;False;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;True;WorldDir;FLOAT3;0,0,0;In;;Inherit;False;Direct
-    Specular;False;False;0;1f050eb762517f337b94be897ea2e34a;False;7;0;FLOAT3;0,0,0;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT3;1,1,1;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Speculars;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;111;0\nWireConnection;97;1;110;0\nWireConnection;97;2;114;0\nWireConnection;97;3;115;0\nWireConnection;97;4;107;0\nWireConnection;97;5;98;0\nWireConnection;97;6;106;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=D7B3C0171F344C11A47AB16BA8B697633D7D98BA"
+    result@;3;File;7;True;Color;FLOAT3;0,0,0;In;;Inherit;False;True;Metallic;FLOAT;0;In;;Inherit;False;True;Smoothness;FLOAT;0;In;;Inherit;False;True;Lightmap;FLOAT3;1,1,1;In;;Inherit;False;True;WorldDir;FLOAT3;0,0,0;In;;Inherit;False;True;WorldPos;FLOAT3;0,0,0;In;;Inherit;False;True;WorldNormal;FLOAT3;0,0,0;In;;Inherit;False;Direct
+    Specular;False;False;0;1f050eb762517f337b94be897ea2e34a;False;7;0;FLOAT3;0,0,0;False;1;FLOAT;0;False;2;FLOAT;0;False;3;FLOAT3;1,1,1;False;4;FLOAT3;0,0,0;False;5;FLOAT3;0,0,0;False;6;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;106;-640,0;Inherit;False;View
+    Direction;3;4;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;107;-640,80;Inherit;False;World
+    Position;3;5;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionInput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;98;-640,160;Inherit;False;World
+    Normal;3;6;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nNode;AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;0;0,-128;Inherit;False;True;-1;Speculars;0;False;1;0;FLOAT3;0,0,0;False;1;FLOAT3;0\nWireConnection;97;0;111;0\nWireConnection;97;1;110;0\nWireConnection;97;2;114;0\nWireConnection;97;3;115;0\nWireConnection;97;4;106;0\nWireConnection;97;5;107;0\nWireConnection;97;6;98;0\nWireConnection;0;0;97;0\nASEEND*/\n//CHKSM=4A0AA14426F85576E63A0DC406E321C21E3F7068"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

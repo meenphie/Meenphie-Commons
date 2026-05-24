@@ -1305,10 +1305,10 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float Metallic97_g60910 = Metallic1239_g60856;
 					float Smoothness97_g60910 = Smoothness1399_g60856;
 					float3 Lightmap97_g60910 = Lightmap46_g60856;
+					float3 WorldDir97_g60910 = View_Direction2511_g60856;
 					float3 WorldPos97_g60910 = World_Position2505_g60856;
 					float3 WorldNormal97_g60910 = World_Normal2508_g60856;
-					float3 WorldDir97_g60910 = View_Direction2511_g60856;
-					float3 localDirectSpecular97_g60910 = DirectSpecular( Color97_g60910 , Metallic97_g60910 , Smoothness97_g60910 , Lightmap97_g60910 , WorldPos97_g60910 , WorldNormal97_g60910 , WorldDir97_g60910 );
+					float3 localDirectSpecular97_g60910 = DirectSpecular( Color97_g60910 , Metallic97_g60910 , Smoothness97_g60910 , Lightmap97_g60910 , WorldDir97_g60910 , WorldPos97_g60910 , WorldNormal97_g60910 );
 					#ifdef _DIRECTSPECULAR_ON
 					float3 staticSwitch2969_g60856 = localDirectSpecular97_g60910;
 					#else
@@ -2309,4 +2309,4 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 WireConnection;3153;0;3270;625
 WireConnection;3153;2;3270;624
 ASEEND*/
-//CHKSM=B67CF5D9867C6AFD77634F6F5DCF71DCFDB645DB
+//CHKSM=03C11A6FD588A97E956EB1183433702D7E74FC6F

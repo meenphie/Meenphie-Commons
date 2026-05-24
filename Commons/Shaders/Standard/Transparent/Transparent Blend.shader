@@ -1301,16 +1301,16 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					#endif
 					float3 Indirect_Specular1419_g59553 = staticSwitch2971_g59553;
 					float3 temp_cast_6 = (Black1185_g59553).xxx;
-					float3 Color97_g59853 = oAlbedo6_g59553;
-					float Metallic97_g59853 = Metallic1239_g59553;
-					float Smoothness97_g59853 = Smoothness1399_g59553;
-					float3 Lightmap97_g59853 = Lightmap46_g59553;
-					float3 WorldPos97_g59853 = World_Position2505_g59553;
-					float3 WorldNormal97_g59853 = World_Normal2508_g59553;
-					float3 WorldDir97_g59853 = View_Direction2511_g59553;
-					float3 localDirectSpecular97_g59853 = DirectSpecular( Color97_g59853 , Metallic97_g59853 , Smoothness97_g59853 , Lightmap97_g59853 , WorldPos97_g59853 , WorldNormal97_g59853 , WorldDir97_g59853 );
+					float3 Color97_g59862 = oAlbedo6_g59553;
+					float Metallic97_g59862 = Metallic1239_g59553;
+					float Smoothness97_g59862 = Smoothness1399_g59553;
+					float3 Lightmap97_g59862 = Lightmap46_g59553;
+					float3 WorldDir97_g59862 = View_Direction2511_g59553;
+					float3 WorldPos97_g59862 = World_Position2505_g59553;
+					float3 WorldNormal97_g59862 = World_Normal2508_g59553;
+					float3 localDirectSpecular97_g59862 = DirectSpecular( Color97_g59862 , Metallic97_g59862 , Smoothness97_g59862 , Lightmap97_g59862 , WorldDir97_g59862 , WorldPos97_g59862 , WorldNormal97_g59862 );
 					#ifdef _DIRECTSPECULAR_ON
-					float3 staticSwitch2969_g59553 = localDirectSpecular97_g59853;
+					float3 staticSwitch2969_g59553 = localDirectSpecular97_g59862;
 					#else
 					float3 staticSwitch2969_g59553 = temp_cast_6;
 					#endif
@@ -2595,4 +2595,4 @@ WireConnection;2;0;12;625
 WireConnection;2;2;12;624
 WireConnection;2;7;12;156
 ASEEND*/
-//CHKSM=A66DD9430E0A98FC1F66A8D21CD6BB552B83EACE
+//CHKSM=BDE4DB1AA4A857E40737AE787A8395B4726F3807

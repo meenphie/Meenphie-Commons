@@ -1241,7 +1241,7 @@ Node;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, 
 Node;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;59;-2432,1248;Inherit;False;65;View Direction;1;0;OBJECT;;False;1;FLOAT3;0
 Node;AmplifyShaderEditor.RegisterLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;61;-1216,896;Inherit;False;Fresnel;-1;True;1;0;FLOAT;0;False;1;FLOAT;0
 Node;AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;69;-206.2295,-225.222;Inherit;False;2;2;0;FLOAT3;0,0,0;False;1;FLOAT3;0,0,0;False;1;FLOAT3;0
-Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;124;-576,-272;Inherit;False;Direct Specular;-1;;53;479acf9fbe823bd4fb88fabc66bdb3e1;0;9;111;FLOAT3;0,0,0;False;110;FLOAT;0;False;114;FLOAT;0.5;False;112;FLOAT;1.5;False;113;FLOAT3;1.5,0,0;False;115;FLOAT3;0,0,0;False;107;FLOAT3;0,0,0;False;98;FLOAT3;0,0,0;False;106;FLOAT3;0,0,0;False;1;FLOAT3;0
+Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;124;-576,-272;Inherit;False;Direct Specular;-1;;53;479acf9fbe823bd4fb88fabc66bdb3e1;0;7;111;FLOAT3;0,0,0;False;110;FLOAT;0;False;114;FLOAT;0.5;False;115;FLOAT3;0,0,0;False;106;FLOAT3;0,0,0;False;107;FLOAT3;0,0,0;False;98;FLOAT3;0,0,0;False;1;FLOAT3;0
 Node;AmplifyShaderEditor.GetLocalVarNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;50;-2032,1008;Inherit;False;66;Metallic;1;0;OBJECT;;False;1;FLOAT;0
 Node;AmplifyShaderEditor.LerpOp, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;48;-1808,912;Inherit;False;3;0;FLOAT;1;False;1;FLOAT;1;False;2;FLOAT;0;False;1;FLOAT;0
 Node;AmplifyShaderEditor.LerpOp, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;53;-1456,896;Inherit;False;3;0;FLOAT;0;False;1;FLOAT;1;False;2;FLOAT;0;False;1;FLOAT;0
@@ -1284,10 +1284,9 @@ WireConnection;61;0;53;0
 WireConnection;69;0;124;0
 WireConnection;124;111;116;0
 WireConnection;124;110;84;0
-WireConnection;124;112;22;0
+WireConnection;124;106;67;0
 WireConnection;124;107;6;0
 WireConnection;124;98;64;0
-WireConnection;124;106;67;0
 WireConnection;48;0;51;0
 WireConnection;48;2;50;0
 WireConnection;53;0;48;0
@@ -1304,4 +1303,4 @@ WireConnection;221;29;192;0
 WireConnection;221;24;126;0
 WireConnection;108;2;221;0
 ASEEND*/
-//CHKSM=679459F14CF0EAB1A26A8BE5F9C3A125DD1163CE
+//CHKSM=AC5A1E197F44DF2E60355D56F8E47DC7D14A8698
