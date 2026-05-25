@@ -4,9 +4,9 @@ using System.Collections.Generic;
 
 public class SpecularLightBaker : EditorWindow
 {
-    private const int   MAX_LIGHTS           = 32;
-    private const float MERGE_THRESHOLD_SQ   = 0.5f;
-    private const float DIR_CONFLICT_DOT     = 0.5f; // en dessous → directions trop divergentes → area bidirectionnelle
+    private const int   MAX_LIGHTS         = 32;
+    private const float MERGE_THRESHOLD_SQ = 0.5f;
+    private const float DIR_CONFLICT_DOT   = 0.5f; // below → directions too divergent → bidirectional area
 
     // --- SHARED ---
     private static Component FindManager()
@@ -16,24 +16,28 @@ public class SpecularLightBaker : EditorWindow
             if (comp != null && comp.GetType().Name == "SpecularLightManager")
                 return comp;
         }
-        Debug.LogError("SpecularLightManager introuvable dans la scène.");
+        Debug.LogError("SpecularLightManager not found in scene.");
         return null;
     }
 
-    private static void PushToShader(List<Vector4> positions, List<Vector4> colors,
-        List<Vector4> right, List<Vector4> up, List<Vector4> directions)
+    private static void PushToShader(
+        List<Vector4> positions,
+        List<Vector3> colors,      // FIX 3: was List<Vector4>
+        List<Vector4> right,
+        List<Vector4> up,
+        List<Vector4> directions)
     {
         Vector4[] posArr   = new Vector4[MAX_LIGHTS];
-        Vector4[] colArr   = new Vector4[MAX_LIGHTS];
+        Vector4[] colArr   = new Vector4[MAX_LIGHTS]; // SetGlobalVectorArray needs Vector4; w=0 is fine
         Vector4[] rightArr = new Vector4[MAX_LIGHTS];
         Vector4[] upArr    = new Vector4[MAX_LIGHTS];
         Vector4[] dirArr   = new Vector4[MAX_LIGHTS];
 
-        int count = Mathf.Min(positions.Count, MAX_LIGHTS);
+        int count = Mathf.Min(colors.Count, MAX_LIGHTS);
         for (int i = 0; i < count; i++)
         {
             posArr[i]   = positions[i];
-            colArr[i]   = colors[i];
+            colArr[i]   = colors[i];   // implicit Vector3 → Vector4 with w=0
             rightArr[i] = right[i];
             upArr[i]    = up[i];
             dirArr[i]   = directions[i];
@@ -66,8 +70,9 @@ public class SpecularLightBaker : EditorWindow
         if (manager == null) return;
 
         Light[] sceneLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+
         List<Vector4> finalPosRange     = new();
-        List<Vector4> finalColorInt     = new();
+        List<Vector3> finalColorInt     = new(); // FIX 3: was List<Vector4>; stores rgb*intensity directly
         List<Vector4> finalRightWidth   = new();
         List<Vector4> finalUpHeight     = new();
         List<Vector4> finalDirAngle     = new();
@@ -122,8 +127,8 @@ public class SpecularLightBaker : EditorWindow
                     float resolvedCosOuter = directionsConflict ? -0.5f : cosOuter;
                     finalDirAngle[i] = new Vector4(forward.x, forward.y, forward.z, resolvedCosOuter);
 
-                    float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
-                    finalColorInt[i]     = new Vector4(l.color.r / maxRGB, l.color.g / maxRGB, l.color.b / maxRGB, newMax);
+                    // FIX 3: store color*intensity directly, no normalization needed
+                    finalColorInt[i]     = new Vector3(l.color.r, l.color.g, l.color.b) * newMax;
                     groupMaxIntensity[i] = newMax;
                 }
                 else
@@ -134,14 +139,14 @@ public class SpecularLightBaker : EditorWindow
                         finalDirAngle[i] = new Vector4(d.x, d.y, d.z, -0.5f);
                     }
 
-                    // Blend couleur, intensité reste le max
-                    Vector4 c      = finalColorInt[i];
+                    // FIX 3: blend pre-multiplied colors directly
+                    // weight by relative intensity so brighter lights contribute more
                     float   weight = intensity / (currentMax + intensity);
-                    c.x = Mathf.Lerp(c.x, l.color.r, weight);
-                    c.y = Mathf.Lerp(c.y, l.color.g, weight);
-                    c.z = Mathf.Lerp(c.z, l.color.b, weight);
-                    c.w = newMax;
-                    finalColorInt[i] = c;
+                    Vector3 c      = finalColorInt[i];
+                    Vector3 newCol = new Vector3(l.color.r, l.color.g, l.color.b) * intensity;
+                    finalColorInt[i] = Vector3.Lerp(c, newCol, weight);
+                    // keep groupMaxIntensity as newMax — intensity is already baked into the color
+                    groupMaxIntensity[i] = newMax;
                 }
 
                 merged = true;
@@ -150,9 +155,9 @@ public class SpecularLightBaker : EditorWindow
 
             if (!merged)
             {
-                float maxRGB = Mathf.Max(l.color.r, l.color.g, l.color.b, 0.001f);
+                // FIX 3: store color*intensity directly
                 finalPosRange.Add(new Vector4(pos.x, pos.y, pos.z, rawRange));
-                finalColorInt.Add(new Vector4(l.color.r / maxRGB, l.color.g / maxRGB, l.color.b / maxRGB, intensity));
+                finalColorInt.Add(new Vector3(l.color.r, l.color.g, l.color.b) * intensity);
                 finalRightWidth.Add(new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width));
                 finalUpHeight.Add(new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, height));
                 finalDirAngle.Add(new Vector4(forward.x, forward.y, forward.z, cosOuter));
@@ -160,12 +165,13 @@ public class SpecularLightBaker : EditorWindow
             }
         }
 
+        // Serialize back to manager
         SerializedObject soManager = new SerializedObject(manager);
-        FillProperty(soManager.FindProperty("bakedPositions"),  finalPosRange);
-        FillProperty(soManager.FindProperty("bakedColors"),     finalColorInt);
-        FillProperty(soManager.FindProperty("bakedRight"),      finalRightWidth);
-        FillProperty(soManager.FindProperty("bakedUp"),         finalUpHeight);
-        FillProperty(soManager.FindProperty("bakedDirections"), finalDirAngle);
+        FillPropertyV4(soManager.FindProperty("bakedPositions"),  finalPosRange);
+        FillPropertyV3(soManager.FindProperty("bakedColors"),     finalColorInt); // FIX 3: Vector3 property
+        FillPropertyV4(soManager.FindProperty("bakedRight"),      finalRightWidth);
+        FillPropertyV4(soManager.FindProperty("bakedUp"),         finalUpHeight);
+        FillPropertyV4(soManager.FindProperty("bakedDirections"), finalDirAngle);
         soManager.ApplyModifiedProperties();
 
         EditorUtility.SetDirty(manager);
@@ -173,7 +179,7 @@ public class SpecularLightBaker : EditorWindow
 
         PushToShader(finalPosRange, finalColorInt, finalRightWidth, finalUpHeight, finalDirAngle);
 
-        Debug.Log($"[Bake Success] {finalPosRange.Count} groupes de lumières enregistrés.");
+        Debug.Log($"[Bake Success] {finalPosRange.Count} light groups baked.");
     }
 
     // --- CLEAR ---
@@ -200,7 +206,7 @@ public class SpecularLightBaker : EditorWindow
     }
 
     // --- HELPERS ---
-    private static void FillProperty(SerializedProperty arrayProp, List<Vector4> values)
+    private static void FillPropertyV4(SerializedProperty arrayProp, List<Vector4> values)
     {
         if (arrayProp == null) return;
         arrayProp.ClearArray();
@@ -208,6 +214,18 @@ public class SpecularLightBaker : EditorWindow
         {
             arrayProp.InsertArrayElementAtIndex(i);
             arrayProp.GetArrayElementAtIndex(i).vector4Value = values[i];
+        }
+    }
+
+    // FIX 3: separate helper for Vector3 — serialized as vector3Value
+    private static void FillPropertyV3(SerializedProperty arrayProp, List<Vector3> values)
+    {
+        if (arrayProp == null) return;
+        arrayProp.ClearArray();
+        for (int i = 0; i < values.Count; i++)
+        {
+            arrayProp.InsertArrayElementAtIndex(i);
+            arrayProp.GetArrayElementAtIndex(i).vector3Value = values[i];
         }
     }
 }

@@ -14,7 +14,6 @@ Shader "Meenphie/Standard/Decal/Cutout"
 		[KeywordEnum( UV0,UV2 )] _UV( "UV", Float ) = 1
 		_Metallic( "Metallic", Range( 0, 1 ) ) = 0
 		_Glossiness( "Roughness", Range( 0, 1 ) ) = 0.5
-		_IOR( "IOR", Range( 1, 2.5 ) ) = 1.5
 		[Toggle( _USEGEOMETRICAA_ON )] _UseGeometricAA( "Use Geometric AA", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESURFACEOPTIONS( "CATEGORY SPACE SURFACEOPTIONS", Float ) = 0
 		[Meenphie_DrawerCategory(EMISSION,true,0,0)] _CATEGORYEMISSION( "CATEGORY EMISSION", Float ) = 0
@@ -36,7 +35,6 @@ Shader "Meenphie/Standard/Decal/Cutout"
 		[NoScaleOffset][SingleLineTexture] _UdonRNMZ1( "RNMZ 1", 2D ) = "black" {}
 		_UdonLightmapLerp( "Lightmap Lerp", Range( 0, 1 ) ) = 0
 		[Toggle( _USEBICUBICFILTERING_ON )] _UseBicubicFiltering( "Use Bicubic Filtering", Float ) = 1
-		[Toggle( _USELIGHTMAPPEDREFLECTIONS_ON )] _UseLightmappedReflections( "Use Lightmapped Specular", Float ) = 1
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTMAPPING( "CATEGORY SPACE LIGHTMAPPING", Float ) = 0
 		[Meenphie_DrawerCategory(STOCHASTIC,true,0,0)] _CATEGORYSTOCHASTIC( "CATEGORY STOCHASTIC", Float ) = 0
 		[Toggle( _STOCHASTICENABLED_ON )] _StochasticEnabled( "Stochastic Enabled", Float ) = 0
@@ -279,7 +277,6 @@ Shader "Meenphie/Standard/Decal/Cutout"
 				#pragma shader_feature_local _MAINTEX
 				#pragma shader_feature_local_fragment _EMISSIONUV_UV0 _EMISSIONUV_UV2
 				#pragma shader_feature_local _INDIRECTSPECULARS_ON
-				#pragma shader_feature_local _USELIGHTMAPPEDREFLECTIONS_ON
 				#pragma shader_feature_local _METALLICMAP
 				#pragma shader_feature_local _UV_UV0 _UV_UV2
 				#pragma shader_feature_local _USEGEOMETRICAA_ON
@@ -365,7 +362,6 @@ Shader "Meenphie/Standard/Decal/Cutout"
 				sampler2D _Sampler82964_g59838;
 				uniform sampler2D _BumpMap;
 				sampler2D _Sampler82965_g59838;
-				uniform float _IOR;
 				uniform sampler2D _Lightmap0;
 				float4 _Lightmap0_TexelSize;
 				uniform sampler2D _Lightmap1;
@@ -543,7 +539,7 @@ Shader "Meenphie/Standard/Decal/Cutout"
 				}
 				#endif
 
-				half4 frag( v2f IN , uint ase_vface : SV_IsFrontFace
+				half4 frag( v2f IN 
 							#if defined( ASE_DEPTH_WRITE_ON )
 								, out float outputDepth : SV_Depth
 							#endif
@@ -765,7 +761,7 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					float3 temp_output_2531_0_g59838 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g59838 * _EmissionIntensity )).rgb;
 					float3 Emission86_g59838 = temp_output_2531_0_g59838;
 					float3 temp_cast_2 = (Black1185_g59838).xxx;
-					float3 Color1_g59891 = oAlbedo6_g59838;
+					float3 Color1_g59930 = oAlbedo6_g59838;
 					#if defined( _UV_UV0 )
 					float2 staticSwitch2671_g59838 = UV0A2420_g59838;
 					#elif defined( _UV_UV2 )
@@ -852,7 +848,7 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					float staticSwitch1005_g59838 = staticSwitch846_g59838;
 					#endif
 					float Metallic1239_g59838 = staticSwitch1005_g59838;
-					float Metallic1_g59891 = Metallic1239_g59838;
+					float Metallic1_g59930 = Metallic1239_g59838;
 					#if defined( _UV_UV0 )
 					float2 staticSwitch2644_g59838 = UV0A2420_g59838;
 					#elif defined( _UV_UV2 )
@@ -938,7 +934,7 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#else
 					float staticSwitch1004_g59838 = ( 1.0 - staticSwitch845_g59838 );
 					#endif
-					float temp_output_19_0_g59889 = staticSwitch1004_g59838;
+					float temp_output_19_0_g59888 = staticSwitch1004_g59838;
 					float2 temp_output_5_0_g59848 = UV0A2420_g59838;
 					float2 UV633_g59848 = temp_output_5_0_g59848;
 					float2 UV100_g59849 = UV633_g59848;
@@ -1025,37 +1021,26 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					float3 tanNormal2504_g59838 = Normal_Map700_g59838;
 					float3 worldNormal2504_g59838 = normalize( float3( dot( tanToWorld0, tanNormal2504_g59838 ), dot( tanToWorld1, tanNormal2504_g59838 ), dot( tanToWorld2, tanNormal2504_g59838 ) ) );
 					float3 World_Normal2508_g59838 = worldNormal2504_g59838;
-					float3 tanNormal2_g59889 = World_Normal2508_g59838;
-					float3 worldNormal2_g59889 = float3( dot( tanToWorld0, tanNormal2_g59889 ), dot( tanToWorld1, tanNormal2_g59889 ), dot( tanToWorld2, tanNormal2_g59889 ) );
-					float3 temp_output_3_0_g59889 = ddx( worldNormal2_g59889 );
-					float dotResult5_g59889 = dot( temp_output_3_0_g59889 , temp_output_3_0_g59889 );
-					float3 temp_output_4_0_g59889 = ddy( worldNormal2_g59889 );
-					float dotResult6_g59889 = dot( temp_output_4_0_g59889 , temp_output_4_0_g59889 );
+					float3 tanNormal2_g59888 = World_Normal2508_g59838;
+					float3 worldNormal2_g59888 = float3( dot( tanToWorld0, tanNormal2_g59888 ), dot( tanToWorld1, tanNormal2_g59888 ), dot( tanToWorld2, tanNormal2_g59888 ) );
+					float3 temp_output_3_0_g59888 = ddx( worldNormal2_g59888 );
+					float dotResult5_g59888 = dot( temp_output_3_0_g59888 , temp_output_3_0_g59888 );
+					float3 temp_output_4_0_g59888 = ddy( worldNormal2_g59888 );
+					float dotResult6_g59888 = dot( temp_output_4_0_g59888 , temp_output_4_0_g59888 );
 					#ifdef _USEGEOMETRICAA_ON
-					float staticSwitch15_g59889 = min( temp_output_19_0_g59889, ( 1.0 - pow( saturate( max( dotResult5_g59889, dotResult6_g59889 ) ) , 0.25 ) ) );
+					float staticSwitch15_g59888 = min( temp_output_19_0_g59888, ( 1.0 - pow( saturate( max( dotResult5_g59888, dotResult6_g59888 ) ) , 0.25 ) ) );
 					#else
-					float staticSwitch15_g59889 = temp_output_19_0_g59889;
+					float staticSwitch15_g59888 = temp_output_19_0_g59888;
 					#endif
-					float Smoothness1399_g59838 = staticSwitch15_g59889;
-					float Smoothness1_g59891 = Smoothness1399_g59838;
-					float IOR2700_g59838 = _IOR;
-					float IOR1_g59891 = IOR2700_g59838;
-					float3 temp_cast_3 = (0.04).xxx;
-					float3 lerpResult1473_g59838 = lerp( temp_cast_3 , oAlbedo6_g59838 , Metallic1239_g59838);
-					float3 switchResult1501_g59838 = (((ase_vface>0)?(World_Normal2508_g59838):(-World_Normal2508_g59838)));
+					float Smoothness1399_g59838 = staticSwitch15_g59888;
+					float Smoothness1_g59930 = Smoothness1399_g59838;
 					float3 View_Direction2511_g59838 = ViewDirWS;
-					float dotResult1476_g59838 = dot( switchResult1501_g59838 , View_Direction2511_g59838 );
-					float3 lerpResult1480_g59838 = lerp( lerpResult1473_g59838 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g59838 ) ) , 5.0 ));
-					float3 Fresnel1560_g59838 = lerpResult1480_g59838;
-					float3 Fresnel1_g59891 = Fresnel1560_g59838;
+					float3 ViewDir1_g59930 = View_Direction2511_g59838;
 					float3 World_Position2505_g59838 = PositionWS;
-					float3 WorldPos1_g59891 = World_Position2505_g59838;
-					float3 WorldNormal1_g59891 = World_Normal2508_g59838;
-					float3 ViewDir1_g59891 = View_Direction2511_g59838;
-					float3 localIndirectSpecular1_g59891 = IndirectSpecular( Color1_g59891 , Metallic1_g59891 , Smoothness1_g59891 , IOR1_g59891 , Fresnel1_g59891 , WorldPos1_g59891 , WorldNormal1_g59891 , ViewDir1_g59891 );
-					float3 temp_output_2958_0_g59838 = localIndirectSpecular1_g59891;
+					float3 WorldPos1_g59930 = World_Position2505_g59838;
+					float3 WorldNormal1_g59930 = World_Normal2508_g59838;
 					float White38_g59838 = 1.0;
-					float4 temp_cast_4 = (White38_g59838).xxxx;
+					float4 temp_cast_3 = (White38_g59838).xxxx;
 					float4 texCoord2426_g59838 = IN.ase_texcoord7;
 					texCoord2426_g59838.xy = IN.ase_texcoord7.xy * float2( 1,1 ) + float2( 0,0 );
 					half2 UV0B2361_g59838 = (texCoord2426_g59838).zw;
@@ -1311,7 +1296,7 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					float4 lerpResult953_g59838 = lerp( RNM_0926_g59838 , RNM_11081_g59838 , Lightmap_Lerp_Value969_g59838);
 					float4 RNM_Lerp950_g59838 = lerpResult953_g59838;
 					#if defined( _LIGHTMAPMODE_DISABLED )
-					float4 staticSwitch1014_g59838 = temp_cast_4;
+					float4 staticSwitch1014_g59838 = temp_cast_3;
 					#elif defined( _LIGHTMAPMODE_SIMPLE )
 					float4 staticSwitch1014_g59838 = Lightmap_0925_g59838;
 					#elif defined( _LIGHTMAPMODE_SIMPLELERP )
@@ -1321,49 +1306,46 @@ Shader "Meenphie/Standard/Decal/Cutout"
 					#elif defined( _LIGHTMAPMODE_RNMLERP )
 					float4 staticSwitch1014_g59838 = RNM_Lerp950_g59838;
 					#else
-					float4 staticSwitch1014_g59838 = temp_cast_4;
+					float4 staticSwitch1014_g59838 = temp_cast_3;
 					#endif
 					float3 Lightmap46_g59838 = (staticSwitch1014_g59838).rgb;
-					float3 temp_output_6_0_g59888 = Lightmap46_g59838;
-					float grayscale4_g59888 = Luminance( temp_output_6_0_g59888 );
-					float smoothstepResult2_g59888 = smoothstep( 0.0 , 0.04 , grayscale4_g59888);
-					#ifdef _USELIGHTMAPPEDREFLECTIONS_ON
-					float3 staticSwitch1469_g59838 = ( temp_output_2958_0_g59838 * smoothstepResult2_g59888 );
-					#else
-					float3 staticSwitch1469_g59838 = temp_output_2958_0_g59838;
-					#endif
+					float dotResult9_g59929 = dot( float3( 0.212673, 0.715152, 0.072175 ) , Lightmap46_g59838 );
+					float smoothstepResult2_g59929 = smoothstep( 0.0 , 0.04 , dotResult9_g59929);
+					float Lightmap_Mask3067_g59838 = smoothstepResult2_g59929;
+					float LightmapMask1_g59930 = Lightmap_Mask3067_g59838;
+					float3 localIndirectSpecular1_g59930 = IndirectSpecular( Color1_g59930 , Metallic1_g59930 , Smoothness1_g59930 , ViewDir1_g59930 , WorldPos1_g59930 , WorldNormal1_g59930 , LightmapMask1_g59930 );
 					#ifdef _INDIRECTSPECULARS_ON
-					float3 staticSwitch2971_g59838 = staticSwitch1469_g59838;
+					float3 staticSwitch2971_g59838 = localIndirectSpecular1_g59930;
 					#else
 					float3 staticSwitch2971_g59838 = temp_cast_2;
 					#endif
 					float3 Indirect_Specular1419_g59838 = staticSwitch2971_g59838;
-					float3 temp_cast_6 = (Black1185_g59838).xxx;
-					float3 Color97_g59895 = oAlbedo6_g59838;
-					float Metallic97_g59895 = Metallic1239_g59838;
-					float Smoothness97_g59895 = Smoothness1399_g59838;
-					float3 Lightmap97_g59895 = Lightmap46_g59838;
-					float3 ViewDir97_g59895 = View_Direction2511_g59838;
-					float3 WorldPos97_g59895 = World_Position2505_g59838;
-					float3 WorldNormal97_g59895 = World_Normal2508_g59838;
-					float3 localDirectSpecular97_g59895 = DirectSpecular( Color97_g59895 , Metallic97_g59895 , Smoothness97_g59895 , Lightmap97_g59895 , ViewDir97_g59895 , WorldPos97_g59895 , WorldNormal97_g59895 );
+					float3 temp_cast_5 = (Black1185_g59838).xxx;
+					float3 Color97_g59921 = oAlbedo6_g59838;
+					float Metallic97_g59921 = Metallic1239_g59838;
+					float Smoothness97_g59921 = Smoothness1399_g59838;
+					float3 ViewDir97_g59921 = View_Direction2511_g59838;
+					float3 WorldPos97_g59921 = World_Position2505_g59838;
+					float3 WorldNormal97_g59921 = World_Normal2508_g59838;
+					float LightmapMask97_g59921 = Lightmap_Mask3067_g59838;
+					float3 localDirectSpecular97_g59921 = DirectSpecular( Color97_g59921 , Metallic97_g59921 , Smoothness97_g59921 , ViewDir97_g59921 , WorldPos97_g59921 , WorldNormal97_g59921 , LightmapMask97_g59921 );
 					#ifdef _DIRECTSPECULAR_ON
-					float3 staticSwitch2969_g59838 = localDirectSpecular97_g59895;
+					float3 staticSwitch2969_g59838 = localDirectSpecular97_g59921;
 					#else
-					float3 staticSwitch2969_g59838 = temp_cast_6;
+					float3 staticSwitch2969_g59838 = temp_cast_5;
 					#endif
 					float3 Direct_Specular2560_g59838 = staticSwitch2969_g59838;
 					float3 aAlbedo1466_g59838 = ( temp_output_2532_0_g59838 * ( 1.0 - Metallic1239_g59838 ) );
 					float3 temp_output_1252_0_g59838 = ( aAlbedo1466_g59838 * Lightmap46_g59838 );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch1_g59890 = float4( ( temp_output_1252_0_g59838 + Emission86_g59838 + Indirect_Specular1419_g59838 ) , 0.0 );
+					float4 staticSwitch1_g59889 = float4( ( temp_output_1252_0_g59838 + Emission86_g59838 + Indirect_Specular1419_g59838 ) , 0.0 );
 					#else
-					float4 staticSwitch1_g59890 = float4( ( Emission86_g59838 + Indirect_Specular1419_g59838 + Direct_Specular2560_g59838 + temp_output_1252_0_g59838 ) , 0.0 );
+					float4 staticSwitch1_g59889 = float4( ( Emission86_g59838 + Indirect_Specular1419_g59838 + Direct_Specular2560_g59838 + temp_output_1252_0_g59838 ) , 0.0 );
 					#endif
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g59838 = float4( Lightmap46_g59838 , 0.0 );
 					#else
-					float4 staticSwitch1181_g59838 = staticSwitch1_g59890;
+					float4 staticSwitch1181_g59838 = staticSwitch1_g59889;
 					#endif
 					float4 Color357_g59878 = staticSwitch1181_g59838;
 					float4 LUT51_g59878 = tex3D( _LUT, ( ( log10( ( ( (Color357_g59878).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
@@ -1967,4 +1949,4 @@ WireConnection;2888;7;3018;156
 WireConnection;2888;8;3018;427
 WireConnection;2888;15;3018;1024
 ASEEND*/
-//CHKSM=355CE048EC47FC772786941936FBF4C9AA38038B
+//CHKSM=E5547CD557B32445FF0EA2AE99074AD63960A2D2

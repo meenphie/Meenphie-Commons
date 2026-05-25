@@ -15,7 +15,7 @@ public class SpecularLightManager : UdonSharpBehaviour
 
     [Header("Baked Data")]
     public Vector4[] bakedPositions;
-    public Vector4[] bakedColors;
+    public Vector3[] bakedColors;     // pre-multiplied color×intensity
     public Vector4[] bakedRight;
     public Vector4[] bakedUp;
     public Vector4[] bakedDirections;
@@ -24,14 +24,15 @@ public class SpecularLightManager : UdonSharpBehaviour
     public int currentActiveCount;
     public bool shaderWasUpdated;
 
-    private Vector4[] _shaderPosBuffer = new Vector4[MAX_LIGHTS];
-    private Vector4[] _shaderColBuffer = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderPosBuffer   = new Vector4[MAX_LIGHTS];
+    private Vector3[] _shaderColBuffer   = new Vector3[MAX_LIGHTS]; // working buffer: pre-multiplied rgb
+    private Vector4[] _shaderColUpload   = new Vector4[MAX_LIGHTS]; // VRCShader requires Vector4[]
     private Vector4[] _shaderRightBuffer = new Vector4[MAX_LIGHTS];
-    private Vector4[] _shaderUpBuffer = new Vector4[MAX_LIGHTS];
-    private Vector4[] _shaderDirBuffer = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderUpBuffer    = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderDirBuffer   = new Vector4[MAX_LIGHTS];
 
-    private int[] _indices = new int[MAX_LIGHTS];
-    private float[] _distances = new float[MAX_LIGHTS];
+    private int[] _indices           = new int[MAX_LIGHTS];
+    private float[] _distances       = new float[MAX_LIGHTS];
     private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
 
     private int _posID, _colID, _rightID, _upID, _dirID, _countID;
@@ -42,11 +43,11 @@ public class SpecularLightManager : UdonSharpBehaviour
     {
         _localPlayer = Networking.LocalPlayer;
 
-        _posID = VRCShader.PropertyToID("_UdonSpecularLightPos");
-        _colID = VRCShader.PropertyToID("_UdonSpecularLightCol");
+        _posID   = VRCShader.PropertyToID("_UdonSpecularLightPos");
+        _colID   = VRCShader.PropertyToID("_UdonSpecularLightCol");
         _rightID = VRCShader.PropertyToID("_UdonSpecularLightRight");
-        _upID = VRCShader.PropertyToID("_UdonSpecularLightUp");
-        _dirID = VRCShader.PropertyToID("_UdonSpecularLightDir");
+        _upID    = VRCShader.PropertyToID("_UdonSpecularLightUp");
+        _dirID   = VRCShader.PropertyToID("_UdonSpecularLightDir");
         _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 
         _maxRadiusSq = MAX_RADIUS * MAX_RADIUS;
@@ -99,11 +100,11 @@ public class SpecularLightManager : UdonSharpBehaviour
             int maxShift = Mathf.Min(count, activeLightCount - 1);
             for (int j = maxShift; j > insertIndex; j--)
             {
-                _indices[j] = _indices[j - 1];
+                _indices[j]   = _indices[j - 1];
                 _distances[j] = _distances[j - 1];
             }
 
-            _indices[insertIndex] = i;
+            _indices[insertIndex]   = i;
             _distances[insertIndex] = distSq;
             if (count < activeLightCount) count++;
         }
@@ -128,20 +129,20 @@ public class SpecularLightManager : UdonSharpBehaviour
                 if (i < finalCount)
                 {
                     int idx = _indices[i];
-                    _shaderPosBuffer[i] = bakedPositions[idx];
-                    _shaderColBuffer[i] = bakedColors[idx];
+                    _shaderPosBuffer[i]   = bakedPositions[idx];
+                    _shaderColBuffer[i]   = bakedColors[idx];
                     _shaderRightBuffer[i] = bakedRight[idx];
-                    _shaderUpBuffer[i] = bakedUp[idx];
-                    _shaderDirBuffer[i] = bakedDirections[idx];
+                    _shaderUpBuffer[i]    = bakedUp[idx];
+                    _shaderDirBuffer[i]   = bakedDirections[idx];
                     _lastIndicesSorted[i] = idx;
                 }
                 else if (_lastIndicesSorted[i] != -1)
                 {
-                    _shaderPosBuffer[i] = Vector4.zero;
-                    _shaderColBuffer[i] = Vector4.zero;
+                    _shaderPosBuffer[i]   = Vector4.zero;
+                    _shaderColBuffer[i]   = Vector3.zero;
                     _shaderRightBuffer[i] = Vector4.zero;
-                    _shaderUpBuffer[i] = Vector4.zero;
-                    _shaderDirBuffer[i] = Vector4.zero;
+                    _shaderUpBuffer[i]    = Vector4.zero;
+                    _shaderDirBuffer[i]   = Vector4.zero;
                     _lastIndicesSorted[i] = -1;
                 }
             }
@@ -158,11 +159,15 @@ public class SpecularLightManager : UdonSharpBehaviour
 
     private void ApplyToShader(int count)
     {
-        VRCShader.SetGlobalVectorArray(_posID, _shaderPosBuffer);
-        VRCShader.SetGlobalVectorArray(_colID, _shaderColBuffer);
+        // VRCShader.SetGlobalVectorArray requires Vector4[] — splat rgb into upload buffer (w stays 0)
+        for (int i = 0; i < MAX_LIGHTS; i++)
+            _shaderColUpload[i] = _shaderColBuffer[i];
+
+        VRCShader.SetGlobalVectorArray(_posID,   _shaderPosBuffer);
+        VRCShader.SetGlobalVectorArray(_colID,   _shaderColUpload);
         VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer);
-        VRCShader.SetGlobalVectorArray(_upID, _shaderUpBuffer);
-        VRCShader.SetGlobalVectorArray(_dirID, _shaderDirBuffer);
+        VRCShader.SetGlobalVectorArray(_upID,    _shaderUpBuffer);
+        VRCShader.SetGlobalVectorArray(_dirID,   _shaderDirBuffer);
         VRCShader.SetGlobalFloat(_countID, (float)count);
     }
 }
