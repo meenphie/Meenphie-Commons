@@ -11,14 +11,12 @@ uniform float4   _UdonSpecularLightUp[32];
 //  -0.5    → bidirectional area (two faces, same rect)
 //  -1.0    → point light (omnidirectional, no rect)
 
-float3 DirectSpecular(
-float3 Color, float Metallic, float Smoothness,
-float3 Lightmap, float3 WorldPos, float3 WorldNormal, float3 ViewDir)
+float3 DirectSpecular(float3 Color, float Metallic, float Smoothness, float3 Lightmap, float3 ViewDir, float3 WorldPos, float3 WorldNormal)
 {
-    static const float specBoost      = 1.0;
-    static const float maxVisibleDist = 30.0;
+    static const float specBoost      = 2.0;
     static const float fadeStart      = 25.0;
-
+    static const float maxVisibleDist = 30.0;
+    
     float3 N    = normalize(WorldNormal);
     float3 vDir = normalize(ViewDir);
     float3 R    = reflect(-vDir, N);
@@ -29,7 +27,7 @@ float3 Lightmap, float3 WorldPos, float3 WorldNormal, float3 ViewDir)
     if (Smoothness < 0.0001 || _UdonSpecularLightCount < 0.5 || lmMask <= 0.0001) return 0.0;
 
     float roughness = 1.0 - Smoothness;
-    float alpha     = roughness * roughness * roughness;
+    float alpha     = roughness * roughness;
     float alpha2    = max(alpha * alpha, 0.0001);
 
     float  nDotV = max(dot(N, vDir), 0.05);

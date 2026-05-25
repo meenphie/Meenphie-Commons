@@ -741,7 +741,7 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float3 temp_output_2531_0_g59553 = (( float4( _EmissionColor , 0.0 ) * staticSwitch1006_g59553 * _EmissionIntensity )).rgb;
 					float3 Emission86_g59553 = temp_output_2531_0_g59553;
 					float3 temp_cast_2 = (Black1185_g59553).xxx;
-					float3 Color1_g59851 = oAlbedo6_g59553;
+					float3 Color1_g59864 = oAlbedo6_g59553;
 					#ifdef _METALLICMAP
 					float staticSwitch846_g59553 = tex2D( _MetallicMap, UV0A2420_g59553 ).r;
 					#else
@@ -821,7 +821,7 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float staticSwitch1005_g59553 = staticSwitch846_g59553;
 					#endif
 					float Metallic1239_g59553 = staticSwitch1005_g59553;
-					float Metallic1_g59851 = Metallic1239_g59553;
+					float Metallic1_g59864 = Metallic1239_g59553;
 					#ifdef _GLOSSINESSMAP
 					float staticSwitch845_g59553 = tex2D( _GlossinessMap, UV0A2420_g59553 ).r;
 					#else
@@ -999,9 +999,9 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float staticSwitch15_g59852 = temp_output_19_0_g59852;
 					#endif
 					float Smoothness1399_g59553 = staticSwitch15_g59852;
-					float Smoothness1_g59851 = Smoothness1399_g59553;
+					float Smoothness1_g59864 = Smoothness1399_g59553;
 					float IOR2700_g59553 = _IOR;
-					float IOR1_g59851 = IOR2700_g59553;
+					float IOR1_g59864 = IOR2700_g59553;
 					float3 temp_cast_3 = (0.04).xxx;
 					float3 lerpResult1473_g59553 = lerp( temp_cast_3 , oAlbedo6_g59553 , Metallic1239_g59553);
 					float3 switchResult1501_g59553 = (((ase_vface>0)?(World_Normal2508_g59553):(-World_Normal2508_g59553)));
@@ -1009,13 +1009,13 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float dotResult1476_g59553 = dot( switchResult1501_g59553 , View_Direction2511_g59553 );
 					float3 lerpResult1480_g59553 = lerp( lerpResult1473_g59553 , float3( 1,1,1 ) , pow( ( 1.0 - saturate( dotResult1476_g59553 ) ) , 5.0 ));
 					float3 Fresnel1560_g59553 = lerpResult1480_g59553;
-					float3 Fresnel1_g59851 = Fresnel1560_g59553;
+					float3 Fresnel1_g59864 = Fresnel1560_g59553;
 					float3 World_Position2505_g59553 = PositionWS;
-					float3 WorldPos1_g59851 = World_Position2505_g59553;
-					float3 WorldNormal1_g59851 = World_Normal2508_g59553;
-					float3 ViewDir1_g59851 = View_Direction2511_g59553;
-					float3 localIndirectSpecular1_g59851 = IndirectSpecular( Color1_g59851 , Metallic1_g59851 , Smoothness1_g59851 , IOR1_g59851 , Fresnel1_g59851 , WorldPos1_g59851 , WorldNormal1_g59851 , ViewDir1_g59851 );
-					float3 temp_output_2958_0_g59553 = localIndirectSpecular1_g59851;
+					float3 WorldPos1_g59864 = World_Position2505_g59553;
+					float3 WorldNormal1_g59864 = World_Normal2508_g59553;
+					float3 ViewDir1_g59864 = View_Direction2511_g59553;
+					float3 localIndirectSpecular1_g59864 = IndirectSpecular( Color1_g59864 , Metallic1_g59864 , Smoothness1_g59864 , IOR1_g59864 , Fresnel1_g59864 , WorldPos1_g59864 , WorldNormal1_g59864 , ViewDir1_g59864 );
+					float3 temp_output_2958_0_g59553 = localIndirectSpecular1_g59864;
 					float White38_g59553 = 1.0;
 					float4 temp_cast_4 = (White38_g59553).xxxx;
 					float4 texCoord2426_g59553 = IN.ase_texcoord6;
@@ -1301,16 +1301,16 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					#endif
 					float3 Indirect_Specular1419_g59553 = staticSwitch2971_g59553;
 					float3 temp_cast_6 = (Black1185_g59553).xxx;
-					float3 Color97_g59862 = oAlbedo6_g59553;
-					float Metallic97_g59862 = Metallic1239_g59553;
-					float Smoothness97_g59862 = Smoothness1399_g59553;
-					float3 Lightmap97_g59862 = Lightmap46_g59553;
-					float3 WorldDir97_g59862 = View_Direction2511_g59553;
-					float3 WorldPos97_g59862 = World_Position2505_g59553;
-					float3 WorldNormal97_g59862 = World_Normal2508_g59553;
-					float3 localDirectSpecular97_g59862 = DirectSpecular( Color97_g59862 , Metallic97_g59862 , Smoothness97_g59862 , Lightmap97_g59862 , WorldDir97_g59862 , WorldPos97_g59862 , WorldNormal97_g59862 );
+					float3 Color97_g59895 = oAlbedo6_g59553;
+					float Metallic97_g59895 = Metallic1239_g59553;
+					float Smoothness97_g59895 = Smoothness1399_g59553;
+					float3 Lightmap97_g59895 = Lightmap46_g59553;
+					float3 ViewDir97_g59895 = View_Direction2511_g59553;
+					float3 WorldPos97_g59895 = World_Position2505_g59553;
+					float3 WorldNormal97_g59895 = World_Normal2508_g59553;
+					float3 localDirectSpecular97_g59895 = DirectSpecular( Color97_g59895 , Metallic97_g59895 , Smoothness97_g59895 , Lightmap97_g59895 , ViewDir97_g59895 , WorldPos97_g59895 , WorldNormal97_g59895 );
 					#ifdef _DIRECTSPECULAR_ON
-					float3 staticSwitch2969_g59553 = localDirectSpecular97_g59862;
+					float3 staticSwitch2969_g59553 = localDirectSpecular97_g59895;
 					#else
 					float3 staticSwitch2969_g59553 = temp_cast_6;
 					#endif
@@ -1318,14 +1318,14 @@ Shader "Meenphie/Standard/Transparent/Transparent Blend"
 					float3 aAlbedo1466_g59553 = ( temp_output_2532_0_g59553 * ( 1.0 - Metallic1239_g59553 ) );
 					float3 temp_output_1252_0_g59553 = ( aAlbedo1466_g59553 * Lightmap46_g59553 );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch1_g59830 = float4( ( temp_output_1252_0_g59553 + Emission86_g59553 + Indirect_Specular1419_g59553 ) , 0.0 );
+					float4 staticSwitch1_g59863 = float4( ( temp_output_1252_0_g59553 + Emission86_g59553 + Indirect_Specular1419_g59553 ) , 0.0 );
 					#else
-					float4 staticSwitch1_g59830 = float4( ( Emission86_g59553 + Indirect_Specular1419_g59553 + Direct_Specular2560_g59553 + temp_output_1252_0_g59553 ) , 0.0 );
+					float4 staticSwitch1_g59863 = float4( ( Emission86_g59553 + Indirect_Specular1419_g59553 + Direct_Specular2560_g59553 + temp_output_1252_0_g59553 ) , 0.0 );
 					#endif
 					#ifdef _LIGHTMAPDEBUG
 					float4 staticSwitch1181_g59553 = float4( Lightmap46_g59553 , 0.0 );
 					#else
-					float4 staticSwitch1181_g59553 = staticSwitch1_g59830;
+					float4 staticSwitch1181_g59553 = staticSwitch1_g59863;
 					#endif
 					float4 Color357_g59831 = staticSwitch1181_g59553;
 					float4 LUT51_g59831 = tex3D( _LUT, ( ( log10( ( ( (Color357_g59831).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
@@ -2595,4 +2595,4 @@ WireConnection;2;0;12;625
 WireConnection;2;2;12;624
 WireConnection;2;7;12;156
 ASEEND*/
-//CHKSM=BDE4DB1AA4A857E40737AE787A8395B4726F3807
+//CHKSM=9E0338E8A2BFF041CEE13CE9CF2E45DB73A494F4
