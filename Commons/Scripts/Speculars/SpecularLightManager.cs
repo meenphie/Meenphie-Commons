@@ -5,42 +5,96 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class SpecularLightManager : UdonSharpBehaviour
 {
+    // ── Inspector ─────────────────────────────────────────────────────────────
     [Header("Settings")]
-    public float updateInterval = 0.5f;
+    [Tooltip("Seconds between merge-rebuild / re-sort ticks (~20 Hz = 0.05).")]
+    public float updateInterval = 0.05f;
 
-    private const int MAX_LIGHTS = 32;
-    private const float MAX_RADIUS = 32f;
-    private float _maxRadiusSq;
-    [Range(1, MAX_LIGHTS)] public int activeLightCount = MAX_LIGHTS;
+    [Tooltip("Lights closer than this (metres²) are merged into one entry.")]
+    public float mergeThresholdSq = 0.5f;
 
-    [Header("Baked Data")]
-    public Vector4[] bakedPositions;
-    public Vector3[] bakedColors;     // pre-multiplied color×intensity
-    public Vector4[] bakedRight;
-    public Vector4[] bakedUp;
-    public Vector4[] bakedDirections;
+    [Tooltip("Dot-product threshold below which merged lights become omni/bidirectional.")]
+    public float dirConflictDot = 0.5f;
 
-    [Header("Debug Info")]
+    [Tooltip("Lights beyond this radius (metres) are ignored.")]
+    public float maxRadius = 32f;
+
+    [Range(1, MAX_LIGHTS)]
+    public int activeLightCount = MAX_LIGHTS;
+
+    // ── Debug ─────────────────────────────────────────────────────────────────
+    [Header("Debug Info (read-only)")]
+    [Tooltip("Number of active Realtime/Mixed lights sent to the shader.")]
+    public int currentDynamicLights;
+    [Tooltip("Number of active Baked lights sent to the shader.")]
+    public int currentStaticLights;
+    [Tooltip("Total active lights (dynamic + static).")]
     public int currentActiveCount;
     public bool shaderWasUpdated;
 
-    private Vector4[] _shaderPosBuffer   = new Vector4[MAX_LIGHTS];
-    private Vector3[] _shaderColBuffer   = new Vector3[MAX_LIGHTS]; // working buffer: pre-multiplied rgb
-    private Vector4[] _shaderColUpload   = new Vector4[MAX_LIGHTS]; // VRCShader requires Vector4[]
-    private Vector4[] _shaderRightBuffer = new Vector4[MAX_LIGHTS];
-    private Vector4[] _shaderUpBuffer    = new Vector4[MAX_LIGHTS];
-    private Vector4[] _shaderDirBuffer   = new Vector4[MAX_LIGHTS];
+    // ── Constants ─────────────────────────────────────────────────────────────
+    public const int MAX_LIGHTS = 32;
 
-    private int[] _indices           = new int[MAX_LIGHTS];
-    private float[] _distances       = new float[MAX_LIGHTS];
-    private int[] _lastIndicesSorted = new int[MAX_LIGHTS];
+    // ── Child lights — serialized by the editor companion ─────────────────────
+    [Header("Light Sources (auto-filled — use Refresh Child Lights menu)")]
+    public Light[] childLights;
 
+    // Parallel to childLights[]; non-area entries are (0.01, 0.01).
+    [HideInInspector] public Vector2[] childLightHalfExtents;
+
+    // Written by the editor companion (lightmapBakeType is not exposed in Udon).
+    // true = Realtime or Mixed, false = Baked.
+    [HideInInspector] public bool[] childLightIsRealtime;
+
+    // ── Merged groups (public so editor companion can read for Shader.Set) ────
+    [HideInInspector] public Vector4[] mergedPos;
+    // CHANGED: Vector4 — .rgb = additive colour, .a = isRealtime (1.0 = Realtime, 0.0 = Baked)
+    // A group is Realtime if its dominant (highest-intensity) light is Mixed or Realtime.
+    [HideInInspector] public Vector4[] mergedCol;
+    [HideInInspector] public Vector4[] mergedRight;
+    [HideInInspector] public Vector4[] mergedUp;
+    [HideInInspector] public Vector4[] mergedDir;
+    [HideInInspector] public float[]   mergedMaxInt;
+    [HideInInspector] public int       mergedCount;
+
+    // ── Shader upload buffers ─────────────────────────────────────────────────
+    private Vector4[] _shaderPos   = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderCol   = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderRight = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderUp    = new Vector4[MAX_LIGHTS];
+    private Vector4[] _shaderDir   = new Vector4[MAX_LIGHTS];
+
+    // ── Sort state ────────────────────────────────────────────────────────────
+    private int[]   _indices          = new int[MAX_LIGHTS];
+    private float[] _distances        = new float[MAX_LIGHTS];
+    private int[]   _lastIndicesSorted = new int[MAX_LIGHTS];
+    private int[]   _mergedToShader   = new int[MAX_LIGHTS];
+    private int     _lastFinalCount   = -1;
+
+    // ── Shader property IDs ───────────────────────────────────────────────────
     private int _posID, _colID, _rightID, _upID, _dirID, _countID;
-    private VRCPlayerApi _localPlayer;
-    private int _lastFinalCount = -1;
 
+    // ── Change tracking ───────────────────────────────────────────────────────
+    [HideInInspector] public Vector3[]    lastLightPositions;
+    [HideInInspector] public Quaternion[] lastLightRotations;
+    [HideInInspector] public float[]      lastLightIntensities;
+    [HideInInspector] public Vector3[]    lastLightColors;
+    [HideInInspector] public Vector3      lastViewerPos = new Vector3(float.MaxValue, 0, 0);
+
+    private int[] _lightToMerged = new int[0];
+
+    public const float MOTION_EPSILON_SQ  = 0.0001f;
+    public const float COLOR_EPSILON      = 0.004f;
+    public const float INTENSITY_EPSILON  = 0.001f;
+
+    private float        _maxRadiusSq;
+    private VRCPlayerApi _localPlayer;
+    private float        _tickTimer;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
     void Start()
     {
+        _maxRadiusSq = maxRadius * maxRadius;
         _localPlayer = Networking.LocalPlayer;
 
         _posID   = VRCShader.PropertyToID("_UdonSpecularLightPos");
@@ -50,124 +104,415 @@ public class SpecularLightManager : UdonSharpBehaviour
         _dirID   = VRCShader.PropertyToID("_UdonSpecularLightDir");
         _countID = VRCShader.PropertyToID("_UdonSpecularLightCount");
 
-        _maxRadiusSq = MAX_RADIUS * MAX_RADIUS;
-
         for (int i = 0; i < MAX_LIGHTS; i++)
+        {
             _lastIndicesSorted[i] = -1;
+            _mergedToShader[i]    = -1;
+        }
 
-        UpdateNearestLights();
+        AllocateMergeBuffers();
     }
 
     void OnEnable()
     {
         if (_localPlayer == null) return;
-        UpdateNearestLights();
+        _lastFinalCount = -1;
+        lastViewerPos   = new Vector3(float.MaxValue, 0, 0);
     }
 
     void OnDisable()
     {
-        ApplyToShader(0);
-        _lastFinalCount = 0;
-        currentActiveCount = 0;
+        UploadToShader(0);
+        _lastFinalCount       = 0;
+        currentActiveCount    = 0;
+        currentDynamicLights  = 0;
+        currentStaticLights   = 0;
         for (int i = 0; i < MAX_LIGHTS; i++)
             _lastIndicesSorted[i] = -1;
     }
 
-    public void UpdateNearestLights()
+    // ── Update ────────────────────────────────────────────────────────────────
+    void Update()
     {
-        if (!gameObject.activeInHierarchy || !enabled) return;
-        if (_localPlayer == null)
+        if (!_specularEnabled) return;
+        if (childLights == null || childLights.Length == 0) return;
+
+        bool anyChanged = UpdateLiveData();
+
+        _tickTimer += Time.deltaTime;
+        if (_tickTimer >= updateInterval)
         {
-            SendCustomEventDelayedSeconds(nameof(UpdateNearestLights), updateInterval);
-            return;
+            _tickTimer = 0f;
+            Tick();
+        }
+        else if (anyChanged)
+        {
+            UploadPosColDir();
+            shaderWasUpdated = true;
+        }
+    }
+
+    // ── UpdateLiveData ────────────────────────────────────────────────────────
+    private bool UpdateLiveData()
+    {
+        if (_lightToMerged == null || _lightToMerged.Length != childLights.Length)
+            return false;
+
+        bool changed = false;
+
+        for (int li = 0; li < childLights.Length; li++)
+        {
+            Light l = childLights[li];
+            if (l == null || !l.enabled || !l.gameObject.activeInHierarchy) continue;
+
+            int mi = _lightToMerged[li];
+            if (mi < 0) continue;
+
+            int si = _mergedToShader[mi];
+            if (si < 0) continue;
+
+            Transform  t         = l.transform;
+            Vector3    pos       = t.position;
+            Quaternion rot       = t.rotation;
+            float      intensity = l.intensity;
+            Vector3    col       = new Vector3(l.color.r, l.color.g, l.color.b);
+
+            bool posChanged = (pos - lastLightPositions[li]).sqrMagnitude > MOTION_EPSILON_SQ;
+            bool rotChanged = Quaternion.Dot(rot, lastLightRotations[li]) < 0.9999f;
+            bool intChanged = Mathf.Abs(intensity - lastLightIntensities[li]) > INTENSITY_EPSILON;
+            bool colChanged = Mathf.Abs(col.x - lastLightColors[li].x) > COLOR_EPSILON ||
+                              Mathf.Abs(col.y - lastLightColors[li].y) > COLOR_EPSILON ||
+                              Mathf.Abs(col.z - lastLightColors[li].z) > COLOR_EPSILON;
+
+            if (!posChanged && !rotChanged && !intChanged && !colChanged) continue;
+
+            changed = true;
+
+            if (posChanged)
+            {
+                Vector4 p = mergedPos[mi];
+                mergedPos[mi] = new Vector4(pos.x, pos.y, pos.z, p.w);
+                lastLightPositions[li] = pos;
+            }
+
+            if (rotChanged)
+            {
+                Vector3 fwd   = rot * Vector3.forward;
+                Vector3 right = rot * Vector3.right;
+                Vector3 up    = rot * Vector3.up;
+
+                mergedDir[mi]   = new Vector4(fwd.x,   fwd.y,   fwd.z,   mergedDir[mi].w);
+                mergedRight[mi] = new Vector4(right.x, right.y, right.z, mergedRight[mi].w);
+                mergedUp[mi]    = new Vector4(up.x,    up.y,    up.z,    mergedUp[mi].w);
+                lastLightRotations[li] = rot;
+            }
+
+            if (intChanged || colChanged)
+            {
+                Vector3 oldContrib = lastLightColors[li] * lastLightIntensities[li];
+                Vector3 newContrib = col * intensity;
+
+                // Preserve .a (isRealtime) while updating .rgb
+                Vector4 mc = mergedCol[mi];
+                Vector3 newRgb = new Vector3(mc.x, mc.y, mc.z) - oldContrib + newContrib;
+                mergedCol[mi] = new Vector4(newRgb.x, newRgb.y, newRgb.z, mc.w);
+
+                lastLightIntensities[li] = intensity;
+                lastLightColors[li]      = col;
+            }
+
+            _shaderPos[si]   = mergedPos[mi];
+            _shaderCol[si]   = mergedCol[mi];
+            _shaderRight[si] = mergedRight[mi];
+            _shaderUp[si]    = mergedUp[mi];
+            _shaderDir[si]   = mergedDir[mi];
         }
 
-        Vector3 playerPos = _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
-        int totalBaked = bakedPositions.Length;
-        int count = 0;
+        return changed;
+    }
 
-        for (int i = 0; i < totalBaked; i++)
+    // ── Tick ──────────────────────────────────────────────────────────────────
+    public void Tick()
+    {
+        if (childLights == null || childLights.Length == 0) return;
+
+        Vector3 viewerPos = _localPlayer != null
+            ? _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position
+            : transform.position;
+
+        BuildMergedGroups();
+        int finalCount = SortNearest(viewerPos);
+        currentActiveCount = finalCount;
+
+        // Count dynamic vs static among the selected slots
+        int dynCount  = 0;
+        int statCount = 0;
+        for (int i = 0; i < finalCount; i++)
         {
-            float distSq = Vector3.SqrMagnitude(playerPos - (Vector3)bakedPositions[i]);
+            float isRT = mergedCol[_indices[i]].w;
+            if (isRT > 0.5f) dynCount++;  else statCount++;
+        }
+        currentDynamicLights = dynCount;
+        currentStaticLights  = statCount;
+
+        for (int i = 0; i < MAX_LIGHTS; i++) _mergedToShader[i] = -1;
+        for (int i = 0; i < finalCount; i++) _mergedToShader[_indices[i]] = i;
+
+        bool isDirty = finalCount != _lastFinalCount;
+        if (!isDirty)
+            for (int i = 0; i < finalCount; i++)
+                if (_indices[i] != _lastIndicesSorted[i]) { isDirty = true; break; }
+
+        CacheLightStates();
+        lastViewerPos = viewerPos;
+
+        FillUploadBuffers(finalCount);
+        UploadToShader(finalCount);
+        _lastFinalCount    = finalCount;
+        shaderWasUpdated   = isDirty;
+    }
+
+    // ── BuildMergedGroups ─────────────────────────────────────────────────────
+    public void BuildMergedGroups()
+    {
+        if (mergedPos == null || mergedPos.Length < childLights.Length)
+            AllocateMergeBuffers();
+
+        if (_lightToMerged == null || _lightToMerged.Length != childLights.Length)
+            _lightToMerged = new int[childLights.Length];
+
+        mergedCount = 0;
+
+        for (int li = 0; li < childLights.Length; li++)
+        {
+            _lightToMerged[li] = -1;
+
+            Light l = childLights[li];
+            if (l == null || !l.enabled || !l.gameObject.activeInHierarchy) continue;
+            if (l.type == LightType.Directional) continue;
+            if (l.renderMode == LightRenderMode.ForceVertex) continue;
+
+            Vector3 pos       = l.transform.position;
+            float   intensity = l.intensity;
+            float   range     = l.range;
+
+            float width  = 0.01f;
+            float height = 0.01f;
+            if (childLightHalfExtents != null && li < childLightHalfExtents.Length)
+            {
+                width  = childLightHalfExtents[li].x;
+                height = childLightHalfExtents[li].y;
+            }
+
+            Vector3 fwd = l.transform.forward;
+            float cosOuter;
+            if      (l.type == LightType.Spot) cosOuter = Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad);
+            else if (l.type == LightType.Area) cosOuter = 0.0f;
+            else                               cosOuter = -1.0f;
+
+            Vector3 contribution = new Vector3(l.color.r, l.color.g, l.color.b) * intensity;
+
+            // isRealtime is pre-baked by the editor companion into childLightIsRealtime[]
+            // because lightmapBakeType is not exposed to Udon.
+            float isRealtime = (childLightIsRealtime != null && li < childLightIsRealtime.Length
+                && childLightIsRealtime[li]) ? 1f : 0f;
+
+            bool merged = false;
+            for (int i = 0; i < mergedCount; i++)
+            {
+                if (((Vector3)mergedPos[i] - pos).sqrMagnitude >= mergeThresholdSq) continue;
+
+                // Update RGB colour; keep existing .a (isRealtime of dominant light)
+                Vector4 mc = mergedCol[i];
+                mergedCol[i] = new Vector4(mc.x + contribution.x,
+                                           mc.y + contribution.y,
+                                           mc.z + contribution.z,
+                                           mc.w);
+
+                Vector3 exFwd      = new Vector3(mergedDir[i].x, mergedDir[i].y, mergedDir[i].z);
+                bool    alreadyOmni = mergedDir[i].w < -0.1f;
+                bool    conflict    = !alreadyOmni && Vector3.Dot(exFwd, fwd) < dirConflictDot;
+                float   newMax      = Mathf.Max(mergedMaxInt[i], intensity);
+
+                if (intensity > mergedMaxInt[i])
+                {
+                    // This light becomes dominant — adopt its isRealtime flag
+                    mergedPos[i]   = new Vector4(pos.x, pos.y, pos.z, range);
+                    mergedRight[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
+                    mergedUp[i]    = new Vector4(l.transform.up.x,    l.transform.up.y,    l.transform.up.z,    height);
+                    mergedDir[i]   = new Vector4(fwd.x, fwd.y, fwd.z, conflict ? -0.5f : cosOuter);
+
+                    // Update .a to reflect the new dominant light's bake type
+                    Vector4 mc2 = mergedCol[i];
+                    mergedCol[i] = new Vector4(mc2.x, mc2.y, mc2.z, isRealtime);
+                }
+                else if (conflict)
+                {
+                    Vector4 d = mergedDir[i];
+                    mergedDir[i] = new Vector4(d.x, d.y, d.z, -0.5f);
+                }
+
+                mergedMaxInt[i]   = newMax;
+                _lightToMerged[li] = i;
+                merged = true;
+                break;
+            }
+
+            if (!merged && mergedCount < mergedPos.Length)
+            {
+                int mi = mergedCount;
+                mergedPos[mi]   = new Vector4(pos.x, pos.y, pos.z, range);
+                // Pack isRealtime into .a from the start
+                mergedCol[mi]   = new Vector4(contribution.x, contribution.y, contribution.z, isRealtime);
+                mergedRight[mi] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
+                mergedUp[mi]    = new Vector4(l.transform.up.x,    l.transform.up.y,    l.transform.up.z,    height);
+                mergedDir[mi]   = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
+                mergedMaxInt[mi]   = intensity;
+                _lightToMerged[li] = mi;
+                mergedCount++;
+            }
+        }
+    }
+
+    // ── SortNearest ───────────────────────────────────────────────────────────
+    public int SortNearest(Vector3 viewerPos)
+    {
+        int count = 0;
+        for (int i = 0; i < mergedCount; i++)
+        {
+            float distSq = Vector3.SqrMagnitude(viewerPos - (Vector3)mergedPos[i]);
             if (distSq > _maxRadiusSq) continue;
 
-            int insertIndex = count;
-            while (insertIndex > 0 && _distances[insertIndex - 1] > distSq)
-                insertIndex--;
-
-            if (insertIndex >= activeLightCount) continue;
+            int ins = count;
+            while (ins > 0 && _distances[ins - 1] > distSq) ins--;
+            if (ins >= activeLightCount) continue;
 
             int maxShift = Mathf.Min(count, activeLightCount - 1);
-            for (int j = maxShift; j > insertIndex; j--)
+            for (int j = maxShift; j > ins; j--)
             {
                 _indices[j]   = _indices[j - 1];
                 _distances[j] = _distances[j - 1];
             }
-
-            _indices[insertIndex]   = i;
-            _distances[insertIndex] = distSq;
+            _indices[ins]   = i;
+            _distances[ins] = distSq;
             if (count < activeLightCount) count++;
         }
+        return count;
+    }
 
-        int finalCount = count;
-        currentActiveCount = finalCount;
-
-        bool isDirty = finalCount != _lastFinalCount;
-        if (!isDirty)
+    // ── FillUploadBuffers ─────────────────────────────────────────────────────
+    private void FillUploadBuffers(int finalCount)
+    {
+        for (int i = 0; i < MAX_LIGHTS; i++)
         {
-            for (int i = 0; i < finalCount; i++)
+            if (i < finalCount)
             {
-                if (_indices[i] != _lastIndicesSorted[i]) { isDirty = true; break; }
+                int idx          = _indices[i];
+                _shaderPos[i]    = mergedPos[idx];
+                _shaderCol[i]    = mergedCol[idx];   // Vector4 — .a = isRealtime already packed
+                _shaderRight[i]  = mergedRight[idx];
+                _shaderUp[i]     = mergedUp[idx];
+                _shaderDir[i]    = mergedDir[idx];
+                _lastIndicesSorted[i] = idx;
+            }
+            else
+            {
+                _shaderPos[i] = _shaderCol[i] = _shaderRight[i] = _shaderUp[i] = _shaderDir[i] = Vector4.zero;
+                _lastIndicesSorted[i] = -1;
             }
         }
+    }
 
-        if (isDirty)
+    // ── UploadPosColDir ───────────────────────────────────────────────────────
+    private void UploadPosColDir()
+    {
+        VRCShader.SetGlobalVectorArray(_posID,   _shaderPos);
+        VRCShader.SetGlobalVectorArray(_colID,   _shaderCol);
+        VRCShader.SetGlobalVectorArray(_dirID,   _shaderDir);
+        VRCShader.SetGlobalVectorArray(_rightID, _shaderRight);
+        VRCShader.SetGlobalVectorArray(_upID,    _shaderUp);
+    }
+
+    // ── UploadToShader ────────────────────────────────────────────────────────
+    private void UploadToShader(int count)
+    {
+        VRCShader.SetGlobalVectorArray(_posID,   _shaderPos);
+        VRCShader.SetGlobalVectorArray(_colID,   _shaderCol);
+        VRCShader.SetGlobalVectorArray(_rightID, _shaderRight);
+        VRCShader.SetGlobalVectorArray(_upID,    _shaderUp);
+        VRCShader.SetGlobalVectorArray(_dirID,   _shaderDir);
+        VRCShader.SetGlobalFloat(_countID, (float)count);
+    }
+
+    // ── CacheLightStates ──────────────────────────────────────────────────────
+    private void CacheLightStates()
+    {
+        int n = childLights.Length;
+        if (lastLightPositions  == null || lastLightPositions.Length  != n) lastLightPositions  = new Vector3[n];
+        if (lastLightRotations  == null || lastLightRotations.Length  != n) lastLightRotations  = new Quaternion[n];
+        if (lastLightIntensities == null || lastLightIntensities.Length != n) lastLightIntensities = new float[n];
+        if (lastLightColors     == null || lastLightColors.Length     != n) lastLightColors     = new Vector3[n];
+
+        for (int i = 0; i < n; i++)
         {
-            shaderWasUpdated = true;
+            Light l = childLights[i];
+            if (l == null) continue;
+            lastLightPositions[i]  = l.transform.position;
+            lastLightRotations[i]  = l.transform.rotation;
+            lastLightIntensities[i] = l.intensity;
+            lastLightColors[i]     = new Vector3(l.color.r, l.color.g, l.color.b);
+        }
+    }
+
+    // ── AllocateMergeBuffers ──────────────────────────────────────────────────
+    private void AllocateMergeBuffers()
+    {
+        int cap    = (childLights != null) ? childLights.Length : MAX_LIGHTS;
+        mergedPos      = new Vector4[cap];
+        mergedCol      = new Vector4[cap];   // CHANGED: Vector4 (was Vector3)
+        mergedRight    = new Vector4[cap];
+        mergedUp       = new Vector4[cap];
+        mergedDir      = new Vector4[cap];
+        mergedMaxInt   = new float[cap];
+    }
+
+    // ── Toggle ────────────────────────────────────────────────────────────────
+    private bool _specularEnabled = true;
+
+    public void ToggleSpecular()
+    {
+        _specularEnabled = !_specularEnabled;
+        SetSpecular(_specularEnabled);
+    }
+
+    public void SetSpecular(bool enabled)
+    {
+        _specularEnabled = enabled;
+
+        if (!enabled)
+        {
             for (int i = 0; i < MAX_LIGHTS; i++)
-            {
-                if (i < finalCount)
-                {
-                    int idx = _indices[i];
-                    _shaderPosBuffer[i]   = bakedPositions[idx];
-                    _shaderColBuffer[i]   = bakedColors[idx];
-                    _shaderRightBuffer[i] = bakedRight[idx];
-                    _shaderUpBuffer[i]    = bakedUp[idx];
-                    _shaderDirBuffer[i]   = bakedDirections[idx];
-                    _lastIndicesSorted[i] = idx;
-                }
-                else if (_lastIndicesSorted[i] != -1)
-                {
-                    _shaderPosBuffer[i]   = Vector4.zero;
-                    _shaderColBuffer[i]   = Vector3.zero;
-                    _shaderRightBuffer[i] = Vector4.zero;
-                    _shaderUpBuffer[i]    = Vector4.zero;
-                    _shaderDirBuffer[i]   = Vector4.zero;
-                    _lastIndicesSorted[i] = -1;
-                }
-            }
-            ApplyToShader(finalCount);
-            _lastFinalCount = finalCount;
+                _shaderPos[i] = _shaderCol[i] = _shaderRight[i]
+                              = _shaderUp[i]  = _shaderDir[i] = Vector4.zero;
+
+            VRCShader.SetGlobalVectorArray(_posID,   _shaderPos);
+            VRCShader.SetGlobalVectorArray(_colID,   _shaderCol);
+            VRCShader.SetGlobalVectorArray(_rightID, _shaderRight);
+            VRCShader.SetGlobalVectorArray(_upID,    _shaderUp);
+            VRCShader.SetGlobalVectorArray(_dirID,   _shaderDir);
+            VRCShader.SetGlobalFloat(_countID, 0f);
+
+            currentActiveCount   = 0;
+            currentDynamicLights = 0;
+            currentStaticLights  = 0;
+            shaderWasUpdated     = true;
         }
         else
         {
-            shaderWasUpdated = false;
+            _lastFinalCount = -1;
+            Tick();
         }
-
-        SendCustomEventDelayedSeconds(nameof(UpdateNearestLights), updateInterval);
     }
 
-    private void ApplyToShader(int count)
-    {
-        // VRCShader.SetGlobalVectorArray requires Vector4[] — splat rgb into upload buffer (w stays 0)
-        for (int i = 0; i < MAX_LIGHTS; i++)
-            _shaderColUpload[i] = _shaderColBuffer[i];
-
-        VRCShader.SetGlobalVectorArray(_posID,   _shaderPosBuffer);
-        VRCShader.SetGlobalVectorArray(_colID,   _shaderColUpload);
-        VRCShader.SetGlobalVectorArray(_rightID, _shaderRightBuffer);
-        VRCShader.SetGlobalVectorArray(_upID,    _shaderUpBuffer);
-        VRCShader.SetGlobalVectorArray(_dirID,   _shaderDirBuffer);
-        VRCShader.SetGlobalFloat(_countID, (float)count);
-    }
+    public bool IsSpecularEnabled() => _specularEnabled;
 }
