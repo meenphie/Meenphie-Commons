@@ -1,3 +1,4 @@
+#if VRC_SDK_VRCSDK3 && UDON
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Build;
@@ -57,3 +58,4 @@ public class PostProcessingInitializer : IActiveBuildTargetChanged
         }
     }
 }
+#endif

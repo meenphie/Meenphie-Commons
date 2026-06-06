@@ -1,4 +1,4 @@
-﻿
+﻿#if VRC_SDK_VRCSDK3 && UDON
 using System;
 using UdonSharp;
 using UnityEngine;
@@ -17,3 +17,4 @@ public class LanguageDetection : UdonSharpBehaviour
         Debug.Log(locale);
     }
 }
+#endif

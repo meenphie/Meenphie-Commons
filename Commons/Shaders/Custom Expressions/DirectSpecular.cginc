@@ -2,21 +2,22 @@
 uniform float    _UdonSpecularLightCount;
 uniform float4   _UdonSpecularLightPos[32];
 uniform float4   _UdonSpecularLightDir[32];
-uniform float4   _UdonSpecularLightCol[32];   // float4; .rgb = colour, .a = IsRealtime (1.0 = Realtime/Mixed, 0.0 = Baked)
+uniform float4   _UdonSpecularLightCol[32];   // .rgb = colour, .a = isRealtime (1.0 = Realtime, 0.0 = Baked)
 uniform float4   _UdonSpecularLightRight[32];
 uniform float4   _UdonSpecularLightUp[32];
 
 float3 DirectSpecular(
-float3 Color,
-float  Metallic,
-float  Smoothness,
-float3 ViewDir,
-float3 WorldPos,
-float3 WorldNormal,
-float  LightmapMask
+    float3 Color,
+    float  Metallic,
+    float  Smoothness,
+    float3 ViewDir,
+    float3 WorldPos,
+    float3 WorldNormal,
+    float  LightmapMode,
+    float  LightmapMask
 )
 {
-    if (Smoothness < 0.0001 || _UdonSpecularLightCount < 0.5 || LightmapMask < 0.01) return 0.0;
+    if (Smoothness < 0.0001 || _UdonSpecularLightCount < 0.5) return 0.0;
 
     static const float specBoost      = 1.0;
     static const float fadeStart      = 25.0;
@@ -38,20 +39,16 @@ float  LightmapMask
 
     float3 camPos = _WorldSpaceCameraPos;
 
-    // Static (Baked)   → specular only — diffus déjà dans le lightmap
-    // Dynamic (Realtime/Mixed) → specular + diffus
-    float3 specStatic  = 0;
-    float3 specDynamic = 0;
-    float3 diffDynamic = 0;
+    float3 specTotal = 0;
+    float3 diffTotal = 0;
 
     int loopCount = (int)_UdonSpecularLightCount;
 
     for (int i = 0; i < loopCount; i++)
     {
-        float isRealtime = _UdonSpecularLightCol[i].a; // 1.0 = Dynamic, 0.0 = Static
+        float isRealtime = _UdonSpecularLightCol[i].a;
 
         float4 posRange = _UdonSpecularLightPos[i];
-
         float3 L_vector = posRange.xyz - WorldPos;
         float  distSq   = dot(L_vector, L_vector);
 
@@ -73,16 +70,35 @@ float  LightmapMask
         float  invDist  = rsqrt(max(distSq, 1e-6));
         float3 L_norm   = L_vector * invDist;
 
+        // ── Type detection ───────────────────────────────────────────────────
         bool isPointLight = dirAngle.w < -0.9;
         bool isBidir      = !isPointLight && dirAngle.w < -0.1;
+        bool isArea       = !isPointLight && !isBidir && dirAngle.w <= 0.0;
+        bool isSpot       = !isPointLight && !isBidir && dirAngle.w >  0.0;
 
-        float spotMask = (isPointLight || isBidir)
-        ? 1.0
-        : saturate((dot(-L_norm, dirAngle.xyz) - dirAngle.w) / max(0.01, 1.0 - dirAngle.w));
-        if (spotMask <= 0.0) continue;
+        // ── Direction mask ───────────────────────────────────────────────────
+        float dirMask = 1.0;
 
+        if (isSpot)
+        {
+            // Quintic smooth — fade entre inner et outer cone
+            float cosOuter = dirAngle.w;
+            float cosInner = lerp(cosOuter, 1.0, 0.15);
+            float cosAngle = dot(-L_norm, dirAngle.xyz);
+            float t        = saturate((cosAngle - cosOuter) / max(1e-4, cosInner - cosOuter));
+            dirMask        = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+        }
+        else if (isArea)
+        {
+            // Smoothstep sur l'angle d'émission — transition douce au bord du plan
+            float areaDot = dot(-L_norm, dirAngle.xyz);
+            dirMask       = smoothstep(0.0, 0.2, areaDot);
+        }
+
+        if (dirMask <= 0.0) continue;
+
+        // ── Horizon fade — smooth, sans continue ─────────────────────────────
         float horizonFade = saturate(dot(N, L_norm) + 0.2) / 1.2;
-        if (horizonFade <= 0.0) continue;
 
         float3 diff    = 0;
         float  diffSq  = 0;
@@ -93,12 +109,32 @@ float  LightmapMask
         [branch]
         if (isPointLight)
         {
+            // ── Point light ──────────────────────────────────────────────────
             diff    = L_vector;
             diffSq  = distSq;
             invDiff = invDist;
         }
+        else if (isSpot)
+        {
+            // ── Spotlight : representative point sphérique ───────────────────
+            float RdotL              = dot(R, L_norm);
+            float3 closestPointOnRay = L_vector - R * RdotL;
+            float  lightRadius       = max(halfSize.x, halfSize.y);
+            float  clampedLen        = length(closestPointOnRay);
+            float3 repDir            = closestPointOnRay / max(clampedLen, lightRadius);
+
+            diff    = L_vector - repDir * lightRadius;
+            diffSq  = max(dot(diff, diff), 1e-6);
+            invDiff = rsqrt(diffSq);
+
+            float dist3D     = sqrt(diffSq);
+            float angSize    = lightRadius / (2.0 * max(dist3D, 1e-4));
+            float alphaPrime = saturate(alpha + angSize * 0.2);
+            currentAlpha2    = max(alphaPrime * alphaPrime, 0.0001);
+        }
         else
         {
+            // ── Area light / bidir : representative point sur le plan ────────
             float denom  = dot(dirAngle.xyz, R);
             float tPlane = dot(L_vector, dirAngle.xyz) / (abs(denom) < 1e-4 ? 1e-4 : denom);
             tPlane = max(tPlane, 0.0);
@@ -106,13 +142,13 @@ float  LightmapMask
             float3 pReflection = WorldPos + R * tPlane;
             float3 lp          = pReflection - posRange.xyz;
             float2 localP      = float2(dot(lp, _UdonSpecularLightRight[i].xyz),
-            dot(lp, _UdonSpecularLightUp[i].xyz));
+                                        dot(lp, _UdonSpecularLightUp[i].xyz));
             float2 clampedPos  = clamp(localP, -halfSize, halfSize);
 
             diff = posRange.xyz
-            + _UdonSpecularLightRight[i].xyz * clampedPos.x
-            + _UdonSpecularLightUp[i].xyz    * clampedPos.y
-            - WorldPos;
+                 + _UdonSpecularLightRight[i].xyz * clampedPos.x
+                 + _UdonSpecularLightUp[i].xyz    * clampedPos.y
+                 - WorldPos;
 
             diffSq  = max(dot(diff, diff), 1e-6);
             invDiff = rsqrt(diffSq);
@@ -146,27 +182,36 @@ float  LightmapMask
         float fresnelCurve = exp2((-5.55473 * hDotV - 6.98316) * hDotV);
         float3 F           = F0 + (1.0 - F0) * fresnelCurve;
 
-        float  brdfScalar = D * G / max(4.0 * nDotV * nDotL, 0.001)
-        * nDotL * spotMask * falloff * distanceFade * horizonFade;
+        float brdfScalar = D * G / max(4.0 * nDotV * nDotL, 0.001)
+                         * nDotL * dirMask * falloff * distanceFade * horizonFade;
 
         float3 specContrib = max(0.0, _UdonSpecularLightCol[i].rgb * F * brdfScalar);
+        float3 diffContrib = max(0.0, _UdonSpecularLightCol[i].rgb * Color.rgb * (1.0 - Metallic)
+                           * nDotL * dirMask * falloff * distanceFade * horizonFade);
+
+        specTotal += specContrib;
 
         [branch]
-        if (isRealtime > 0.5)
+        if (LightmapMode < 0.5)
         {
-            // Dynamic : specular + diffus temps réel
-            specDynamic += specContrib;
-            diffDynamic += max(0.0, _UdonSpecularLightCol[i].rgb * Color.rgb * (1.0 - Metallic)
-            * nDotL * spotMask * falloff * distanceFade);
+            // Mesh dynamique : spec + diff pour toutes les lights
+            diffTotal += diffContrib;
         }
         else
         {
-            // Static : specular uniquement — le diffus est déjà cuit dans le lightmap
-            specStatic += specContrib;
+            // Mesh statique : diff uniquement pour les realtime lights
+            if (isRealtime > 0.5)
+                diffTotal += diffContrib;
         }
     }
 
-    float3 result = specStatic * (specBoost * LightmapMask) + (diffDynamic + specDynamic * specBoost);
-
-    return result;
+    [branch]
+    if (LightmapMode < 0.5)
+    {
+        return specTotal * specBoost + diffTotal;
+    }
+    else
+    {
+        return specTotal * (specBoost * LightmapMask) + diffTotal;
+    }
 }

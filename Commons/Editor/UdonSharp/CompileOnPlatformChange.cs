@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿#if VRC_SDK_VRCSDK3 && UDON
+using UnityEditor;
 using UnityEditor.Build;
 using UdonSharp;
 
@@ -11,3 +12,4 @@ using UdonSharp;
             UdonSharpProgramAsset.CompileAllCsPrograms(true);
         }
     }
+#endif

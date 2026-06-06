@@ -1,4 +1,5 @@
-﻿using UdonSharp;
+﻿#if VRC_SDK_VRCSDK3 && UDON
+using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -516,3 +517,4 @@ public class SpecularLightManager : UdonSharpBehaviour
 
     public bool IsSpecularEnabled() => _specularEnabled;
 }
+#endif
