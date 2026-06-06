@@ -1,8 +1,7 @@
-// --- GLOBALS ---
 uniform float    _UdonSpecularLightCount;
 uniform float4   _UdonSpecularLightPos[32];
 uniform float4   _UdonSpecularLightDir[32];
-uniform float4   _UdonSpecularLightCol[32];   // .rgb = colour, .a = isRealtime (1.0 = Realtime, 0.0 = Baked)
+uniform float4   _UdonSpecularLightCol[32];
 uniform float4   _UdonSpecularLightRight[32];
 uniform float4   _UdonSpecularLightUp[32];
 
@@ -13,41 +12,43 @@ float3 DirectSpecular(
     float3 ViewDir,
     float3 WorldPos,
     float3 WorldNormal,
+    float3 VertexNormal,
     float  LightmapMode,
     float  LightmapMask
 )
 {
     if (Smoothness < 0.0001 || _UdonSpecularLightCount < 0.5) return 0.0;
 
-    static const float specBoost      = 1.0;
+    static const float specBoost      = 0.4;
+    static const float diffBoost      = 0.1;
     static const float fadeStart      = 25.0;
     static const float maxVisibleDist = 30.0;
     static const float rcpFadeRange   = 1.0 / max(maxVisibleDist - fadeStart, 1e-4);
 
-    float3 N    = normalize(WorldNormal);
-    float3 vDir = normalize(ViewDir);
-    float3 R    = reflect(-vDir, N);
+    float3 N         = normalize(WorldNormal);      // normale finale (normal map)
+    float3 N_geo     = normalize(VertexNormal);        // normale géométrique pour backface
+    float3 vDir      = normalize(ViewDir);
+    float3 R         = reflect(-vDir, N);
 
-    float roughness = 1.0 - Smoothness;
-    float alpha     = roughness * roughness;
-    float alpha2    = max(alpha * alpha, 0.0001);
-    float nDotV     = max(dot(N, vDir), 0.05);
+    float roughness  = 1.0 - Smoothness;
+    float alpha      = roughness * roughness;
+    float alpha2     = max(alpha * alpha, 0.0001);
+    float nDotV      = max(dot(N, vDir), 0.05);
 
-    float3 F0 = lerp(float3(0.04, 0.04, 0.04), Color.rgb, Metallic);
-    float  k  = ((roughness + 1.0) * (roughness + 1.0)) / 8.0;
-    float  Gv = nDotV / max(nDotV * (1.0 - k) + k, 1e-4);
+    float3 F0        = lerp(float3(0.04, 0.04, 0.04), Color.rgb, Metallic);
+    float  k         = ((roughness + 1.0) * (roughness + 1.0)) / 8.0;
+    float  Gv        = nDotV / max(nDotV * (1.0 - k) + k, 1e-4);
 
-    float3 camPos = _WorldSpaceCameraPos;
+    float3 camPos    = _WorldSpaceCameraPos;
 
     float3 specTotal = 0;
     float3 diffTotal = 0;
 
-    int loopCount = (int)_UdonSpecularLightCount;
+    int loopCount    = (int)_UdonSpecularLightCount;
+    bool isDynamicMesh = LightmapMode < 0.5;
 
     for (int i = 0; i < loopCount; i++)
     {
-        float isRealtime = _UdonSpecularLightCol[i].a;
-
         float4 posRange = _UdonSpecularLightPos[i];
         float3 L_vector = posRange.xyz - WorldPos;
         float  distSq   = dot(L_vector, L_vector);
@@ -56,32 +57,34 @@ float3 DirectSpecular(
         float ratio   = distSq / rangeSq;
         if (ratio >= 1.0) continue;
 
-        float ratioSq = ratio * ratio;
-        float window  = 1.0 - ratioSq;
-        float falloff = window * window / max(distSq, 0.0001);
-
         float3 camToLight   = camPos - posRange.xyz;
         float  camDistSq    = dot(camToLight, camToLight);
         float  camDist      = sqrt(camDistSq);
         float  distanceFade = saturate(1.0 - (camDist - fadeStart) * rcpFadeRange);
         if (distanceFade <= 0.0) continue;
 
+        float ratioSq = ratio * ratio;
+        float window  = 1.0 - ratioSq;
+        float falloff = window * window / max(distSq, 0.0001);
+
         float4 dirAngle = _UdonSpecularLightDir[i];
         float  invDist  = rsqrt(max(distSq, 1e-6));
         float3 L_norm   = L_vector * invDist;
 
-        // ── Type detection ───────────────────────────────────────────────────
+        // ----- Backface culling géométrique (indépendant de la normal map) -----
+        if (dot(N_geo, L_norm) <= 0.0) continue;
+
+        // ----- Type detection -----
         bool isPointLight = dirAngle.w < -0.9;
         bool isBidir      = !isPointLight && dirAngle.w < -0.1;
         bool isArea       = !isPointLight && !isBidir && dirAngle.w <= 0.0;
         bool isSpot       = !isPointLight && !isBidir && dirAngle.w >  0.0;
 
-        // ── Direction mask ───────────────────────────────────────────────────
+        // ----- Direction mask -----
         float dirMask = 1.0;
 
         if (isSpot)
         {
-            // Quintic smooth — fade entre inner et outer cone
             float cosOuter = dirAngle.w;
             float cosInner = lerp(cosOuter, 1.0, 0.15);
             float cosAngle = dot(-L_norm, dirAngle.xyz);
@@ -90,14 +93,12 @@ float3 DirectSpecular(
         }
         else if (isArea)
         {
-            // Smoothstep sur l'angle d'émission — transition douce au bord du plan
             float areaDot = dot(-L_norm, dirAngle.xyz);
             dirMask       = smoothstep(0.0, 0.2, areaDot);
         }
 
         if (dirMask <= 0.0) continue;
 
-        // ── Horizon fade — smooth, sans continue ─────────────────────────────
         float horizonFade = saturate(dot(N, L_norm) + 0.2) / 1.2;
 
         float3 diff    = 0;
@@ -106,17 +107,15 @@ float3 DirectSpecular(
         float2 halfSize      = float2(_UdonSpecularLightRight[i].w, _UdonSpecularLightUp[i].w);
         float  currentAlpha2 = alpha2;
 
-        [branch]
+        // ----- Light sampling (Point, Spot, Area) -----
         if (isPointLight)
         {
-            // ── Point light ──────────────────────────────────────────────────
             diff    = L_vector;
             diffSq  = distSq;
             invDiff = invDist;
         }
         else if (isSpot)
         {
-            // ── Spotlight : representative point sphérique ───────────────────
             float RdotL              = dot(R, L_norm);
             float3 closestPointOnRay = L_vector - R * RdotL;
             float  lightRadius       = max(halfSize.x, halfSize.y);
@@ -132,9 +131,8 @@ float3 DirectSpecular(
             float alphaPrime = saturate(alpha + angSize * 0.2);
             currentAlpha2    = max(alphaPrime * alphaPrime, 0.0001);
         }
-        else
+        else   // Area or Bidir
         {
-            // ── Area light / bidir : representative point sur le plan ────────
             float denom  = dot(dirAngle.xyz, R);
             float tPlane = dot(L_vector, dirAngle.xyz) / (abs(denom) < 1e-4 ? 1e-4 : denom);
             tPlane = max(tPlane, 0.0);
@@ -142,7 +140,7 @@ float3 DirectSpecular(
             float3 pReflection = WorldPos + R * tPlane;
             float3 lp          = pReflection - posRange.xyz;
             float2 localP      = float2(dot(lp, _UdonSpecularLightRight[i].xyz),
-                                        dot(lp, _UdonSpecularLightUp[i].xyz));
+                                       dot(lp, _UdonSpecularLightUp[i].xyz));
             float2 clampedPos  = clamp(localP, -halfSize, halfSize);
 
             diff = posRange.xyz
@@ -170,7 +168,7 @@ float3 DirectSpecular(
 
         float nDotH = saturate(dot(N, H));
         float nDotL = saturate(dot(N, lDir));
-        if (nDotL <= 0.0) continue;
+        if (nDotL <= 0.0) continue;   // optionnel, déjà filtré mais sécurité
 
         float d_denom = (nDotH * nDotH) * (currentAlpha2 - 1.0) + 1.0;
         float D       = currentAlpha2 / (3.14159 * d_denom * d_denom);
@@ -185,30 +183,21 @@ float3 DirectSpecular(
         float brdfScalar = D * G / max(4.0 * nDotV * nDotL, 0.001)
                          * nDotL * dirMask * falloff * distanceFade * horizonFade;
 
-        float3 specContrib = max(0.0, _UdonSpecularLightCol[i].rgb * F * brdfScalar);
-        float3 diffContrib = max(0.0, _UdonSpecularLightCol[i].rgb * Color.rgb * (1.0 - Metallic)
+        float3 lightColor = _UdonSpecularLightCol[i].rgb;
+
+        float3 specContrib = max(0.0, lightColor * F * brdfScalar);
+        float3 diffContrib = max(0.0, lightColor * Color.rgb * (1.0 - Metallic)
                            * nDotL * dirMask * falloff * distanceFade * horizonFade);
 
         specTotal += specContrib;
 
-        [branch]
-        if (LightmapMode < 0.5)
-        {
-            // Mesh dynamique : spec + diff pour toutes les lights
-            diffTotal += diffContrib;
-        }
-        else
-        {
-            // Mesh statique : diff uniquement pour les realtime lights
-            if (isRealtime > 0.5)
-                diffTotal += diffContrib;
-        }
+        float diffMultiplier = isDynamicMesh ? 1.0 : _UdonSpecularLightCol[i].a;
+        diffTotal += diffContrib * diffMultiplier;
     }
 
-    [branch]
     if (LightmapMode < 0.5)
     {
-        return specTotal * specBoost + diffTotal;
+        return specTotal * specBoost + diffTotal * diffBoost;
     }
     else
     {

@@ -25,11 +25,8 @@ public class SpecularLightManager : UdonSharpBehaviour
 
     // ── Debug ─────────────────────────────────────────────────────────────────
     [Header("Debug Info (read-only)")]
-    [Tooltip("Number of active Realtime/Mixed lights sent to the shader.")]
     public int currentDynamicLights;
-    [Tooltip("Number of active Baked lights sent to the shader.")]
     public int currentStaticLights;
-    [Tooltip("Total active lights (dynamic + static).")]
     public int currentActiveCount;
     public bool shaderWasUpdated;
 
@@ -39,18 +36,11 @@ public class SpecularLightManager : UdonSharpBehaviour
     // ── Child lights — serialized by the editor companion ─────────────────────
     [Header("Light Sources (auto-filled — use Refresh Child Lights menu)")]
     public Light[] childLights;
-
-    // Parallel to childLights[]; non-area entries are (0.01, 0.01).
     [HideInInspector] public Vector2[] childLightHalfExtents;
-
-    // Written by the editor companion (lightmapBakeType is not exposed in Udon).
-    // true = Realtime or Mixed, false = Baked.
     [HideInInspector] public bool[] childLightIsRealtime;
 
-    // ── Merged groups (public so editor companion can read for Shader.Set) ────
+    // ── Merged groups ─────────────────────────────────────────────────────────
     [HideInInspector] public Vector4[] mergedPos;
-    // CHANGED: Vector4 — .rgb = additive colour, .a = isRealtime (1.0 = Realtime, 0.0 = Baked)
-    // A group is Realtime if its dominant (highest-intensity) light is Mixed or Realtime.
     [HideInInspector] public Vector4[] mergedCol;
     [HideInInspector] public Vector4[] mergedRight;
     [HideInInspector] public Vector4[] mergedUp;
@@ -72,10 +62,11 @@ public class SpecularLightManager : UdonSharpBehaviour
     private int[]   _mergedToShader   = new int[MAX_LIGHTS];
     private int     _lastFinalCount   = -1;
 
-    // ── Shader property IDs ───────────────────────────────────────────────────
+    // ── Caching & Optimization ────────────────────────────────────────────────
+    private Transform[] _childTransforms; // OPTIMIZATION: Avoid .transform native calls
+    private Transform   _thisTransform;   // OPTIMIZATION: Cache manager transform
     private int _posID, _colID, _rightID, _upID, _dirID, _countID;
 
-    // ── Change tracking ───────────────────────────────────────────────────────
     [HideInInspector] public Vector3[]    lastLightPositions;
     [HideInInspector] public Quaternion[] lastLightRotations;
     [HideInInspector] public float[]      lastLightIntensities;
@@ -91,12 +82,14 @@ public class SpecularLightManager : UdonSharpBehaviour
     private float        _maxRadiusSq;
     private VRCPlayerApi _localPlayer;
     private float        _tickTimer;
+    private bool         _specularEnabled = true;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     void Start()
     {
         _maxRadiusSq = maxRadius * maxRadius;
         _localPlayer = Networking.LocalPlayer;
+        _thisTransform = transform; // Cache transform
 
         _posID   = VRCShader.PropertyToID("_UdonSpecularLightPos");
         _colID   = VRCShader.PropertyToID("_UdonSpecularLightCol");
@@ -128,15 +121,13 @@ public class SpecularLightManager : UdonSharpBehaviour
         currentActiveCount    = 0;
         currentDynamicLights  = 0;
         currentStaticLights   = 0;
-        for (int i = 0; i < MAX_LIGHTS; i++)
-            _lastIndicesSorted[i] = -1;
+        for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
     }
 
     // ── Update ────────────────────────────────────────────────────────────────
     void Update()
     {
-        if (!_specularEnabled) return;
-        if (childLights == null || childLights.Length == 0) return;
+        if (!_specularEnabled || childLights == null || childLights.Length == 0) return;
 
         bool anyChanged = UpdateLiveData();
 
@@ -156,13 +147,17 @@ public class SpecularLightManager : UdonSharpBehaviour
     // ── UpdateLiveData ────────────────────────────────────────────────────────
     private bool UpdateLiveData()
     {
-        if (_lightToMerged == null || _lightToMerged.Length != childLights.Length)
-            return false;
+        if (_lightToMerged == null || _lightToMerged.Length != childLights.Length) return false;
 
         bool changed = false;
 
         for (int li = 0; li < childLights.Length; li++)
         {
+            // OPTIMIZATION: Completely skip static/baked lights for frame-by-frame updates.
+            // They will still be updated at 20Hz in Tick() if they toggle on/off.
+            if (childLightIsRealtime != null && li < childLightIsRealtime.Length && !childLightIsRealtime[li]) 
+                continue;
+
             Light l = childLights[li];
             if (l == null || !l.enabled || !l.gameObject.activeInHierarchy) continue;
 
@@ -172,18 +167,21 @@ public class SpecularLightManager : UdonSharpBehaviour
             int si = _mergedToShader[mi];
             if (si < 0) continue;
 
-            Transform  t         = l.transform;
-            Vector3    pos       = t.position;
-            Quaternion rot       = t.rotation;
-            float      intensity = l.intensity;
-            Vector3    col       = new Vector3(l.color.r, l.color.g, l.color.b);
-
+            Transform t = _childTransforms[li]; // Uses cached transform
+            Vector3 pos = t.position;
+            
             bool posChanged = (pos - lastLightPositions[li]).sqrMagnitude > MOTION_EPSILON_SQ;
+            
+            Quaternion rot = t.rotation;
             bool rotChanged = Quaternion.Dot(rot, lastLightRotations[li]) < 0.9999f;
+            
+            float intensity = l.intensity;
             bool intChanged = Mathf.Abs(intensity - lastLightIntensities[li]) > INTENSITY_EPSILON;
-            bool colChanged = Mathf.Abs(col.x - lastLightColors[li].x) > COLOR_EPSILON ||
-                              Mathf.Abs(col.y - lastLightColors[li].y) > COLOR_EPSILON ||
-                              Mathf.Abs(col.z - lastLightColors[li].z) > COLOR_EPSILON;
+            
+            Color lColor = l.color;
+            bool colChanged = Mathf.Abs(lColor.r - lastLightColors[li].x) > COLOR_EPSILON ||
+                              Mathf.Abs(lColor.g - lastLightColors[li].y) > COLOR_EPSILON ||
+                              Mathf.Abs(lColor.b - lastLightColors[li].z) > COLOR_EPSILON;
 
             if (!posChanged && !rotChanged && !intChanged && !colChanged) continue;
 
@@ -210,13 +208,15 @@ public class SpecularLightManager : UdonSharpBehaviour
 
             if (intChanged || colChanged)
             {
+                Vector3 col = new Vector3(lColor.r, lColor.g, lColor.b);
                 Vector3 oldContrib = lastLightColors[li] * lastLightIntensities[li];
                 Vector3 newContrib = col * intensity;
 
-                // Preserve .a (isRealtime) while updating .rgb
                 Vector4 mc = mergedCol[mi];
-                Vector3 newRgb = new Vector3(mc.x, mc.y, mc.z) - oldContrib + newContrib;
-                mergedCol[mi] = new Vector4(newRgb.x, newRgb.y, newRgb.z, mc.w);
+                mergedCol[mi] = new Vector4(mc.x - oldContrib.x + newContrib.x, 
+                                            mc.y - oldContrib.y + newContrib.y, 
+                                            mc.z - oldContrib.z + newContrib.z, 
+                                            mc.w);
 
                 lastLightIntensities[li] = intensity;
                 lastLightColors[li]      = col;
@@ -239,19 +239,18 @@ public class SpecularLightManager : UdonSharpBehaviour
 
         Vector3 viewerPos = _localPlayer != null
             ? _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position
-            : transform.position;
+            : _thisTransform.position; // Use cached transform
 
         BuildMergedGroups();
         int finalCount = SortNearest(viewerPos);
         currentActiveCount = finalCount;
 
-        // Count dynamic vs static among the selected slots
         int dynCount  = 0;
         int statCount = 0;
         for (int i = 0; i < finalCount; i++)
         {
-            float isRT = mergedCol[_indices[i]].w;
-            if (isRT > 0.5f) dynCount++;  else statCount++;
+            if (mergedCol[_indices[i]].w > 0.5f) dynCount++; 
+            else statCount++;
         }
         currentDynamicLights = dynCount;
         currentStaticLights  = statCount;
@@ -261,8 +260,12 @@ public class SpecularLightManager : UdonSharpBehaviour
 
         bool isDirty = finalCount != _lastFinalCount;
         if (!isDirty)
+        {
             for (int i = 0; i < finalCount; i++)
+            {
                 if (_indices[i] != _lastIndicesSorted[i]) { isDirty = true; break; }
+            }
+        }
 
         CacheLightStates();
         lastViewerPos = viewerPos;
@@ -276,11 +279,8 @@ public class SpecularLightManager : UdonSharpBehaviour
     // ── BuildMergedGroups ─────────────────────────────────────────────────────
     public void BuildMergedGroups()
     {
-        if (mergedPos == null || mergedPos.Length < childLights.Length)
-            AllocateMergeBuffers();
-
-        if (_lightToMerged == null || _lightToMerged.Length != childLights.Length)
-            _lightToMerged = new int[childLights.Length];
+        if (mergedPos == null || mergedPos.Length < childLights.Length) AllocateMergeBuffers();
+        if (_lightToMerged == null || _lightToMerged.Length != childLights.Length) _lightToMerged = new int[childLights.Length];
 
         mergedCount = 0;
 
@@ -290,62 +290,48 @@ public class SpecularLightManager : UdonSharpBehaviour
 
             Light l = childLights[li];
             if (l == null || !l.enabled || !l.gameObject.activeInHierarchy) continue;
-            if (l.type == LightType.Directional) continue;
-            if (l.renderMode == LightRenderMode.ForceVertex) continue;
+            if (l.type == LightType.Directional || l.renderMode == LightRenderMode.ForceVertex) continue;
 
-            Vector3 pos       = l.transform.position;
-            float   intensity = l.intensity;
-            float   range     = l.range;
+            Transform t = _childTransforms[li]; // Uses cached transform
+            Vector3 pos = t.position;
+            float intensity = l.intensity;
+            float range = l.range;
 
-            float width  = 0.01f;
-            float height = 0.01f;
+            float width = 0.01f, height = 0.01f;
             if (childLightHalfExtents != null && li < childLightHalfExtents.Length)
             {
                 width  = childLightHalfExtents[li].x;
                 height = childLightHalfExtents[li].y;
             }
 
-            Vector3 fwd = l.transform.forward;
-            float cosOuter;
-            if      (l.type == LightType.Spot) cosOuter = Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad);
-            else if (l.type == LightType.Area) cosOuter = 0.0f;
-            else                               cosOuter = -1.0f;
+            Vector3 fwd = t.forward;
+            float cosOuter = (l.type == LightType.Spot) ? Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad) : (l.type == LightType.Area ? 0.0f : -1.0f);
 
-            Vector3 contribution = new Vector3(l.color.r, l.color.g, l.color.b) * intensity;
+            Color lColor = l.color;
+            Vector3 contribution = new Vector3(lColor.r, lColor.g, lColor.b) * intensity;
 
-            // isRealtime is pre-baked by the editor companion into childLightIsRealtime[]
-            // because lightmapBakeType is not exposed to Udon.
-            float isRealtime = (childLightIsRealtime != null && li < childLightIsRealtime.Length
-                && childLightIsRealtime[li]) ? 1f : 0f;
+            float isRealtime = (childLightIsRealtime != null && li < childLightIsRealtime.Length && childLightIsRealtime[li]) ? 1f : 0f;
 
             bool merged = false;
             for (int i = 0; i < mergedCount; i++)
             {
                 if (((Vector3)mergedPos[i] - pos).sqrMagnitude >= mergeThresholdSq) continue;
 
-                // Update RGB colour; keep existing .a (isRealtime of dominant light)
                 Vector4 mc = mergedCol[i];
-                mergedCol[i] = new Vector4(mc.x + contribution.x,
-                                           mc.y + contribution.y,
-                                           mc.z + contribution.z,
-                                           mc.w);
+                mergedCol[i] = new Vector4(mc.x + contribution.x, mc.y + contribution.y, mc.z + contribution.z, mc.w);
 
-                Vector3 exFwd      = new Vector3(mergedDir[i].x, mergedDir[i].y, mergedDir[i].z);
-                bool    alreadyOmni = mergedDir[i].w < -0.1f;
-                bool    conflict    = !alreadyOmni && Vector3.Dot(exFwd, fwd) < dirConflictDot;
-                float   newMax      = Mathf.Max(mergedMaxInt[i], intensity);
+                Vector3 exFwd = new Vector3(mergedDir[i].x, mergedDir[i].y, mergedDir[i].z);
+                bool alreadyOmni = mergedDir[i].w < -0.1f;
+                bool conflict = !alreadyOmni && Vector3.Dot(exFwd, fwd) < dirConflictDot;
+                float newMax = Mathf.Max(mergedMaxInt[i], intensity);
 
                 if (intensity > mergedMaxInt[i])
                 {
-                    // This light becomes dominant — adopt its isRealtime flag
                     mergedPos[i]   = new Vector4(pos.x, pos.y, pos.z, range);
-                    mergedRight[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
-                    mergedUp[i]    = new Vector4(l.transform.up.x,    l.transform.up.y,    l.transform.up.z,    height);
+                    mergedRight[i] = new Vector4(t.right.x, t.right.y, t.right.z, width);
+                    mergedUp[i]    = new Vector4(t.up.x, t.up.y, t.up.z, height);
                     mergedDir[i]   = new Vector4(fwd.x, fwd.y, fwd.z, conflict ? -0.5f : cosOuter);
-
-                    // Update .a to reflect the new dominant light's bake type
-                    Vector4 mc2 = mergedCol[i];
-                    mergedCol[i] = new Vector4(mc2.x, mc2.y, mc2.z, isRealtime);
+                    mergedCol[i]   = new Vector4(mergedCol[i].x, mergedCol[i].y, mergedCol[i].z, isRealtime);
                 }
                 else if (conflict)
                 {
@@ -353,7 +339,7 @@ public class SpecularLightManager : UdonSharpBehaviour
                     mergedDir[i] = new Vector4(d.x, d.y, d.z, -0.5f);
                 }
 
-                mergedMaxInt[i]   = newMax;
+                mergedMaxInt[i] = newMax;
                 _lightToMerged[li] = i;
                 merged = true;
                 break;
@@ -363,10 +349,9 @@ public class SpecularLightManager : UdonSharpBehaviour
             {
                 int mi = mergedCount;
                 mergedPos[mi]   = new Vector4(pos.x, pos.y, pos.z, range);
-                // Pack isRealtime into .a from the start
                 mergedCol[mi]   = new Vector4(contribution.x, contribution.y, contribution.z, isRealtime);
-                mergedRight[mi] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
-                mergedUp[mi]    = new Vector4(l.transform.up.x,    l.transform.up.y,    l.transform.up.z,    height);
+                mergedRight[mi] = new Vector4(t.right.x, t.right.y, t.right.z, width);
+                mergedUp[mi]    = new Vector4(t.up.x, t.up.y, t.up.z, height);
                 mergedDir[mi]   = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
                 mergedMaxInt[mi]   = intensity;
                 _lightToMerged[li] = mi;
@@ -381,7 +366,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         int count = 0;
         for (int i = 0; i < mergedCount; i++)
         {
-            float distSq = Vector3.SqrMagnitude(viewerPos - (Vector3)mergedPos[i]);
+            float distSq = (viewerPos - (Vector3)mergedPos[i]).sqrMagnitude;
             if (distSq > _maxRadiusSq) continue;
 
             int ins = count;
@@ -408,9 +393,9 @@ public class SpecularLightManager : UdonSharpBehaviour
         {
             if (i < finalCount)
             {
-                int idx          = _indices[i];
+                int idx = _indices[i];
                 _shaderPos[i]    = mergedPos[idx];
-                _shaderCol[i]    = mergedCol[idx];   // Vector4 — .a = isRealtime already packed
+                _shaderCol[i]    = mergedCol[idx];
                 _shaderRight[i]  = mergedRight[idx];
                 _shaderUp[i]     = mergedUp[idx];
                 _shaderDir[i]    = mergedDir[idx];
@@ -458,32 +443,40 @@ public class SpecularLightManager : UdonSharpBehaviour
         {
             Light l = childLights[i];
             if (l == null) continue;
-            lastLightPositions[i]  = l.transform.position;
-            lastLightRotations[i]  = l.transform.rotation;
+            Transform t = _childTransforms[i];
+            lastLightPositions[i]  = t.position;
+            lastLightRotations[i]  = t.rotation;
             lastLightIntensities[i] = l.intensity;
-            lastLightColors[i]     = new Vector3(l.color.r, l.color.g, l.color.b);
+            Color c = l.color;
+            lastLightColors[i] = new Vector3(c.r, c.g, c.b);
         }
     }
 
     // ── AllocateMergeBuffers ──────────────────────────────────────────────────
     private void AllocateMergeBuffers()
     {
-        int cap    = (childLights != null) ? childLights.Length : MAX_LIGHTS;
-        mergedPos      = new Vector4[cap];
-        mergedCol      = new Vector4[cap];   // CHANGED: Vector4 (was Vector3)
-        mergedRight    = new Vector4[cap];
-        mergedUp       = new Vector4[cap];
-        mergedDir      = new Vector4[cap];
-        mergedMaxInt   = new float[cap];
+        int cap = (childLights != null) ? childLights.Length : MAX_LIGHTS;
+        mergedPos    = new Vector4[cap];
+        mergedCol    = new Vector4[cap];
+        mergedRight  = new Vector4[cap];
+        mergedUp     = new Vector4[cap];
+        mergedDir    = new Vector4[cap];
+        mergedMaxInt = new float[cap];
+
+        _childTransforms = new Transform[cap];
+        for (int i = 0; i < cap; i++)
+        {
+            if (childLights != null && i < childLights.Length && childLights[i] != null)
+            {
+                _childTransforms[i] = childLights[i].transform;
+            }
+        }
     }
 
     // ── Toggle ────────────────────────────────────────────────────────────────
-    private bool _specularEnabled = true;
-
     public void ToggleSpecular()
     {
-        _specularEnabled = !_specularEnabled;
-        SetSpecular(_specularEnabled);
+        SetSpecular(!_specularEnabled);
     }
 
     public void SetSpecular(bool enabled)
@@ -493,14 +486,9 @@ public class SpecularLightManager : UdonSharpBehaviour
         if (!enabled)
         {
             for (int i = 0; i < MAX_LIGHTS; i++)
-                _shaderPos[i] = _shaderCol[i] = _shaderRight[i]
-                              = _shaderUp[i]  = _shaderDir[i] = Vector4.zero;
+                _shaderPos[i] = _shaderCol[i] = _shaderRight[i] = _shaderUp[i] = _shaderDir[i] = Vector4.zero;
 
-            VRCShader.SetGlobalVectorArray(_posID,   _shaderPos);
-            VRCShader.SetGlobalVectorArray(_colID,   _shaderCol);
-            VRCShader.SetGlobalVectorArray(_rightID, _shaderRight);
-            VRCShader.SetGlobalVectorArray(_upID,    _shaderUp);
-            VRCShader.SetGlobalVectorArray(_dirID,   _shaderDir);
+            UploadPosColDir();
             VRCShader.SetGlobalFloat(_countID, 0f);
 
             currentActiveCount   = 0;
