@@ -6,10 +6,10 @@ using System.IO;
 
 public static class LightmapAssigner
 {
-    private static readonly string[][] ShaderPropGroups = {
-        new string[] { "_UdonRNMX0", "_UdonRNMY0", "_UdonRNMZ0" },
-        new string[] { "_UdonRNMX1", "_UdonRNMY1", "_UdonRNMZ1" }
-    };
+    // All shader properties we manage — lightmap + RNM trio
+    private static readonly string LightmapProp = "_UdonLightmap";
+    private static readonly string[] RnmProps = { "_UdonRNMX0", "_UdonRNMY0", "_UdonRNMZ0" };
+    private static readonly string[] RnmSuffixes = { "_RNMX", "_RNMY", "_RNMZ" };
 
     [MenuItem("Meenphie/Lightmaps/Assign Lightmaps")]
     public static void AssignLightmaps() => ProcessLightmaps(true);
@@ -19,7 +19,6 @@ public static class LightmapAssigner
 
     private static void ProcessLightmaps(bool assign)
     {
-        // Use Scene materials for speed, or Project materials for a total wipe
         HashSet<Material> materials = CollectSceneMaterials();
         Dictionary<string, Texture> textureCache = assign ? BuildTextureCache() : null;
 
@@ -34,25 +33,23 @@ public static class LightmapAssigner
                 if (mat == null) continue;
                 ShowProgress(assign ? "Assigning" : "Unassigning", mat.name, matIndex, totalMats);
 
-                // Start recording for Undo
                 Undo.RecordObject(mat, assign ? "Assign Lightmaps" : "Unassign Lightmaps");
 
                 if (assign)
                 {
+                    // Material name format: "Something - GroupName"
                     string[] nameParts = mat.name.Split(new string[] { " - " }, System.StringSplitOptions.None);
                     if (nameParts.Length >= 2)
                     {
                         string groupName = nameParts[1].Trim();
-                        bool a = TryAssignGroup(mat, groupName, textureCache, 0);
-                        bool b = TryAssignGroup(mat, groupName + " ON", textureCache, 1);
-                        bool c = TryAssignGroup(mat, groupName + " OFF", textureCache, 0);
-                        if (a || b || c) touchedCount++;
+                        if (TryAssign(mat, groupName, textureCache)) touchedCount++;
                     }
                 }
                 else
                 {
                     if (UnassignAll(mat)) touchedCount++;
                 }
+
                 matIndex++;
             }
         }
@@ -65,34 +62,43 @@ public static class LightmapAssigner
         Debug.Log($"[<color=purple>Meenphie</color>] Done. {touchedCount} materials updated.");
     }
 
-    private static bool TryAssignGroup(Material mat, string groupName, Dictionary<string, Texture> cache, int slot)
+    private static bool TryAssign(Material mat, string groupName, Dictionary<string, Texture> cache)
     {
         bool changed = false;
-        // Keep these as the old file suffixes so it finds your existing textures
-        string[] fileSuffixes = { "_RNMX", "_RNMY", "_RNMZ" };
 
-        for (int i = 0; i < 3; i++)
+        // --- Lightmap (_UdonLightmap) ---
+        // Looks for: "GroupName_Lightmap_denoised" then "GroupName_Lightmap"
+        if (mat.HasProperty(LightmapProp))
         {
-            string baseName = groupName + fileSuffixes[i];
-            Texture tex = null;
+            string baseName = groupName + "_Lightmap";
+            if (!cache.TryGetValue(baseName + "_denoised", out Texture lightTex))
+                cache.TryGetValue(baseName, out lightTex);
 
-            if (!cache.TryGetValue(baseName + "_denoised", out tex))
+            if (lightTex != null)
             {
-                cache.TryGetValue(baseName, out tex);
-            }
-
-            if (tex != null)
-            {
-                // This maps the old file to the NEW _Udon shader property
-                string prop = ShaderPropGroups[slot][i];
-                if (mat.HasProperty(prop))
-                {
-                    mat.SetTexture(prop, tex);
-                    EditorUtility.SetDirty(mat);
-                    changed = true;
-                }
+                mat.SetTexture(LightmapProp, lightTex);
+                EditorUtility.SetDirty(mat);
+                changed = true;
             }
         }
+
+        // --- RNM trio (_UdonRNMX0 / Y0 / Z0) ---
+        for (int i = 0; i < RnmProps.Length; i++)
+        {
+            if (!mat.HasProperty(RnmProps[i])) continue;
+
+            string baseName = groupName + RnmSuffixes[i];
+            if (!cache.TryGetValue(baseName + "_denoised", out Texture rnmTex))
+                cache.TryGetValue(baseName, out rnmTex);
+
+            if (rnmTex != null)
+            {
+                mat.SetTexture(RnmProps[i], rnmTex);
+                EditorUtility.SetDirty(mat);
+                changed = true;
+            }
+        }
+
         return changed;
     }
 
@@ -100,48 +106,56 @@ public static class LightmapAssigner
     {
         var cache = new Dictionary<string, Texture>(System.StringComparer.OrdinalIgnoreCase);
         string[] guids = AssetDatabase.FindAssets("t:Texture");
+
         foreach (var guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
             string name = Path.GetFileNameWithoutExtension(path);
-            // Look for standard RNM filenames
-            if (name.Contains("_RNM"))
+
+            // Grab lightmap textures and RNM textures
+            if (name.Contains("_Lightmap") || name.Contains("_RNM"))
             {
                 Texture tex = AssetDatabase.LoadAssetAtPath<Texture>(path);
                 if (tex != null) cache[name] = tex;
             }
         }
+
         return cache;
     }
 
-    // THE ONLY UNASSIGNALL FUNCTION
     private static bool UnassignAll(Material mat)
     {
         bool changed = false;
-        foreach (var group in ShaderPropGroups)
+
+        // Clear lightmap
+        if (mat.HasProperty(LightmapProp) && mat.GetTexture(LightmapProp) != null)
         {
-            foreach (var prop in group)
+            mat.SetTexture(LightmapProp, null);
+            changed = true;
+        }
+
+        // Clear RNM trio
+        foreach (var prop in RnmProps)
+        {
+            if (mat.HasProperty(prop) && mat.GetTexture(prop) != null)
             {
-                if (mat.HasProperty(prop) && mat.GetTexture(prop) != null)
-                {
-                    mat.SetTexture(prop, null);
-                    changed = true;
-                }
+                mat.SetTexture(prop, null);
+                changed = true;
             }
         }
+
         if (changed) EditorUtility.SetDirty(mat);
         return changed;
     }
 
     private static HashSet<Material> CollectSceneMaterials()
     {
-        HashSet<Material> mats = new HashSet<Material>();
+        var mats = new HashSet<Material>();
         foreach (GameObject go in SceneManager.GetActiveScene().GetRootGameObjects())
         {
             foreach (Renderer r in go.GetComponentsInChildren<Renderer>(true))
-            {
-                foreach (Material m in r.sharedMaterials) if (m != null) mats.Add(m);
-            }
+                foreach (Material m in r.sharedMaterials)
+                    if (m != null) mats.Add(m);
         }
         return mats;
     }
