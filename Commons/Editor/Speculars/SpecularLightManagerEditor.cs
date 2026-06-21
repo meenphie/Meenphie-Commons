@@ -1,99 +1,111 @@
 #if UNITY_EDITOR
-using System.IO;
-using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
+// ==============================================================================
+// SpecularLightManagerEditor
+// ==============================================================================
+// Editor-only companion to SpecularLightManager. Mirrors the runtime's sort +
+// upload pipeline so you get a live scene-view preview while editing, and
+// keeps the manager's serialized light lists in sync with the scene
+// automatically — no manual "Rebuild Lights" step required.
+//
+// IMPORTANT: per-light overrides (IsRealtime / Diffuse / Specular, edited via
+// the "Speculars" foldout in the Light inspector) are matched by Light
+// REFERENCE across rescans, never by array index. lightmapBakeType is only
+// ever used as the initial default for a light the manager has never seen
+// before — once a light has an entry, rescans preserve it untouched. This is
+// what makes the auto-refresh safe to run on every hierarchy change.
+//
+// Layer slice assignment is manual: childLightLayerSlices is a visible field
+// on SpecularLightManager — set each light's slice index there to match your
+// own externally-built Texture2DArray (e.g. built in Amplify).
+// ==============================================================================
 
 [InitializeOnLoad]
 public static class SpecularLightManagerEditor
 {
     public const int MAX_LIGHTS = 32;
 
-    private const float MERGE_THRESHOLD_SQ  = 0.5f;
-    private const float DIR_CONFLICT_DOT    = 0.5f;
-    private const float MOTION_EPSILON_SQ   = 0.0001f;
-    private const float COLOR_EPSILON       = 0.004f;
-    private const float INTENSITY_EPSILON   = 0.001f;
-    private const float UPDATE_INTERVAL     = 0.00f;
+    private const float MOTION_EPSILON_SQ = 0.0001f;
+    private const float COLOR_EPSILON = 0.004f;
+    private const float INTENSITY_EPSILON = 0.001f;
+    private const float UPDATE_INTERVAL = 0.00f;
     private const float DEFAULT_RANGE_SCALE = 10f;
 
-    // Mirrors UdonSpecularSystem.cginc's _FadeEndDist (the camera-distance
-    // fade is universal — it gates EVERY light's specular contribution to
-    // zero past this radius, regardless of that light's own baked range).
+    // Minimum time between automatic rescans triggered by hierarchy changes.
+    // Hierarchy events can fire many times in a row (e.g. during a drag or a
+    // multi-object operation); this avoids re-scanning every Light in the
+    // scene on every single one of those events.
+    private const double RESCAN_DEBOUNCE_SECONDS = 0.25;
+
+    // Mirrors UdonSpecularSystem.cginc's _FadeEndDist.
     // Past this distance a light can never contribute specular, so it's a
     // safe, shader-accurate cutoff for the editor's candidate pool.
-    // This is a *slot-selection* cutoff for the preview tool only — the
-    // runtime SpecularLightManager intentionally has no distance reject
-    // here (see its SortNearest doc comment); this constant exists solely
-    // so the edit-mode preview doesn't waste slots on lights that the
-    // shader will fade to zero anyway.
-    private const float FADE_END_DIST       = 30.0f;
-    private const float MAX_RADIUS_SQ       = FADE_END_DIST * FADE_END_DIST;
+    private const float FADE_END_DIST = 30.0f;
+    private const float MAX_RADIUS_SQ = FADE_END_DIST * FADE_END_DIST;
 
-    private static GameObject   _avatarRoot;
-    private static Light[]      _lights;
-    private static Vector2[]    _halfExtents;
-    private static bool[]       _isRealtime;
-    private static float[]      _bakedIntensities;
-    private static Vector3[]    _bakedColors;
-    private static int[]        _layerSlices;      // per childLight, -1 = no layer
-    private static Texture2D[]  _layerTextures;    // per childLight, null = no layer
-    private static float        _rangeScale = DEFAULT_RANGE_SCALE;
+    private static GameObject _worldRoot;
+    private static Light[] _lights;
+    private static Vector2[] _halfExtents;
+    private static bool[] _isRealtime;
+    private static bool[] _diffuseEnabled;
+    private static bool[] _specularEnabled;
+    private static float[] _bakedIntensities;
+    private static Vector3[] _bakedColors;
+    private static int[] _layerSlices;   // per childLight, -1 = no layer
+    private static float _rangeScale = DEFAULT_RANGE_SCALE;
 
-    // Mirrors SpecularLightManager.activeLightCount — pulled from the
-    // manager at Bootstrap() so the preview respects the same slot budget
-    // the runtime will actually use, instead of always filling all 32.
-    private static int          _activeLightCount = MAX_LIGHTS;
+    // Mirrors SpecularLightManager.activeLightCount
+    private static int _activeLightCount = MAX_LIGHTS;
 
-    private static bool         _previewEnabled = true;
-    private static double       _lastTick;
+    private static bool _previewEnabled = true;
+    private static double _lastTick;
+    private static double _lastHierarchyChangeRequest = double.NegativeInfinity;
+    private static bool _rescanPending;
 
-    private static Vector3[]    _lastLightPositions;
+    private static Vector3[] _lastLightPositions;
     private static Quaternion[] _lastLightRotations;
-    private static float[]      _lastLightIntensities;
-    private static Vector3[]    _lastLightColors;
+    private static float[] _lastLightIntensities;
+    private static Vector3[] _lastLightColors;
 
-    private static Vector4[] _mergedPos;
-    private static Vector4[] _mergedCol;
-    private static Vector4[] _mergedBakedCol;
-    private static Vector4[] _mergedRight;
-    private static Vector4[] _mergedUp;
-    private static Vector4[] _mergedDir;
-    private static float[]   _mergedMaxInt;
-    private static int[]     _mergedLayerSlice; // per merged group
-    private static int       _mergedCount;
-
-    private static readonly Vector4[] _shaderPos       = new Vector4[MAX_LIGHTS];
-    private static readonly Vector4[] _shaderCol       = new Vector4[MAX_LIGHTS];
-    private static readonly Vector4[] _shaderBakedCol  = new Vector4[MAX_LIGHTS];
-    private static readonly Vector4[] _shaderRight     = new Vector4[MAX_LIGHTS];
-    private static readonly Vector4[] _shaderUp        = new Vector4[MAX_LIGHTS];
-    private static readonly Vector4[] _shaderDir       = new Vector4[MAX_LIGHTS];
+    private static readonly Vector4[] _shaderPos = new Vector4[MAX_LIGHTS];
+    private static readonly Vector4[] _shaderCol = new Vector4[MAX_LIGHTS];
+    private static readonly Vector4[] _shaderBakedCol = new Vector4[MAX_LIGHTS];
+    private static readonly Vector4[] _shaderRight = new Vector4[MAX_LIGHTS];
+    private static readonly Vector4[] _shaderUp = new Vector4[MAX_LIGHTS];
+    private static readonly Vector4[] _shaderDir = new Vector4[MAX_LIGHTS];
     private static readonly Vector4[] _shaderLayerIndex = new Vector4[MAX_LIGHTS];
 
     private static Vector4 _shaderData = Vector4.zero;
 
-    private static int[]   _indices        = new int[MAX_LIGHTS];
-    private static float[] _distances      = new float[MAX_LIGHTS];
-    private static int[]   _mergedToShader = new int[MAX_LIGHTS];
-    private static int[]   _lightToMerged  = new int[0];
+    private static int[] _indices = new int[MAX_LIGHTS];
+    private static float[] _distances = new float[MAX_LIGHTS];
+    private static int[] _lightToShader = new int[0];
 
+    // Preview-only texture reference, read directly from the manager's own lightLayerArray field.
     private static Texture2DArray _previewLayerArray;
 
     static SpecularLightManagerEditor()
     {
-        EditorApplication.update           -= OnEditorUpdate;
-        EditorApplication.update           += OnEditorUpdate;
-        SceneView.duringSceneGui           -= OnSceneGui;
-        SceneView.duringSceneGui           += OnSceneGui;
+        EditorApplication.update -= OnEditorUpdate;
+        EditorApplication.update += OnEditorUpdate;
+        SceneView.duringSceneGui -= OnSceneGui;
+        SceneView.duringSceneGui += OnSceneGui;
         EditorApplication.hierarchyChanged -= OnHierarchyChanged;
         EditorApplication.hierarchyChanged += OnHierarchyChanged;
     }
 
+    // Hierarchy events can fire rapidly and repeatedly; just flag that a
+    // rescan is needed and let OnEditorUpdate debounce + perform it. This
+    // also covers lights being added/removed/renamed/reparented — anything
+    // that changes the hierarchy triggers a resync, automatically.
     private static void OnHierarchyChanged()
     {
-        if (_avatarRoot == null && !Application.isPlaying) TryFindAndBootstrap();
+        if (Application.isPlaying) return;
+        _rescanPending = true;
+        _lastHierarchyChangeRequest = EditorApplication.timeSinceStartup;
     }
 
     private static void OnSceneGui(SceneView sv)
@@ -107,20 +119,35 @@ public static class SpecularLightManagerEditor
         if (Application.isPlaying) return;
         if (!_previewEnabled) return;
 
-        if (_avatarRoot == null)
+        if (_worldRoot == null)
         {
-            TryFindAndBootstrap();
-            if (_avatarRoot == null) return;
+            TryFindAndRescan();
+            if (_worldRoot == null) return;
+        }
+
+        if (_rescanPending && ShouldRescanNow())
+        {
+            _rescanPending = false;
+            SpecularLightManager mgr = _worldRoot.GetComponent<SpecularLightManager>();
+            if (mgr != null) Rescan(mgr);
         }
 
         if (_lights == null || _lights.Length == 0) return;
 
-        bool anyChanged = UpdateLiveData();
-        double now = EditorApplication.timeSinceStartup;
-
-        if (now - _lastTick >= UPDATE_INTERVAL)
+        // Also catch slice/layer edits made directly in the manager inspector
+        // (those don't fire hierarchyChanged since no GameObject changed).
+        SpecularLightManager liveMgr = _worldRoot.GetComponent<SpecularLightManager>();
+        if (liveMgr != null && HasExternalArrayEdits(liveMgr))
         {
-            _lastTick = now;
+            Rescan(liveMgr);
+        }
+
+        bool anyChanged = UpdateLiveData();
+        double tickNow = EditorApplication.timeSinceStartup;
+
+        if (tickNow - _lastTick >= UPDATE_INTERVAL)
+        {
+            _lastTick = tickNow;
             Tick();
         }
         else if (anyChanged)
@@ -130,97 +157,164 @@ public static class SpecularLightManagerEditor
         }
     }
 
-    private static void TryFindAndBootstrap()
+    private static bool ShouldRescanNow()
     {
-        if (Selection.activeGameObject != null)
+        double now = EditorApplication.timeSinceStartup;
+        if (_lastHierarchyChangeRequest == double.NegativeInfinity)
         {
-            Transform root = Selection.activeGameObject.transform.root;
-            if (root.GetComponentsInChildren<Light>(true).Length > 0)
-            {
-                Bootstrap(root.gameObject);
-                return;
-            }
+            _lastHierarchyChangeRequest = now;
+            return false; // wait one tick so rapid-fire events still collapse
         }
 
-        foreach (Animator anim in Object.FindObjectsOfType<Animator>())
+        if (now - _lastHierarchyChangeRequest >= RESCAN_DEBOUNCE_SECONDS)
         {
-            if (anim.transform.root == anim.transform &&
-                anim.GetComponentsInChildren<Light>(true).Length > 0)
-            {
-                Bootstrap(anim.gameObject);
-                return;
-            }
+            _lastHierarchyChangeRequest = double.NegativeInfinity;
+            return true;
         }
 
-        Light[] allLights = Object.FindObjectsOfType<Light>();
-        if (allLights.Length > 0)
-            Bootstrap(allLights[0].transform.root.gameObject);
+        return false;
     }
 
-    private static void Bootstrap(GameObject avatarRoot)
+    // Detects edits made directly to childLightLayerSlices (or array length
+    // mismatches from undo/redo, scene reloads, etc.) so the preview stays
+    // correct even when nothing in the hierarchy itself changed.
+    private static bool HasExternalArrayEdits(SpecularLightManager mgr)
     {
-        _avatarRoot = avatarRoot;
-        SpecularLightManager mgr = avatarRoot.GetComponentInChildren<SpecularLightManager>();
-        if (mgr != null)
-        {
-            _rangeScale       = mgr.rangeScale;
-            _activeLightCount = Mathf.Clamp(mgr.activeLightCount, 1, MAX_LIGHTS);
-        }
-        else
-        {
-            _activeLightCount = MAX_LIGHTS;
-        }
+        if (mgr.childLightLayerSlices == null || _layerSlices == null)
+            return mgr.childLightLayerSlices != _layerSlices;
 
-        _lights = avatarRoot.GetComponentsInChildren<Light>(includeInactive: true);
-        int count = _lights.Length;
+        if (mgr.childLightLayerSlices.Length != _layerSlices.Length)
+            return true;
+
+        for (int i = 0; i < _layerSlices.Length; i++)
+            if (mgr.childLightLayerSlices[i] != _layerSlices[i])
+                return true;
+
+        return false;
+    }
+
+    private static void TryFindAndRescan()
+    {
+        SpecularLightManager mgr = Object.FindObjectOfType<SpecularLightManager>();
+        if (mgr != null) Rescan(mgr);
+    }
+
+    // Rescans the scene for lights and merges the result into the manager's
+    // arrays, preserving every existing per-light value (IsRealtime, Diffuse,
+    // Specular, layer slice, baked intensity/color) by Light REFERENCE.
+    // lightmapBakeType is consulted only as the default for a light that has
+    // never been seen by this manager before.
+    private static void Rescan(SpecularLightManager mgr)
+    {
+        _worldRoot = mgr.gameObject;
+
+        _rangeScale = mgr.rangeScale;
+        _activeLightCount = Mathf.Clamp(mgr.activeLightCount, 1, MAX_LIGHTS);
+
+        Light[] previousLights = mgr.childLights;
+        Light[] freshLights = Object.FindObjectsOfType<Light>(includeInactive: true);
+        int count = freshLights.Length;
+
+        // Build a lookup of old data keyed by Light reference, so values
+        // survive reordering, additions, and removals.
+        var oldRealtimeByLight  = new Dictionary<Light, bool>();
+        var oldDiffuseByLight   = new Dictionary<Light, bool>();
+        var oldSpecularByLight  = new Dictionary<Light, bool>();
+        var oldSliceByLight     = new Dictionary<Light, int>();
+        var oldBakedIntByLight  = new Dictionary<Light, float>();
+        var oldBakedColByLight  = new Dictionary<Light, Vector3>();
+
+        if (previousLights != null)
+        {
+            for (int i = 0; i < previousLights.Length; i++)
+            {
+                Light l = previousLights[i];
+                if (l == null) continue;
+
+                if (mgr.childLightIsRealtime != null && i < mgr.childLightIsRealtime.Length)
+                    oldRealtimeByLight[l] = mgr.childLightIsRealtime[i];
+
+                if (mgr.childLightDiffuseEnabled != null && i < mgr.childLightDiffuseEnabled.Length)
+                    oldDiffuseByLight[l] = mgr.childLightDiffuseEnabled[i];
+
+                if (mgr.childLightSpecularEnabled != null && i < mgr.childLightSpecularEnabled.Length)
+                    oldSpecularByLight[l] = mgr.childLightSpecularEnabled[i];
+
+                if (mgr.childLightLayerSlices != null && i < mgr.childLightLayerSlices.Length)
+                    oldSliceByLight[l] = mgr.childLightLayerSlices[i];
+
+                if (mgr.childLightBakedIntensities != null && i < mgr.childLightBakedIntensities.Length)
+                    oldBakedIntByLight[l] = mgr.childLightBakedIntensities[i];
+
+                if (mgr.childLightBakedColors != null && i < mgr.childLightBakedColors.Length)
+                    oldBakedColByLight[l] = mgr.childLightBakedColors[i];
+            }
+        }
 
         _halfExtents      = new Vector2[count];
         _isRealtime       = new bool[count];
+        _diffuseEnabled   = new bool[count];
+        _specularEnabled  = new bool[count];
         _bakedIntensities = new float[count];
         _bakedColors      = new Vector3[count];
-        _layerSlices       = new int[count];
-        _layerTextures     = new Texture2D[count];
+        _layerSlices      = new int[count];
 
         for (int i = 0; i < count; i++)
         {
-            Light l = _lights[i];
+            Light l = freshLights[i];
 
             _halfExtents[i] = (l.type == LightType.Area)
                 ? new Vector2(l.areaSize.x * 0.5f, l.areaSize.y * 0.5f)
                 : new Vector2(0.01f, 0.01f);
 
-            _isRealtime[i] = (l.lightmapBakeType != LightmapBakeType.Baked);
+            // IsRealtime: preserve existing per-light value if we've seen
+            // this light before. Only brand-new lights fall back to
+            // lightmapBakeType as a starting guess.
+            _isRealtime[i] = oldRealtimeByLight.TryGetValue(l, out bool prevRealtime)
+                ? prevRealtime
+                : (l.lightmapBakeType != LightmapBakeType.Baked);
 
-            if (mgr != null && mgr.childLightBakedIntensities != null &&
-                i < mgr.childLightBakedIntensities.Length &&
-                mgr.childLightBakedIntensities[i] > 0f)
-            {
-                _bakedIntensities[i] = mgr.childLightBakedIntensities[i];
-            }
-            else
-            {
-                _bakedIntensities[i] = l.intensity;
-            }
+            _diffuseEnabled[i] = oldDiffuseByLight.TryGetValue(l, out bool prevDiffuse)
+                ? prevDiffuse
+                : true;
 
-            _bakedColors[i] = new Vector3(l.color.r, l.color.g, l.color.b);
+            _specularEnabled[i] = oldSpecularByLight.TryGetValue(l, out bool prevSpecular)
+                ? prevSpecular
+                : true;
 
-            _layerSlices[i] = (mgr != null && mgr.childLightLayerSlices != null &&
-                              i < mgr.childLightLayerSlices.Length)
-                             ? mgr.childLightLayerSlices[i]
-                             : -1;
+            _layerSlices[i] = oldSliceByLight.TryGetValue(l, out int prevSlice)
+                ? prevSlice
+                : -1;
+
+            _bakedIntensities[i] = oldBakedIntByLight.TryGetValue(l, out float prevBakedInt) && prevBakedInt > 0f
+                ? prevBakedInt
+                : l.intensity;
+
+            _bakedColors[i] = oldBakedColByLight.TryGetValue(l, out Vector3 prevBakedCol)
+                ? prevBakedCol
+                : new Vector3(l.color.r, l.color.g, l.color.b);
         }
 
-        // Rebuild preview Texture2DArray from saved asset if available
-        if (mgr != null && mgr.lightLayerArray != null)
+        mgr.childLights                = freshLights;
+        mgr.childLightIsRealtime       = _isRealtime;
+        mgr.childLightDiffuseEnabled   = _diffuseEnabled;
+        mgr.childLightSpecularEnabled  = _specularEnabled;
+        mgr.childLightHalfExtents      = _halfExtents;
+        mgr.childLightLayerSlices      = _layerSlices;
+        mgr.childLightBakedIntensities = _bakedIntensities;
+        mgr.childLightBakedColors      = _bakedColors;
+
+        EditorUtility.SetDirty(mgr);
+
+        _lights = freshLights;
+
+        if (mgr.lightLayerArray != null)
         {
             _previewLayerArray = mgr.lightLayerArray;
             Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
         }
 
-        AllocateMergeBuffers(count);
         CacheLightStates();
-
-        for (int i = 0; i < MAX_LIGHTS; i++) _mergedToShader[i] = -1;
 
         _lastTick = 0;
         Tick();
@@ -230,158 +324,55 @@ public static class SpecularLightManagerEditor
     {
         if (_lights == null || _lights.Length == 0) return;
 
-        BuildMergedGroups();
         int finalCount = SortNearest(GetViewerPos());
 
-        for (int i = 0; i < MAX_LIGHTS; i++) _mergedToShader[i] = -1;
-        for (int i = 0; i < finalCount;  i++) _mergedToShader[_indices[i]] = i;
+        if (_lightToShader == null || _lightToShader.Length != _lights.Length)
+            _lightToShader = new int[_lights.Length];
+
+        for (int i = 0; i < _lightToShader.Length; i++) _lightToShader[i] = -1;
+        for (int i = 0; i < finalCount; i++) _lightToShader[_indices[i]] = i;
 
         UpdateDebugCounts(finalCount);
-
         CacheLightStates();
         FillUploadBuffers(finalCount);
         UploadToShader(finalCount);
         RepaintSceneViews();
     }
 
-    // Mirrors the runtime SpecularLightManager's #if UNITY_EDITOR debug
-    // block: a flat O(finalCount) pass over the selected slots, counting
-    // how many are dynamic/realtime vs static/baked via mergedBakedCol[].w
-    // (1 = realtime, 0 = baked — matches BuildMergedGroups' realtimeFlag).
-    // Written straight back onto the manager component so the inspector's
-    // read-only debug fields stay live while editing, not just at runtime.
     private static void UpdateDebugCounts(int finalCount)
     {
         int dynCount = 0, statCount = 0;
         for (int i = 0; i < finalCount; i++)
         {
-            int mi = _indices[i];
-            if (_mergedBakedCol[mi].w > 0.5f) dynCount++; else statCount++;
+            int idx = _indices[i];
+            if (_isRealtime[idx]) dynCount++; else statCount++;
         }
 
-        SpecularLightManager mgr = _avatarRoot != null
-            ? _avatarRoot.GetComponentInChildren<SpecularLightManager>()
+        SpecularLightManager mgr = _worldRoot != null
+            ? _worldRoot.GetComponent<SpecularLightManager>()
             : null;
 
         if (mgr == null) return;
 
         mgr.currentDynamicLights = dynCount;
-        mgr.currentStaticLights  = statCount;
-        mgr.currentActiveCount   = finalCount;
+        mgr.currentStaticLights = statCount;
+        mgr.currentActiveCount = finalCount;
         EditorUtility.SetDirty(mgr);
     }
 
-    private static void BuildMergedGroups()
-    {
-        if (_mergedPos == null || _mergedPos.Length < _lights.Length)
-            AllocateMergeBuffers(_lights.Length);
-
-        if (_lightToMerged == null || _lightToMerged.Length != _lights.Length)
-            _lightToMerged = new int[_lights.Length];
-
-        _mergedCount = 0;
-
-        for (int li = 0; li < _lights.Length; li++)
-        {
-            _lightToMerged[li] = -1;
-
-            Light l = _lights[li];
-            if (l == null || !l.enabled || !l.gameObject.activeInHierarchy ||
-                l.type == LightType.Directional ||
-                l.renderMode == LightRenderMode.ForceVertex) continue;
-
-            Vector3 pos       = l.transform.position;
-            float   intensity = l.intensity;
-            float   width     = _halfExtents[li].x;
-            float   height    = _halfExtents[li].y;
-            Vector3 fwd       = l.transform.forward;
-            Vector3 rawColor  = new Vector3(l.color.r, l.color.g, l.color.b);
-
-            float   bakedInt = (_bakedIntensities != null && li < _bakedIntensities.Length &&
-                                _bakedIntensities[li] > 0f)
-                               ? _bakedIntensities[li] : intensity;
-            Vector3 bakedCol = (_bakedColors != null && li < _bakedColors.Length)
-                               ? _bakedColors[li]
-                               : rawColor;
-
-            int layerSlice = (_layerSlices != null && li < _layerSlices.Length)
-                            ? _layerSlices[li] : -1;
-
-            bool  isStatic = (l.lightmapBakeType == LightmapBakeType.Baked);
-            float realtimeFlag = isStatic ? 0.0f : 1.0f; // 0 = static/baked, 1 = dynamic/realtime
-
-            float cosOuter = (l.type == LightType.Spot) ? Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad)
-                           : (l.type == LightType.Area) ? 0.0f
-                           :                              -1.0f;
-
-            bool merged = false;
-            for (int i = 0; i < _mergedCount; i++)
-            {
-                if (((Vector3)_mergedPos[i] - pos).sqrMagnitude >= MERGE_THRESHOLD_SQ) continue;
-
-                Vector3 exFwd       = new Vector3(_mergedDir[i].x, _mergedDir[i].y, _mergedDir[i].z);
-                bool    alreadyOmni = _mergedDir[i].w < -0.1f;
-                bool    conflict    = !alreadyOmni && Vector3.Dot(exFwd, fwd) < DIR_CONFLICT_DOT;
-                float   newMax      = Mathf.Max(_mergedMaxInt[i], intensity);
-
-                if (intensity > _mergedMaxInt[i])
-                {
-                    _mergedPos[i]       = new Vector4(pos.x, pos.y, pos.z, bakedInt);
-                    _mergedCol[i]       = new Vector4(rawColor.x, rawColor.y, rawColor.z, intensity);
-                    _mergedBakedCol[i]  = new Vector4(bakedCol.x, bakedCol.y, bakedCol.z, realtimeFlag);
-                    _mergedRight[i]     = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
-                    _mergedUp[i]        = new Vector4(l.transform.up.x,    l.transform.up.y,    l.transform.up.z,    height);
-                    _mergedDir[i]       = new Vector4(fwd.x, fwd.y, fwd.z, conflict ? -0.5f : cosOuter);
-                    _mergedLayerSlice[i] = layerSlice;
-                }
-                else if (conflict)
-                {
-                    Vector4 d     = _mergedDir[i];
-                    _mergedDir[i] = new Vector4(d.x, d.y, d.z, -0.5f);
-                }
-
-                _mergedMaxInt[i]   = newMax;
-                _lightToMerged[li] = i;
-                merged             = true;
-                break;
-            }
-
-            if (!merged && _mergedCount < _mergedPos.Length)
-            {
-                int mi               = _mergedCount;
-                _mergedPos[mi]       = new Vector4(pos.x, pos.y, pos.z, bakedInt);
-                _mergedCol[mi]       = new Vector4(rawColor.x, rawColor.y, rawColor.z, intensity);
-                _mergedBakedCol[mi]  = new Vector4(bakedCol.x, bakedCol.y, bakedCol.z, realtimeFlag);
-                _mergedRight[mi]     = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
-                _mergedUp[mi]        = new Vector4(l.transform.up.x,    l.transform.up.y,    l.transform.up.z,    height);
-                _mergedDir[mi]       = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
-                _mergedMaxInt[mi]    = intensity;
-                _mergedLayerSlice[mi] = layerSlice;
-                _lightToMerged[li]   = mi;
-                _mergedCount++;
-            }
-        }
-    }
-
-    // Candidate pool for the 32 specular slots, nearest-to-viewer first,
-    // capped at _activeLightCount (mirrors the manager's activeLightCount
-    // setting rather than always assuming all 32 slots are open).
-    //
-    // MAX_RADIUS_SQ here is a specular-only, shader-accurate cutoff: past
-    // _FadeEndDist a light's specular contribution is zero for every light
-    // regardless of its own baked range (see UdonSpecularSystem.cginc's
-    // _UdonCameraFade). Rejecting those candidates early just keeps the
-    // editor preview from spending a slot on a light that would render
-    // with zero specular anyway — it is NOT a diffuse cutoff (diffuse for
-    // baked lights samples the layer array directly, unrelated to slots).
     private static int SortNearest(Vector3 viewerPos)
     {
         int count = 0;
-        int cap   = Mathf.Clamp(_activeLightCount, 1, MAX_LIGHTS);
+        int cap = Mathf.Clamp(_activeLightCount, 1, MAX_LIGHTS);
 
-        for (int i = 0; i < _mergedCount; i++)
+        for (int i = 0; i < _lights.Length; i++)
         {
-            float distSq = Vector3.SqrMagnitude(viewerPos - (Vector3)_mergedPos[i]);
+            Light l = _lights[i];
+            if (l == null || !l.enabled || !l.gameObject.activeInHierarchy ||
+                l.type == LightType.Directional || l.renderMode == LightRenderMode.ForceVertex) 
+                continue;
+
+            float distSq = Vector3.SqrMagnitude(viewerPos - l.transform.position);
             if (distSq > MAX_RADIUS_SQ) continue;
 
             int ins = count;
@@ -391,10 +382,11 @@ public static class SpecularLightManagerEditor
             int maxShift = Mathf.Min(count, cap - 1);
             for (int j = maxShift; j > ins; j--)
             {
-                _indices[j]   = _indices[j - 1];
+                _indices[j] = _indices[j - 1];
                 _distances[j] = _distances[j - 1];
             }
-            _indices[ins]   = i;
+            
+            _indices[ins] = i;
             _distances[ins] = distSq;
             if (count < cap) count++;
         }
@@ -403,7 +395,7 @@ public static class SpecularLightManagerEditor
 
     private static bool UpdateLiveData()
     {
-        if (_lightToMerged == null || _lightToMerged.Length != _lights.Length) return false;
+        if (_lightToShader == null || _lightToShader.Length != _lights.Length) return false;
 
         bool changed = false;
 
@@ -412,17 +404,11 @@ public static class SpecularLightManagerEditor
             Light l = _lights[li];
             if (l == null || !l.enabled || !l.gameObject.activeInHierarchy) continue;
 
-            int mi = _lightToMerged[li];
-            if (mi < 0) continue;
-
-            int si = _mergedToShader[mi];
-            if (si < 0) continue;
-
-            Transform  t         = l.transform;
-            Vector3    pos       = t.position;
-            Quaternion rot       = t.rotation;
-            float      intensity = l.intensity;
-            Vector3    col       = new Vector3(l.color.r, l.color.g, l.color.b);
+            Transform t = l.transform;
+            Vector3 pos = t.position;
+            Quaternion rot = t.rotation;
+            float intensity = l.intensity;
+            Vector3 col = new Vector3(l.color.r, l.color.g, l.color.b);
 
             bool posChanged = (pos - _lastLightPositions[li]).sqrMagnitude > MOTION_EPSILON_SQ;
             bool rotChanged = Quaternion.Dot(rot, _lastLightRotations[li]) < 0.9999f;
@@ -435,38 +421,43 @@ public static class SpecularLightManagerEditor
 
             changed = true;
 
-            if (posChanged)
-            {
-                Vector4 p      = _mergedPos[mi];
-                _mergedPos[mi] = new Vector4(pos.x, pos.y, pos.z, p.w);
-                _lastLightPositions[li] = pos;
-            }
+            _lastLightPositions[li] = pos;
+            _lastLightRotations[li] = rot;
+            _lastLightIntensities[li] = intensity;
+            _lastLightColors[li] = col;
 
-            if (rotChanged)
+            int si = _lightToShader[li];
+            if (si < 0) continue; // Skip uploading to shader buffers if it's not currently selected
+
+            float bakedInt = (_bakedIntensities != null && li < _bakedIntensities.Length && _bakedIntensities[li] > 0f) ? _bakedIntensities[li] : intensity;
+            Vector3 bakedCol = (_bakedColors != null && li < _bakedColors.Length) ? _bakedColors[li] : col;
+            float realtimeFlag = _isRealtime[li] ? 1.0f : 0.0f;
+
+            if (posChanged || intChanged)
             {
-                Vector3 f  = rot * Vector3.forward;
-                Vector3 r  = rot * Vector3.right;
-                Vector3 u  = rot * Vector3.up;
-                _mergedDir[mi]   = new Vector4(f.x, f.y, f.z, _mergedDir[mi].w);
-                _mergedRight[mi] = new Vector4(r.x, r.y, r.z, _mergedRight[mi].w);
-                _mergedUp[mi]    = new Vector4(u.x, u.y, u.z, _mergedUp[mi].w);
-                _lastLightRotations[li] = rot;
+                _shaderPos[si] = new Vector4(pos.x, pos.y, pos.z, bakedInt);
             }
 
             if (intChanged || colChanged)
             {
-                _mergedCol[mi] = new Vector4(col.x, col.y, col.z, intensity);
-                _lastLightIntensities[li] = intensity;
-                _lastLightColors[li]      = col;
+                _shaderCol[si] = new Vector4(col.x, col.y, col.z, intensity);
+                _shaderBakedCol[si] = new Vector4(bakedCol.x, bakedCol.y, bakedCol.z, realtimeFlag);
             }
 
-            _shaderPos[si]      = _mergedPos[mi];
-            _shaderCol[si]      = _mergedCol[mi];
-            _shaderBakedCol[si] = _mergedBakedCol[mi];
-            _shaderRight[si]    = _mergedRight[mi];
-            _shaderUp[si]       = _mergedUp[mi];
-            _shaderDir[si]      = _mergedDir[mi];
-            // LayerIndex is stable — no need to update per frame
+            if (rotChanged)
+            {
+                Vector3 f = rot * Vector3.forward;
+                Vector3 r = rot * Vector3.right;
+                Vector3 u = rot * Vector3.up;
+
+                float cosOuter = (l.type == LightType.Spot) ? Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad)
+                               : (l.type == LightType.Area) ? 0.0f
+                               : -1.0f;
+
+                _shaderRight[si] = new Vector4(r.x, r.y, r.z, _halfExtents[li].x);
+                _shaderUp[si] = new Vector4(u.x, u.y, u.z, _halfExtents[li].y);
+                _shaderDir[si] = new Vector4(f.x, f.y, f.z, cosOuter);
+            }
         }
 
         return changed;
@@ -478,14 +469,35 @@ public static class SpecularLightManagerEditor
         {
             if (i < finalCount)
             {
-                int idx             = _indices[i];
-                _shaderPos[i]       = _mergedPos[idx];
-                _shaderCol[i]       = _mergedCol[idx];
-                _shaderBakedCol[i]  = _mergedBakedCol[idx];
-                _shaderRight[i]     = _mergedRight[idx];
-                _shaderUp[i]        = _mergedUp[idx];
-                _shaderDir[i]       = _mergedDir[idx];
-                _shaderLayerIndex[i] = new Vector4(_mergedLayerSlice[idx], 0f, 0f, 0f);
+                int idx = _indices[i];
+                Light l = _lights[idx];
+
+                Vector3 pos = l.transform.position;
+                float intensity = l.intensity;
+                float width = _halfExtents[idx].x;
+                float height = _halfExtents[idx].y;
+                Vector3 fwd = l.transform.forward;
+                Vector3 rawColor = new Vector3(l.color.r, l.color.g, l.color.b);
+
+                float bakedInt = (_bakedIntensities != null && idx < _bakedIntensities.Length && _bakedIntensities[idx] > 0f) ? _bakedIntensities[idx] : intensity;
+                Vector3 bakedCol = (_bakedColors != null && idx < _bakedColors.Length) ? _bakedColors[idx] : rawColor;
+
+                int layerSlice = (_layerSlices != null && idx < _layerSlices.Length) ? _layerSlices[idx] : -1;
+                float realtimeFlag = _isRealtime[idx] ? 1.0f : 0.0f;
+                float diffuseFlag  = (_diffuseEnabled  != null && idx < _diffuseEnabled.Length  && _diffuseEnabled[idx])  ? 1f : 0f;
+                float specularFlag = (_specularEnabled != null && idx < _specularEnabled.Length && _specularEnabled[idx]) ? 1f : 0f;
+
+                float cosOuter = (l.type == LightType.Spot) ? Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad)
+                               : (l.type == LightType.Area) ? 0.0f
+                               : -1.0f;
+
+                _shaderPos[i] = new Vector4(pos.x, pos.y, pos.z, bakedInt);
+                _shaderCol[i] = new Vector4(rawColor.x, rawColor.y, rawColor.z, intensity);
+                _shaderBakedCol[i] = new Vector4(bakedCol.x, bakedCol.y, bakedCol.z, realtimeFlag);
+                _shaderRight[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
+                _shaderUp[i] = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, height);
+                _shaderDir[i] = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
+                _shaderLayerIndex[i] = new Vector4(layerSlice, diffuseFlag, specularFlag, 0f);
             }
             else
             {
@@ -506,12 +518,12 @@ public static class SpecularLightManagerEditor
 
     private static void UploadAllBuffers()
     {
-        Shader.SetGlobalVectorArray("_UdonSpecularLightPos",       _shaderPos);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightCol",       _shaderCol);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightBakedCol",  _shaderBakedCol);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightDir",       _shaderDir);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightRight",     _shaderRight);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightUp",        _shaderUp);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightPos", _shaderPos);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightCol", _shaderCol);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightBakedCol", _shaderBakedCol);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightDir", _shaderDir);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightRight", _shaderRight);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightUp", _shaderUp);
         Shader.SetGlobalVectorArray("_UdonLightLayerIndex", _shaderLayerIndex);
     }
 
@@ -535,220 +547,68 @@ public static class SpecularLightManagerEditor
     private static void CacheLightStates()
     {
         int n = _lights.Length;
-        if (_lastLightPositions   == null || _lastLightPositions.Length   != n) _lastLightPositions   = new Vector3[n];
-        if (_lastLightRotations   == null || _lastLightRotations.Length   != n) _lastLightRotations   = new Quaternion[n];
+        if (_lastLightPositions == null || _lastLightPositions.Length != n) _lastLightPositions = new Vector3[n];
+        if (_lastLightRotations == null || _lastLightRotations.Length != n) _lastLightRotations = new Quaternion[n];
         if (_lastLightIntensities == null || _lastLightIntensities.Length != n) _lastLightIntensities = new float[n];
-        if (_lastLightColors      == null || _lastLightColors.Length      != n) _lastLightColors      = new Vector3[n];
+        if (_lastLightColors == null || _lastLightColors.Length != n) _lastLightColors = new Vector3[n];
 
         for (int i = 0; i < n; i++)
         {
             Light l = _lights[i];
             if (l == null) continue;
-            _lastLightPositions[i]   = l.transform.position;
-            _lastLightRotations[i]   = l.transform.rotation;
+            _lastLightPositions[i] = l.transform.position;
+            _lastLightRotations[i] = l.transform.rotation;
             _lastLightIntensities[i] = l.intensity;
-            _lastLightColors[i]      = new Vector3(l.color.r, l.color.g, l.color.b);
+            _lastLightColors[i] = new Vector3(l.color.r, l.color.g, l.color.b);
         }
-    }
-
-    private static void AllocateMergeBuffers(int cap)
-    {
-        _mergedPos       = new Vector4[cap];
-        _mergedCol       = new Vector4[cap];
-        _mergedBakedCol  = new Vector4[cap];
-        _mergedRight     = new Vector4[cap];
-        _mergedUp        = new Vector4[cap];
-        _mergedDir       = new Vector4[cap];
-        _mergedMaxInt    = new float[cap];
-        _mergedLayerSlice = new int[cap];
-
-        for (int i = 0; i < cap; i++) _mergedLayerSlice[i] = -1;
     }
 
     public static void SnapshotBakedIntensities()
     {
-        if (_avatarRoot == null) TryFindAndBootstrap();
+        if (_worldRoot == null) TryFindAndRescan();
         if (_lights == null) return;
 
-        SpecularLightManager mgr = _avatarRoot != null
-            ? _avatarRoot.GetComponentInChildren<SpecularLightManager>()
+        SpecularLightManager mgr = _worldRoot != null
+            ? _worldRoot.GetComponent<SpecularLightManager>()
             : null;
 
         int count = _lights.Length;
         _bakedIntensities = new float[count];
-        _bakedColors      = new Vector3[count];
+        _bakedColors = new Vector3[count];
 
-        float[]   serialized       = new float[count];
+        float[] serialized = new float[count];
         Vector3[] serializedColors = new Vector3[count];
 
         for (int i = 0; i < count; i++)
         {
             Light l = _lights[i];
             if (l == null) continue;
-            _bakedIntensities[i]   = l.intensity;
-            serialized[i]          = l.intensity;
-            _bakedColors[i]        = new Vector3(l.color.r, l.color.g, l.color.b);
-            serializedColors[i]    = _bakedColors[i];
+            _bakedIntensities[i] = l.intensity;
+            serialized[i] = l.intensity;
+            _bakedColors[i] = new Vector3(l.color.r, l.color.g, l.color.b);
+            serializedColors[i] = _bakedColors[i];
         }
 
         if (mgr != null)
         {
             mgr.childLightBakedIntensities = serialized;
-            mgr.childLightBakedColors      = serializedColors;
+            mgr.childLightBakedColors = serializedColors;
             EditorUtility.SetDirty(mgr);
         }
 
-        Debug.Log($"[Specular Avatar] Baked intensities and colors saved for {count} lights.");
+        Debug.Log($"[Specular World] Baked intensities and colors saved for {count} lights.");
     }
 
-    [MenuItem("Meenphie/Lighting/Speculars/Assign Layer Textures")]
-    public static void OpenLayerAssignWindow()
+    // "Rebuild Lights" menu item removed — rescans now happen automatically
+    // on hierarchy changes (debounced) and preserve existing per-light
+    // overrides by Light reference. If you ever need to force one manually
+    // (e.g. after editing arrays via script), use this instead:
+    [MenuItem("Meenphie/Lighting/Speculars/Force Rescan Now")]
+    public static void ForceRescanNow()
     {
-        if (_avatarRoot == null) TryFindAndBootstrap();
-        LayerAssignWindow.Open(_lights, _layerTextures, _layerSlices, OnLayerAssignmentChanged);
-    }
-
-    private static void OnLayerAssignmentChanged(Texture2D[] textures, int[] slices)
-    {
-        _layerTextures = textures;
-        _layerSlices   = slices;
-
-        SpecularLightManager mgr = _avatarRoot != null
-            ? _avatarRoot.GetComponentInChildren<SpecularLightManager>()
-            : null;
-
-        if (mgr != null)
-        {
-            mgr.childLightLayerSlices = slices;
-            EditorUtility.SetDirty(mgr);
-        }
-
-        Tick();
-        Debug.Log("[Specular Avatar] Layer slice assignments updated.");
-    }
-
-    [MenuItem("Meenphie/Lighting/Speculars/Build Layer Array")]
-    public static void BuildLayerArray()
-    {
-        if (_avatarRoot == null) TryFindAndBootstrap();
-        if (_layerTextures == null || _layerTextures.Length == 0)
-        {
-            Debug.LogWarning("[Specular Avatar] No layer textures assigned. Use 'Assign Layer Textures' first.");
-            return;
-        }
-
-        int maxSlice = -1;
-        for (int i = 0; i < _layerSlices.Length; i++)
-        {
-            if (_layerTextures[i] != null && _layerSlices[i] > maxSlice)
-                maxSlice = _layerSlices[i];
-        }
-
-        if (maxSlice < 0)
-        {
-            Debug.LogWarning("[Specular Avatar] No valid layer assignments found.");
-            return;
-        }
-
-        int depth = maxSlice + 1;
-
-        int width = 0, height = 0;
-        for (int i = 0; i < _layerTextures.Length; i++)
-        {
-            if (_layerTextures[i] != null)
-            {
-                width  = _layerTextures[i].width;
-                height = _layerTextures[i].height;
-                break;
-            }
-        }
-
-        if (width == 0)
-        {
-            Debug.LogError("[Specular Avatar] Could not determine layer texture resolution.");
-            return;
-        }
-
-        Texture2DArray array = new Texture2DArray(width, height, depth,
-                                                  TextureFormat.RGBAHalf, mipChain: false, linear: true);
-        array.filterMode = FilterMode.Bilinear;
-        array.wrapMode   = TextureWrapMode.Clamp;
-
-        Color[] black = new Color[width * height];
-
-        for (int slice = 0; slice < depth; slice++)
-        {
-            Texture2D src = null;
-            for (int li = 0; li < _layerTextures.Length; li++)
-            {
-                if (_layerTextures[li] != null && _layerSlices[li] == slice)
-                {
-                    src = _layerTextures[li];
-                    break;
-                }
-            }
-
-            if (src == null)
-            {
-                array.SetPixels(black, slice);
-                continue;
-            }
-
-            if (src.width != width || src.height != height)
-            {
-                Debug.LogWarning($"[Specular Avatar] Layer '{src.name}' is {src.width}x{src.height}, " +
-                                 $"expected {width}x{height}. It will be skipped (slice {slice} = black).");
-                array.SetPixels(black, slice);
-                continue;
-            }
-
-            try
-            {
-                Color[] pixels = src.GetPixels();
-                array.SetPixels(pixels, slice);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[Specular Avatar] Could not read '{src.name}': {e.Message}\n" +
-                               "Make sure Read/Write is enabled in the texture import settings.");
-                array.SetPixels(black, slice);
-            }
-        }
-
-        array.Apply(updateMipmaps: false);
-
-        string dir  = "Assets/LightLayers";
-        string path = dir + "/LightLayerArray.asset";
-        if (!AssetDatabase.IsValidFolder(dir))
-            AssetDatabase.CreateFolder("Assets", "LightLayers");
-
-        AssetDatabase.CreateAsset(array, path);
-        AssetDatabase.SaveAssets();
-
-        _previewLayerArray = array;
-
-        SpecularLightManager mgr = _avatarRoot != null
-            ? _avatarRoot.GetComponentInChildren<SpecularLightManager>()
-            : null;
-
-        if (mgr != null)
-        {
-            mgr.lightLayerArray = array;
-            EditorUtility.SetDirty(mgr);
-        }
-
-        Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
-        RepaintSceneViews();
-
-        Debug.Log($"[Specular Avatar] Layer array built: {depth} slices at {width}x{height}. Saved to {path}");
-    }
-
-    [MenuItem("Meenphie/Lighting/Speculars/Rebuild Lights")]
-    public static void RefreshLights()
-    {
-        TryFindAndBootstrap();
+        TryFindAndRescan();
         _previewEnabled = true;
-        Debug.Log("[Specular Avatar] Lights rebuilt. Preview enabled.");
+        Debug.Log("[Specular World] Rescanned. Preview enabled.");
     }
 
     [MenuItem("Meenphie/Lighting/Speculars/Snapshot Baked Intensities")]
@@ -760,13 +620,13 @@ public static class SpecularLightManagerEditor
         _previewEnabled = !_previewEnabled;
         if (_previewEnabled)
         {
-            TryFindAndBootstrap();
-            Debug.Log("[Specular Avatar] Preview ON.");
+            TryFindAndRescan();
+            Debug.Log("[Specular World] Preview ON.");
         }
         else
         {
             ClearPreview();
-            Debug.Log("[Specular Avatar] Preview OFF.");
+            Debug.Log("[Specular World] Preview OFF.");
         }
     }
 
@@ -782,90 +642,16 @@ public static class SpecularLightManagerEditor
     {
         _shaderData = Vector4.zero;
         Vector4[] empty = new Vector4[MAX_LIGHTS];
-        Shader.SetGlobalVectorArray("_UdonSpecularLightPos",       empty);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightCol",       empty);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightBakedCol",  empty);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightRight",     empty);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightUp",        empty);
-        Shader.SetGlobalVectorArray("_UdonSpecularLightDir",       empty);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightPos", empty);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightCol", empty);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightBakedCol", empty);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightRight", empty);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightUp", empty);
+        Shader.SetGlobalVectorArray("_UdonSpecularLightDir", empty);
         Shader.SetGlobalVectorArray("_UdonLightLayerIndex", empty);
-        Shader.SetGlobalVector("_UdonSpecularLightData",           Vector4.zero);
+        Shader.SetGlobalVector("_UdonSpecularLightData", Vector4.zero);
         RepaintSceneViews();
-        Debug.Log("[Specular Avatar] Preview cleared.");
-    }
-}
-
-
-public class LayerAssignWindow : EditorWindow
-{
-    private Light[]      _lights;
-    private Texture2D[]  _textures;
-    private int[]        _slices;
-    private Vector2      _scroll;
-    private System.Action<Texture2D[], int[]> _onSave;
-
-    public static void Open(Light[] lights, Texture2D[] existing,
-                            int[] existingSlices,
-                            System.Action<Texture2D[], int[]> onSave)
-    {
-        LayerAssignWindow win = GetWindow<LayerAssignWindow>("Assign Layer Textures");
-        win._lights   = lights;
-        win._textures = (existing != null && existing.Length == lights.Length)
-                        ? (Texture2D[])existing.Clone()
-                        : new Texture2D[lights.Length];
-        win._slices   = (existingSlices != null && existingSlices.Length == lights.Length)
-                        ? (int[])existingSlices.Clone()
-                        : Enumerable.Repeat(-1, lights.Length).ToArray();
-        win._onSave   = onSave;
-        win.Show();
-    }
-
-    private void OnGUI()
-    {
-        if (_lights == null) { Close(); return; }
-
-        EditorGUILayout.HelpBox(
-            "Assign an HDR RGB layer EXR (baked in Cycles in isolation) to each static light group.\n" +
-            "Dynamic/realtime lights don't need layers — leave them empty.\n" +
-            "Click Save to pack into a Texture2DArray and assign slice indices.",
-            MessageType.Info);
-
-        EditorGUILayout.Space();
-
-        _scroll = EditorGUILayout.BeginScrollView(_scroll);
-
-        for (int i = 0; i < _lights.Length; i++)
-        {
-            Light l = _lights[i];
-            if (l == null) continue;
-
-            EditorGUILayout.BeginHorizontal();
-
-            string bakeLabel = (l.lightmapBakeType == LightmapBakeType.Baked) ? "[Static]" : "[Dynamic]";
-            EditorGUILayout.LabelField($"{bakeLabel} {l.name}", GUILayout.Width(200));
-
-            _textures[i] = (Texture2D)EditorGUILayout.ObjectField(
-                _textures[i], typeof(Texture2D), allowSceneObjects: false, GUILayout.Width(160));
-
-            string sliceHint = (_textures[i] != null) ? $"→ slice {_slices[i]}" : "no layer";
-            EditorGUILayout.LabelField(sliceHint, GUILayout.Width(80));
-
-            EditorGUILayout.EndHorizontal();
-        }
-
-        EditorGUILayout.EndScrollView();
-        EditorGUILayout.Space();
-
-        if (GUILayout.Button("Save & Assign Slices"))
-        {
-            int nextSlice = 0;
-            for (int i = 0; i < _lights.Length; i++)
-            {
-                _slices[i] = (_textures[i] != null) ? nextSlice++ : -1;
-            }
-            _onSave?.Invoke(_textures, _slices);
-            Close();
-        }
+        Debug.Log("[Specular World] Preview cleared.");
     }
 }
 #endif
