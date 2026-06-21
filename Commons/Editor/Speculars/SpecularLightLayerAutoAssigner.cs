@@ -4,52 +4,60 @@ using UnityEditor;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+// ============================================================================
+// Naming convention this script expects:
+//
+//   Textures:   {Group}_{LightName}_RNMX   (+ _RNMY, _RNMZ, optional _denoised)
+//               e.g. "Cube A_Point.001_RNMX"
+//
+//   Materials:  "{ShaderType} - {Group} - {MaterialName}"
+//               e.g. "GI Opaque - Cube A - Send"
+//
+// ============================================================================
 
 public static class SpecularLightLayerAutoAssigner
 {
-    // ---- Tweak these to match your project -----------------------------
-
-    // Folder to search for baked lightmap textures. Narrow this if your
-    // project has lightmap-named textures elsewhere that shouldn't be
-    // picked up (e.g. other scenes' bakes).
     private const string LIGHTMAP_SEARCH_FOLDER = "Assets";
-
-    private const string LIGHTMAP_SUFFIX = "_Lightmap";
-    private const string LIGHTMAP_DENOISED_SUFFIX = "_Lightmap_denoised";
-
-    // Exact asset name (no extension) of the global ambient/background
-    // lightmap. Always becomes physical array slice 0 — update this if
-    // yours is named differently (e.g. "Lightmap_Base").
+    private const string RNM_X_SUFFIX = "_RNMX";
+    private const string RNM_Y_SUFFIX = "_RNMY";
+    private const string RNM_Z_SUFFIX = "_RNMZ";
+    private const string DENOISED_INFIX = "_denoised";
+    private const string MATERIAL_GROUP_DELIMITER = " - ";
     private const string BASE_LIGHTMAP_NAME = "Base_Lightmap";
 
-    // Where a brand-new array asset gets created if the manager doesn't
-    // already have one assigned. If mgr.lightLayerArray is already set,
-    // that existing asset is overwritten in place instead (so material/
-    // shader references to it keep working).
     private const string OUTPUT_FOLDER = "Assets/Lightmaps/";
     private const string OUTPUT_NAME = "LightmapLayerArray";
 
-    private const TextureFormat ARRAY_FORMAT = TextureFormat.BC6H; // HDR lightmap data
-    private const bool LINEAR = true;               // not sRGB
-    private static readonly bool MIPMAPS = true;    // not const: keeps the compiler from flagging BuildArray's non-mip branch as unreachable
+    private const TextureFormat ARRAY_FORMAT = TextureFormat.BC6H;
+    private const bool LINEAR = true;
+    private static readonly bool MIPMAPS = true;
     private const int QUALITY = 100;
     private const TextureWrapMode WRAP = TextureWrapMode.Clamp;
     private const FilterMode FILTER = FilterMode.Trilinear;
     private const int ANISO = 1;
 
-    // ----------------------------------------------------------------------
+    private const int MAX_GROUPS = 20;   // float32 bitmask precision cap
 
     private static Material _blitCopyMat;
 
     private static readonly List<TextureFormat> UncompressedFormats = new List<TextureFormat>
     {
-        TextureFormat.RGBAFloat,
-        TextureFormat.RGBAHalf,
-        TextureFormat.ARGB32,
-        TextureFormat.RGBA32,
-        TextureFormat.RGB24,
-        TextureFormat.Alpha8
+        TextureFormat.RGBAFloat, TextureFormat.RGBAHalf, TextureFormat.ARGB32,
+        TextureFormat.RGBA32, TextureFormat.RGB24, TextureFormat.Alpha8
     };
+
+    private struct RNMSet
+    {
+        public Texture2D X, Y, Z;
+        public bool IsValid => X != null || Y != null || Z != null;
+    }
+
+    // =====================================================================
+    // MENU ENTRY
+    // =====================================================================
 
     [MenuItem("Meenphie/Lighting/Speculars/Auto-Assign Light Layers (Build Array)")]
     public static void AutoAssignLightLayers()
@@ -61,7 +69,6 @@ public static class SpecularLightLayerAutoAssigner
             return;
         }
 
-        // Make sure childLights is populated before we try to match against it.
         SpecularLightManagerEditor.ForceRescanNow();
 
         if (mgr.childLights == null || mgr.childLights.Length == 0)
@@ -70,113 +77,155 @@ public static class SpecularLightLayerAutoAssigner
             return;
         }
 
-        Dictionary<string, string> texturesByName = CollectProjectTextures();
-
-        int count = mgr.childLights.Length;
-
-        // DEBUG: dump the texture pool before doing anything else
-        Debug.Log($"[Specular World][DEBUG] {count} childLights, {texturesByName.Count} textures found under \"{LIGHTMAP_SEARCH_FOLDER}\".");
-
-        var matchedTextures = new Texture2D[count];
-        var matchedSlice = new int[count];
-        for (int i = 0; i < count; i++) matchedSlice[i] = -1;
-
         var report = new System.Text.StringBuilder();
-        int matchCount = 0;
 
-        for (int i = 0; i < count; i++)
+        // ---- 1. Find all materials with the group naming pattern ----
+        var groupMaterials = CollectSpecularMaterialGroups();
+        if (groupMaterials.Count == 0)
         {
-            Light l = mgr.childLights[i];
-            if (l == null) continue;
-
-            string texPath = FindLightmapTexture(l.name, texturesByName);
-            if (texPath == null)
-            {
-                report.AppendLine($"  [skip]  {l.name}  ->  no matching lightmap texture found");
-
-                // DEBUG: Unity appends ".001", ".005" etc. to duplicate
-                // GameObject names, but the baked texture filename usually
-                // doesn't carry that suffix. Strip a trailing ".NNN" and
-                // search the pool for anything containing the base name, so
-                // a naming mismatch shows up directly instead of just "not
-                // found".
-                string baseName = System.Text.RegularExpressions.Regex.Replace(l.name, @"\.\d+$", "");
-                var fuzzyMatches = new List<string>();
-                foreach (var kvp in texturesByName)
-                    if (kvp.Key.IndexOf(baseName, StringComparison.OrdinalIgnoreCase) >= 0)
-                        fuzzyMatches.Add(kvp.Key);
-
-                if (fuzzyMatches.Count > 0)
-                    Debug.Log($"[Specular World][DEBUG] \"{l.name}\" (base \"{baseName}\") found no exact match, " +
-                              $"but {fuzzyMatches.Count} pool entries contain the base name: {string.Join(", ", fuzzyMatches)}");
-                else
-                    Debug.Log($"[Specular World][DEBUG] \"{l.name}\" (base \"{baseName}\") — no pool entry contains the base name at all.");
-
-                continue;
-            }
-
-            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
-            if (tex == null)
-            {
-                report.AppendLine($"  [skip]  {l.name}  ->  matched \"{texPath}\" but it failed to load");
-                continue;
-            }
-
-            matchedTextures[i] = tex;
-            matchedSlice[i] = matchCount; // childLightLayerSlices value — shader adds +1 to get the physical array slice
-            report.AppendLine($"  [ok]    {l.name}  ->  childLightLayerSlices {matchCount}  (array slice {matchCount + 1}, {texPath})");
-            matchCount++;
-        }
-
-        Debug.Log($"[Specular World][DEBUG] {matchCount} out of {count} lights matched a texture.\n{report}");
-
-        if (matchCount == 0)
-        {
-            Debug.LogWarning("[Specular World] No lights matched a lightmap texture. Nothing was built.\n" + report);
+            Debug.LogError("[Specular World] No materials found with pattern " +
+                          $"\"X{MATERIAL_GROUP_DELIMITER}Group{MATERIAL_GROUP_DELIMITER}Y\". Nothing to assign.");
             return;
         }
 
-        // The shader samples per-light layers at "sliceIndex + 1", reserving
-        // physical slice 0 for the global ambient/background lightmap — so
-        // that texture (if present) has to go in first, ahead of every
-        // per-light texture. If there's no base lightmap in this scene, slice
-        // 0 is left black instead.
-        bool hasBase = texturesByName.TryGetValue(BASE_LIGHTMAP_NAME, out string basePath);
-        Texture2D baseTex = null;
-        bool basePlaceholder = false;
-
-        if (hasBase)
+        var groupNames = groupMaterials.Keys.OrderBy(g => g, StringComparer.OrdinalIgnoreCase).ToList();
+        if (groupNames.Count > MAX_GROUPS)
         {
-            baseTex = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath);
-            if (baseTex == null)
+            Debug.LogError($"[Specular World] {groupNames.Count} groups found, but bitmask packing only " +
+                            $"supports up to {MAX_GROUPS}. Aborting.");
+            return;
+        }
+
+        report.AppendLine($"=== {groupNames.Count} groups: {string.Join(", ", groupNames)} ===");
+
+        // ---- 2. Collect all project textures ----
+        Dictionary<string, string> texturesByName = CollectProjectTextures();
+        report.AppendLine($"{texturesByName.Count} textures found under \"{LIGHTMAP_SEARCH_FOLDER}\".");
+
+        // ---- 3. For each physical light, determine which groups have RNM textures ----
+        int originalLightCount = mgr.childLights.Length;
+        var lightData = new (Light light, Transform transform, float bakedIntensity, Vector3 bakedColor,
+                            Vector2 halfExtents, bool isRealtime, bool diffuse, bool specular,
+                            bool animated, int styleIdx, float animSpeed)[originalLightCount];
+
+        for (int i = 0; i < originalLightCount; i++)
+        {
+            Light l = mgr.childLights[i];
+            if (l == null) continue;
+            Transform t = l.transform;
+            float bakedInt = (mgr.childLightBakedIntensities != null && i < mgr.childLightBakedIntensities.Length)
+                ? mgr.childLightBakedIntensities[i] : l.intensity;
+            Vector3 bakedCol = (mgr.childLightBakedColors != null && i < mgr.childLightBakedColors.Length)
+                ? mgr.childLightBakedColors[i] : new Vector3(l.color.r, l.color.g, l.color.b);
+            Vector2 halfExt = (mgr.childLightHalfExtents != null && i < mgr.childLightHalfExtents.Length)
+                ? mgr.childLightHalfExtents[i] : new Vector2(0.01f, 0.01f);
+            bool isRt = (mgr.childLightIsRealtime != null && i < mgr.childLightIsRealtime.Length)
+                ? mgr.childLightIsRealtime[i] : true;
+            bool diff = (mgr.childLightDiffuseEnabled != null && i < mgr.childLightDiffuseEnabled.Length)
+                ? mgr.childLightDiffuseEnabled[i] : true;
+            bool spec = (mgr.childLightSpecularEnabled != null && i < mgr.childLightSpecularEnabled.Length)
+                ? mgr.childLightSpecularEnabled[i] : true;
+            bool anim = (mgr.childLightIsAnimated != null && i < mgr.childLightIsAnimated.Length)
+                ? mgr.childLightIsAnimated[i] : false;
+            int stIdx = (mgr.childLightStyleIndex != null && i < mgr.childLightStyleIndex.Length)
+                ? mgr.childLightStyleIndex[i] : 0;
+            float spd = (mgr.childLightAnimationSpeed != null && i < mgr.childLightAnimationSpeed.Length)
+                ? mgr.childLightAnimationSpeed[i] : 1.0f;
+
+            lightData[i] = (l, t, bakedInt, bakedCol, halfExt, isRt, diff, spec, anim, stIdx, spd);
+        }
+
+        // Build the new per-(light, group) entries
+        var newChildLights = new List<Light>();
+        var newSlice = new List<int>();
+        var newGroupMask = new List<int>();
+        var newBakedInt = new List<float>();
+        var newBakedCol = new List<Vector3>();
+        var newHalfExt = new List<Vector2>();
+        var newIsRt = new List<bool>();
+        var newDiff = new List<bool>();
+        var newSpec = new List<bool>();
+        var newAnim = new List<bool>();
+        var newStyleIdx = new List<int>();
+        var newAnimSpeed = new List<float>();
+
+        var orderedTextures = new List<Texture2D>();
+        int matchCount = 0;
+
+        for (int li = 0; li < originalLightCount; li++)
+        {
+            var data = lightData[li];
+            if (data.light == null) continue;
+            string lightName = data.light.name;
+
+            bool hasAnyGroup = false;
+            foreach (string group in groupNames)
             {
-                Debug.LogError($"[Specular World] Found \"{basePath}\" for the base lightmap but it failed to load.");
-                return;
+                RNMSet rnm = FindRNMSet(group, lightName, texturesByName);
+                if (!rnm.IsValid) continue;
+
+                // Create a new light entry for this (light, group)
+                int sliceSlot = orderedTextures.Count / 3;   // each slot = 3 slices
+                newChildLights.Add(data.light);
+                newSlice.Add(sliceSlot);
+                int bit = 1 << groupNames.IndexOf(group);
+                newGroupMask.Add(bit);
+                newBakedInt.Add(data.bakedIntensity);
+                newBakedCol.Add(data.bakedColor);
+                newHalfExt.Add(data.halfExtents);
+                newIsRt.Add(data.isRealtime);
+                newDiff.Add(data.diffuse);
+                newSpec.Add(data.specular);
+                newAnim.Add(data.animated);
+                newStyleIdx.Add(data.styleIdx);
+                newAnimSpeed.Add(data.animSpeed);
+
+                orderedTextures.Add(rnm.X);
+                orderedTextures.Add(rnm.Y);
+                orderedTextures.Add(rnm.Z);
+                hasAnyGroup = true;
+                matchCount++;
+                report.AppendLine($"  [ok]   {lightName}  group {group} -> slice slot {sliceSlot} (bit {bit})");
+            }
+
+            if (!hasAnyGroup)
+            {
+                // Light not matched any group – keep as single entry, visible to all
+                newChildLights.Add(data.light);
+                newSlice.Add(-1);   // no baked layer
+                newGroupMask.Add(~0);
+                newBakedInt.Add(data.bakedIntensity);
+                newBakedCol.Add(data.bakedColor);
+                newHalfExt.Add(data.halfExtents);
+                newIsRt.Add(data.isRealtime);
+                newDiff.Add(data.diffuse);
+                newSpec.Add(data.specular);
+                newAnim.Add(data.animated);
+                newStyleIdx.Add(data.styleIdx);
+                newAnimSpeed.Add(data.animSpeed);
+                report.AppendLine($"  [skip] {lightName} -> no group textures, default global light");
             }
         }
-        else
-        {
-            Texture2D firstMatched = null;
-            for (int i = 0; i < count; i++)
-                if (matchedTextures[i] != null) { firstMatched = matchedTextures[i]; break; }
 
-            baseTex = CreateBlackPlaceholder(firstMatched.width, firstMatched.height);
-            basePlaceholder = true;
-            report.AppendLine($"  (note) no texture named \"{BASE_LIGHTMAP_NAME}\" found under {LIGHTMAP_SEARCH_FOLDER} " +
-                               "— array slice 0 left black instead of erroring.");
+        // ---- 4. Base texture (slice 0) ----
+        Texture2D baseTex = ResolveBaseTexture(texturesByName, orderedTextures, out bool basePlaceholder, report);
+        if (baseTex == null)
+        {
+            Debug.LogError("[Specular World] Could not resolve base texture.\n" + report);
+            return;
         }
 
-        var orderedTextures = new List<Texture2D>(matchCount + 1) { baseTex };
-        for (int i = 0; i < count; i++)
-            if (matchedTextures[i] != null) orderedTextures.Add(matchedTextures[i]);
+        var finalTextureList = new List<Texture2D> { baseTex };
+        finalTextureList.AddRange(orderedTextures);
 
-        report.Insert(0, hasBase
-            ? $"  [base]  (array slice 0)  <-  {basePath}\n"
-            : "  [base]  (array slice 0)  <-  black placeholder (no base lightmap found)\n");
+        report.AppendLine($"Total array depth: {finalTextureList.Count} slices (1 base + {matchCount} lights × 3)");
 
-        Texture2DArray builtArray = BuildArray(orderedTextures, report);
-
+        // ---- 5. Build array ----
+        Texture2DArray builtArray = BuildArray(finalTextureList, report);
         if (basePlaceholder) UnityEngine.Object.DestroyImmediate(baseTex);
+        foreach (var tex in orderedTextures)
+            if (tex != null && tex.name.StartsWith("BlackPlaceholder"))
+                UnityEngine.Object.DestroyImmediate(tex);
 
         if (builtArray == null)
         {
@@ -185,36 +234,81 @@ public static class SpecularLightLayerAutoAssigner
         }
 
         Texture2DArray savedArray = SaveArrayAsset(builtArray, mgr);
-
-        if (mgr.childLightLayerSlices == null || mgr.childLightLayerSlices.Length != count)
-            mgr.childLightLayerSlices = new int[count];
-        for (int i = 0; i < count; i++)
-            mgr.childLightLayerSlices[i] = matchedSlice[i];
-
         mgr.lightLayerArray = savedArray;
+
+        // ---- 6. Write back the new arrays onto the manager ----
+        int newCount = newChildLights.Count;
+        mgr.childLights = newChildLights.ToArray();
+        mgr.childLightLayerSlices = newSlice.ToArray();
+        mgr.childLightGroupIndex = newGroupMask.ToArray();
+        mgr.childLightBakedIntensities = newBakedInt.ToArray();
+        mgr.childLightBakedColors = newBakedCol.ToArray();
+        mgr.childLightHalfExtents = newHalfExt.ToArray();
+        mgr.childLightIsRealtime = newIsRt.ToArray();
+        mgr.childLightDiffuseEnabled = newDiff.ToArray();
+        mgr.childLightSpecularEnabled = newSpec.ToArray();
+        mgr.childLightIsAnimated = newAnim.ToArray();
+        mgr.childLightStyleIndex = newStyleIdx.ToArray();
+        mgr.childLightAnimationSpeed = newAnimSpeed.ToArray();
+
+        // ---- 7. Assign _LightGroupMask on materials ----
+        foreach (string group in groupNames)
+        {
+            int bit = 1 << groupNames.IndexOf(group);
+            float matMask = (float)bit;
+            foreach (Material mat in groupMaterials[group])
+            {
+                mat.SetFloat("_LightGroupMask", matMask);
+                EditorUtility.SetDirty(mat);
+                report.AppendLine($"  [mat]  {mat.name}  ->  _LightGroupMask = {matMask}  (group: {group})");
+            }
+        }
+
         EditorUtility.SetDirty(mgr);
         AssetDatabase.SaveAssets();
 
-        Debug.Log($"[Specular World] Auto-assigned {matchCount}/{count} lights (+1 base) into " +
-                  $"\"{AssetDatabase.GetAssetPath(savedArray)}\" ({savedArray.width}x{savedArray.height}, " +
-                  $"{savedArray.depth} slices, {ARRAY_FORMAT}).\n" + report);
+        Debug.Log($"[Specular World] Created {matchCount} per‑group light slots across {groupNames.Count} groups. " +
+                  $"Array: {savedArray.width}x{savedArray.height}, {savedArray.depth} slices, {ARRAY_FORMAT}.\n" + report);
     }
 
-    // ----------------------------------------------------------------------
-    // Matching
-    // ----------------------------------------------------------------------
+    // =====================================================================
+    // HELPERS (identical to previous, except ResolveBaseTexture signature)
+    // =====================================================================
 
-    // Generates an in-memory black texture to stand in for slice 0 when no
-    // base lightmap is found. Goes through the same blit/compress pipeline
-    // as everything else in BuildArray, so it's not special-cased there.
-    private static Texture2D CreateBlackPlaceholder(int width, int height)
+    private static Dictionary<string, List<Material>> CollectSpecularMaterialGroups()
     {
-        Texture2D tex = new Texture2D(width, height, TextureFormat.RGBAFloat, false, true) { name = "BlackPlaceholder_Slice0" };
-        Color[] black = new Color[width * height];
-        for (int i = 0; i < black.Length; i++) black[i] = Color.black;
-        tex.SetPixels(black);
-        tex.Apply(false);
-        return tex;
+        var result = new Dictionary<string, List<Material>>(StringComparer.OrdinalIgnoreCase);
+        var unparsed = new List<string>();
+        Material[] allMats = Resources.FindObjectsOfTypeAll<Material>();
+
+        foreach (Material mat in allMats)
+        {
+            string path = AssetDatabase.GetAssetPath(mat);
+            if (string.IsNullOrEmpty(path)) continue;
+
+            string group = ExtractGroupFromMaterialName(mat.name);
+            if (string.IsNullOrEmpty(group))
+            {
+                if (mat.name.Contains(MATERIAL_GROUP_DELIMITER.Trim()))
+                    unparsed.Add(mat.name);
+                continue;
+            }
+
+            if (!result.ContainsKey(group)) result[group] = new List<Material>();
+            result[group].Add(mat);
+        }
+
+        if (unparsed.Count > 0)
+            Debug.LogWarning($"[Specular World][DEBUG] {unparsed.Count} material(s) contain \"-\" but didn't match: {string.Join(", ", unparsed)}");
+
+        return result;
+    }
+
+    private static string ExtractGroupFromMaterialName(string materialName)
+    {
+        string[] parts = materialName.Split(new[] { MATERIAL_GROUP_DELIMITER }, StringSplitOptions.None);
+        if (parts.Length >= 3) return parts[1].Trim();
+        return null;
     }
 
     private static Dictionary<string, string> CollectProjectTextures()
@@ -230,37 +324,62 @@ public static class SpecularLightLayerAutoAssigner
         return dict;
     }
 
-    private static string FindLightmapTexture(string lightName, Dictionary<string, string> texturesByName)
+    private static RNMSet FindRNMSet(string group, string lightName, Dictionary<string, string> texturesByName)
     {
-        string denoisedKey = lightName + LIGHTMAP_DENOISED_SUFFIX;
-        if (texturesByName.TryGetValue(denoisedKey, out string exact))
-            return exact;
-
-        string prefix = lightName + LIGHTMAP_SUFFIX;
-        string fallback = null;
-        foreach (var kvp in texturesByName)
+        var rnm = new RNMSet();
+        foreach (string sfx in new[] { DENOISED_INFIX, "" })
         {
-            if (!kvp.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
-            if (kvp.Key.IndexOf("denoised", StringComparison.OrdinalIgnoreCase) >= 0)
-                return kvp.Value;
-            fallback = kvp.Value;
+            if (rnm.X == null && texturesByName.TryGetValue($"{group}_{lightName}{RNM_X_SUFFIX}{sfx}", out string px))
+                rnm.X = AssetDatabase.LoadAssetAtPath<Texture2D>(px);
+            if (rnm.Y == null && texturesByName.TryGetValue($"{group}_{lightName}{RNM_Y_SUFFIX}{sfx}", out string py))
+                rnm.Y = AssetDatabase.LoadAssetAtPath<Texture2D>(py);
+            if (rnm.Z == null && texturesByName.TryGetValue($"{group}_{lightName}{RNM_Z_SUFFIX}{sfx}", out string pz))
+                rnm.Z = AssetDatabase.LoadAssetAtPath<Texture2D>(pz);
         }
-        return fallback;
+        return rnm;
     }
 
-    // ----------------------------------------------------------------------
-    // Array building — trimmed copy of TextureArrayCreatorAssetEditor.BuildArray,
-    // hardcoded to BC6H and driven by the light-name matches above instead of
-    // a manually curated texture list.
-    // ----------------------------------------------------------------------
+    private static Texture2D ResolveBaseTexture(Dictionary<string, string> texturesByName, List<Texture2D> existingTextures,
+        out bool isPlaceholder, System.Text.StringBuilder report)
+    {
+        isPlaceholder = false;
+        if (texturesByName.TryGetValue(BASE_LIGHTMAP_NAME, out string basePath))
+        {
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath);
+            if (tex != null)
+            {
+                report.AppendLine($"  [base] slice 0 <- {basePath}");
+                return tex;
+            }
+        }
+        // fallback to size of first texture in existing list (or 1024)
+        foreach (var t in existingTextures)
+        {
+            if (t != null)
+            {
+                report.AppendLine($"  [base] slice 0 <- black placeholder, sized to match \"{t.name}\" (no Base_Lightmap)");
+                isPlaceholder = true;
+                return CreateBlackPlaceholder(t.width, t.height);
+            }
+        }
+        report.AppendLine("  [base] slice 0 <- black placeholder 1024x1024");
+        isPlaceholder = true;
+        return CreateBlackPlaceholder(1024, 1024);
+    }
+
+    private static Texture2D CreateBlackPlaceholder(int width, int height)
+    {
+        var tex = new Texture2D(width, height, TextureFormat.RGBAFloat, false, true) { name = "BlackPlaceholder" };
+        Color[] black = new Color[width * height];
+        for (int i = 0; i < black.Length; i++) black[i] = Color.black;
+        tex.SetPixels(black);
+        tex.Apply(false);
+        return tex;
+    }
 
     private static Texture2DArray BuildArray(List<Texture2D> textures, System.Text.StringBuilder report)
     {
         if (textures.Count == 0) return null;
-
-        // Size is taken from the base lightmap (always slice 0); every other
-        // texture gets resized to fit via the blit below (matches ASE's own
-        // behavior for mismatched input sizes).
         int sizeX = textures[0].width;
         int sizeY = textures[0].height;
 
@@ -269,31 +388,29 @@ public static class SpecularLightLayerAutoAssigner
             Shader blitShader = Shader.Find("Hidden/ASEBlitCopy");
             if (blitShader == null)
             {
-                Debug.LogError("[Specular World] Could not find Hidden/ASEBlitCopy — is Amplify Shader Editor installed?");
+                Debug.LogError("[Specular World] Could not find Hidden/ASEBlitCopy.");
                 return null;
             }
             _blitCopyMat = new Material(blitShader) { hideFlags = HideFlags.HideAndDontSave };
         }
 
         bool isCompressed = !UncompressedFormats.Contains(ARRAY_FORMAT);
-
-        Texture2DArray textureArray = new Texture2DArray(sizeX, sizeY, textures.Count, ARRAY_FORMAT, MIPMAPS, LINEAR);
+        var textureArray = new Texture2DArray(sizeX, sizeY, textures.Count, ARRAY_FORMAT, MIPMAPS, LINEAR);
         textureArray.wrapMode = WRAP;
         textureArray.filterMode = FILTER;
         textureArray.anisoLevel = ANISO;
         textureArray.Apply(false);
 
         RenderTexture cache = RenderTexture.active;
-        RenderTexture rt = new RenderTexture(sizeX, sizeY, 0, RenderTextureFormat.ARGBFloat,
+        var rt = new RenderTexture(sizeX, sizeY, 0, RenderTextureFormat.ARGBFloat,
             LINEAR ? RenderTextureReadWrite.Linear : RenderTextureReadWrite.sRGB);
         rt.Create();
 
         for (int i = 0; i < textures.Count; i++)
         {
             Texture2D src = textures[i];
-
             if (src.width != sizeX || src.height != sizeY)
-                report.AppendLine($"  (note) \"{src.name}\" is {src.width}x{src.height}, resized to {sizeX}x{sizeY} to match slice 0");
+                report.AppendLine($"  (note) \"{src.name}\" is {src.width}x{src.height}, resized to {sizeX}x{sizeY}");
 
             RenderTexture.active = rt;
             bool cachedSrgb = GL.sRGBWrite;
@@ -303,7 +420,7 @@ public static class SpecularLightLayerAutoAssigner
             GL.sRGBWrite = cachedSrgb;
 
             TextureFormat readFormat = isCompressed ? TextureFormat.RGBAFloat : ARRAY_FORMAT;
-            Texture2D t2d = new Texture2D(sizeX, sizeY, readFormat, MIPMAPS, LINEAR);
+            var t2d = new Texture2D(sizeX, sizeY, readFormat, MIPMAPS, LINEAR);
             t2d.ReadPixels(new Rect(0, 0, sizeX, sizeY), 0, 0, MIPMAPS);
             RenderTexture.active = null;
 
@@ -322,14 +439,12 @@ public static class SpecularLightLayerAutoAssigner
             {
                 CopyToArray(t2d, textureArray, i, 0, isCompressed);
             }
-
             UnityEngine.Object.DestroyImmediate(t2d);
         }
 
         rt.Release();
         UnityEngine.Object.DestroyImmediate(rt);
         RenderTexture.active = cache;
-
         textureArray.Apply(false, false);
         return textureArray;
     }
@@ -344,8 +459,6 @@ public static class SpecularLightLayerAutoAssigner
 
     private static Texture2DArray SaveArrayAsset(Texture2DArray array, SpecularLightManager mgr)
     {
-        // If the manager already points at an array asset, overwrite it in
-        // place so existing material/shader references keep working.
         if (mgr.lightLayerArray != null)
         {
             string existingPath = AssetDatabase.GetAssetPath(mgr.lightLayerArray);

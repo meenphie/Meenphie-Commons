@@ -11,16 +11,25 @@ using UnityEditor;
 // keeps the manager's serialized light lists in sync with the scene
 // automatically — no manual "Rebuild Lights" step required.
 //
-// IMPORTANT: per-light overrides (IsRealtime / Diffuse / Specular, edited via
-// the "Speculars" foldout in the Light inspector) are matched by Light
-// REFERENCE across rescans, never by array index. lightmapBakeType is only
-// ever used as the initial default for a light the manager has never seen
-// before — once a light has an entry, rescans preserve it untouched. This is
-// what makes the auto-refresh safe to run on every hierarchy change.
+// IMPORTANT: per-light overrides (IsRealtime / Diffuse / Specular / GroupMask,
+// edited via the "Speculars" foldout in the Light inspector, or written by
+// the auto-assigner) are matched by Light REFERENCE across rescans, never by
+// array index. lightmapBakeType is only ever used as the initial default for
+// a light the manager has never seen before — once a light has an entry,
+// rescans preserve it untouched. This is what makes the auto-refresh safe to
+// run on every hierarchy change.
 //
 // Layer slice assignment is manual: childLightLayerSlices is a visible field
 // on SpecularLightManager — set each light's slice index there to match your
-// own externally-built Texture2DArray (e.g. built in Amplify).
+// own externally-built Texture2DArray (e.g. built in Amplify), or let the
+// auto-assigner populate it.
+//
+// Group mask (childLightGroupMask) follows the same bitmask convention as
+// the runtime path and the shader's _LightGroupMask filter: bit N = group N,
+// and ~0 (all bits set) means "unconfigured / affects every group" rather
+// than "affects no group" — see SpecularLightManager for the reasoning. The
+// preview pipeline below mirrors that default so scene-view preview doesn't
+// silently exclude every light from every material's group filter.
 // ==============================================================================
 
 [InitializeOnLoad]
@@ -55,6 +64,7 @@ public static class SpecularLightManagerEditor
     private static float[] _bakedIntensities;
     private static Vector3[] _bakedColors;
     private static int[] _layerSlices;   // per childLight, -1 = no layer
+    private static int[] _groupMasks;    // per childLight, bitmask; ~0 = unconfigured/all groups
     private static float _rangeScale = DEFAULT_RANGE_SCALE;
 
     // Mirrors SpecularLightManager.activeLightCount
@@ -134,8 +144,9 @@ public static class SpecularLightManagerEditor
 
         if (_lights == null || _lights.Length == 0) return;
 
-        // Also catch slice/layer edits made directly in the manager inspector
-        // (those don't fire hierarchyChanged since no GameObject changed).
+        // Also catch slice/layer/group-mask edits made directly in the
+        // manager inspector or by the auto-assigner (those don't fire
+        // hierarchyChanged since no GameObject changed).
         SpecularLightManager liveMgr = _worldRoot.GetComponent<SpecularLightManager>();
         if (liveMgr != null && HasExternalArrayEdits(liveMgr))
         {
@@ -175,21 +186,23 @@ public static class SpecularLightManagerEditor
         return false;
     }
 
-    // Detects edits made directly to childLightLayerSlices (or array length
-    // mismatches from undo/redo, scene reloads, etc.) so the preview stays
-    // correct even when nothing in the hierarchy itself changed.
+    // Detects edits made directly to childLightLayerSlices or
+    // childLightGroupMask (or array length mismatches from undo/redo, scene
+    // reloads, the auto-assigner running, etc.) so the preview stays correct
+    // even when nothing in the hierarchy itself changed.
     private static bool HasExternalArrayEdits(SpecularLightManager mgr)
     {
-        if (mgr.childLightLayerSlices == null || _layerSlices == null)
-            return mgr.childLightLayerSlices != _layerSlices;
+        if (ArrayDiffers(mgr.childLightLayerSlices, _layerSlices)) return true;
+        if (ArrayDiffers(mgr.childLightGroupIndex, _groupMasks)) return true;
+        return false;
+    }
 
-        if (mgr.childLightLayerSlices.Length != _layerSlices.Length)
-            return true;
-
-        for (int i = 0; i < _layerSlices.Length; i++)
-            if (mgr.childLightLayerSlices[i] != _layerSlices[i])
-                return true;
-
+    private static bool ArrayDiffers(int[] a, int[] b)
+    {
+        if (a == null || b == null) return a != b;
+        if (a.Length != b.Length) return true;
+        for (int i = 0; i < a.Length; i++)
+            if (a[i] != b[i]) return true;
         return false;
     }
 
@@ -201,9 +214,9 @@ public static class SpecularLightManagerEditor
 
     // Rescans the scene for lights and merges the result into the manager's
     // arrays, preserving every existing per-light value (IsRealtime, Diffuse,
-    // Specular, layer slice, baked intensity/color) by Light REFERENCE.
-    // lightmapBakeType is consulted only as the default for a light that has
-    // never been seen by this manager before.
+    // Specular, layer slice, group mask, baked intensity/color) by Light
+    // REFERENCE. lightmapBakeType is consulted only as the default for a
+    // light that has never been seen by this manager before.
     private static void Rescan(SpecularLightManager mgr)
     {
         _worldRoot = mgr.gameObject;
@@ -221,6 +234,7 @@ public static class SpecularLightManagerEditor
         var oldDiffuseByLight   = new Dictionary<Light, bool>();
         var oldSpecularByLight  = new Dictionary<Light, bool>();
         var oldSliceByLight     = new Dictionary<Light, int>();
+        var oldGroupMaskByLight = new Dictionary<Light, int>();
         var oldBakedIntByLight  = new Dictionary<Light, float>();
         var oldBakedColByLight  = new Dictionary<Light, Vector3>();
 
@@ -243,6 +257,9 @@ public static class SpecularLightManagerEditor
                 if (mgr.childLightLayerSlices != null && i < mgr.childLightLayerSlices.Length)
                     oldSliceByLight[l] = mgr.childLightLayerSlices[i];
 
+                if (mgr.childLightGroupIndex != null && i < mgr.childLightGroupIndex.Length)
+                    oldGroupMaskByLight[l] = mgr.childLightGroupIndex[i];
+
                 if (mgr.childLightBakedIntensities != null && i < mgr.childLightBakedIntensities.Length)
                     oldBakedIntByLight[l] = mgr.childLightBakedIntensities[i];
 
@@ -258,6 +275,7 @@ public static class SpecularLightManagerEditor
         _bakedIntensities = new float[count];
         _bakedColors      = new Vector3[count];
         _layerSlices      = new int[count];
+        _groupMasks       = new int[count];
 
         for (int i = 0; i < count; i++)
         {
@@ -286,6 +304,14 @@ public static class SpecularLightManagerEditor
                 ? prevSlice
                 : -1;
 
+            // Same default as SpecularLightManager: ~0 ("affects every
+            // group") rather than 0 ("affects no group"), so a brand-new or
+            // never-tagged light is loudly visible in preview instead of
+            // silently filtered out of every material everywhere.
+            _groupMasks[i] = oldGroupMaskByLight.TryGetValue(l, out int prevGroupMask)
+                ? prevGroupMask
+                : ~0;
+
             _bakedIntensities[i] = oldBakedIntByLight.TryGetValue(l, out float prevBakedInt) && prevBakedInt > 0f
                 ? prevBakedInt
                 : l.intensity;
@@ -301,6 +327,7 @@ public static class SpecularLightManagerEditor
         mgr.childLightSpecularEnabled  = _specularEnabled;
         mgr.childLightHalfExtents      = _halfExtents;
         mgr.childLightLayerSlices      = _layerSlices;
+        mgr.childLightGroupIndex        = _groupMasks;
         mgr.childLightBakedIntensities = _bakedIntensities;
         mgr.childLightBakedColors      = _bakedColors;
 
@@ -483,6 +510,7 @@ public static class SpecularLightManagerEditor
                 Vector3 bakedCol = (_bakedColors != null && idx < _bakedColors.Length) ? _bakedColors[idx] : rawColor;
 
                 int layerSlice = (_layerSlices != null && idx < _layerSlices.Length) ? _layerSlices[idx] : -1;
+                int groupMask = (_groupMasks != null && idx < _groupMasks.Length) ? _groupMasks[idx] : ~0;
                 float realtimeFlag = _isRealtime[idx] ? 1.0f : 0.0f;
                 float diffuseFlag  = (_diffuseEnabled  != null && idx < _diffuseEnabled.Length  && _diffuseEnabled[idx])  ? 1f : 0f;
                 float specularFlag = (_specularEnabled != null && idx < _specularEnabled.Length && _specularEnabled[idx]) ? 1f : 0f;
@@ -497,7 +525,7 @@ public static class SpecularLightManagerEditor
                 _shaderRight[i] = new Vector4(l.transform.right.x, l.transform.right.y, l.transform.right.z, width);
                 _shaderUp[i] = new Vector4(l.transform.up.x, l.transform.up.y, l.transform.up.z, height);
                 _shaderDir[i] = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
-                _shaderLayerIndex[i] = new Vector4(layerSlice, diffuseFlag, specularFlag, 0f);
+                _shaderLayerIndex[i] = new Vector4(layerSlice, diffuseFlag, specularFlag, (float)groupMask);
             }
             else
             {

@@ -53,6 +53,15 @@ public class SpecularLightManager : UdonSharpBehaviour
     [HideInInspector] public int[] childLightStyleIndex;
     [HideInInspector] public float[] childLightAnimationSpeed;
 
+    // Bitmask of which material groups this light affects (bit N = group N).
+    // Auto-assigner sets this from which "<Group>_<LightName>_RNMX/Y/Z"
+    // textures exist for the light — a light referenced by multiple groups'
+    // textures gets multiple bits set. Unmatched/unconfigured lights default
+    // to ~0 ("affects every group") rather than 0, so a light nobody tagged
+    // shows up everywhere (loud, obvious) instead of vanishing everywhere
+    // (silent, easy to miss).
+    [HideInInspector] public int[] childLightGroupIndex;
+
     [HideInInspector] public Vector4[] mergedPos;
     [HideInInspector] public Vector4[] mergedCol;
     [HideInInspector] public Vector4[] mergedRight;
@@ -65,7 +74,8 @@ public class SpecularLightManager : UdonSharpBehaviour
     [HideInInspector] public bool[] mergedSpecularEnabled;
     [HideInInspector] public bool[] mergedIsAnimated;
     [HideInInspector] public int[] mergedStyleIndex;
-    [HideInInspector] public float[] mergedAnimationSpeed;       // merged copy of per-light speed
+    [HideInInspector] public float[] mergedAnimationSpeed;
+    [HideInInspector] public int[] mergedGroupMask;
     [HideInInspector] public int mergedCount;
 
     private Vector4[] _shaderPos = new Vector4[MAX_LIGHTS];
@@ -122,6 +132,46 @@ public class SpecularLightManager : UdonSharpBehaviour
     private VRCPlayerApi _localPlayer;
     private float _tickTimer;
     private bool _specularEnabled = true;
+
+#if !COMPILER_UDONSHARP && UNITY_EDITOR
+    private void OnValidate()
+    {
+        // Ensures components and transform caches are updated in the editor
+        if (childLights == null) return;
+        int cap = childLights.Length;
+
+        if (childLightIsRealtime == null || childLightIsRealtime.Length != cap) childLightIsRealtime = new bool[cap];
+        if (childLightDiffuseEnabled == null || childLightDiffuseEnabled.Length != cap) childLightDiffuseEnabled = new bool[cap];
+        if (childLightSpecularEnabled == null || childLightSpecularEnabled.Length != cap) childLightSpecularEnabled = new bool[cap];
+        if (childLightIsAnimated == null || childLightIsAnimated.Length != cap) childLightIsAnimated = new bool[cap];
+        if (childLightStyleIndex == null || childLightStyleIndex.Length != cap) childLightStyleIndex = new int[cap];
+
+        // Default new slots to 1.0f speed so animations don't freeze at 0
+        if (childLightAnimationSpeed == null || childLightAnimationSpeed.Length != cap)
+        {
+            System.Array.Resize(ref childLightAnimationSpeed, cap);
+            for (int i = 0; i < cap; i++) { if (childLightAnimationSpeed[i] == 0f) childLightAnimationSpeed[i] = 1.0f; }
+        }
+
+        // Default new slots to ~0 ("affects every group") rather than 0
+        // ("affects no group") — an untagged light should be loudly visible
+        // everywhere, not silently invisible everywhere. Array.Resize
+        // zero-fills new elements, so we only need to patch entries that
+        // are genuinely new (value 0 immediately after resize) without
+        // stomping on group masks someone already configured by hand.
+        if (childLightGroupIndex == null)
+        {
+            childLightGroupIndex = new int[cap];
+            for (int i = 0; i < cap; i++) childLightGroupIndex[i] = ~0;
+        }
+        else if (childLightGroupIndex.Length != cap)
+        {
+            int oldLength = childLightGroupIndex.Length;
+            System.Array.Resize(ref childLightGroupIndex, cap);
+            for (int i = oldLength; i < cap; i++) childLightGroupIndex[i] = ~0;
+        }
+    }
+#endif
 
     void Start()
     {
@@ -452,6 +502,11 @@ public class SpecularLightManager : UdonSharpBehaviour
             float animSpeed = (childLightAnimationSpeed != null && li < childLightAnimationSpeed.Length)
                 ? childLightAnimationSpeed[li] : 1.0f;
 
+            // Default ~0 ("all groups") rather than 0 ("no group") for the
+            // same reason as OnValidate above — see field doc comment.
+            int groupMask = (childLightGroupIndex != null && li < childLightGroupIndex.Length)
+                ? childLightGroupIndex[li] : ~0;
+
             float cosOuter = (l.type == LightType.Spot) ? Mathf.Cos(l.spotAngle * 0.5f * Mathf.Deg2Rad)
                 : (l.type == LightType.Area) ? 0.0f
                 : -1.0f;
@@ -472,6 +527,7 @@ public class SpecularLightManager : UdonSharpBehaviour
                 mergedIsAnimated[mi] = isAnimated;
                 mergedStyleIndex[mi] = styleIndex;
                 mergedAnimationSpeed[mi] = animSpeed;
+                mergedGroupMask[mi] = groupMask;
                 _lightToMerged[li] = mi;
                 mergedCount++;
             }
@@ -532,7 +588,8 @@ public class SpecularLightManager : UdonSharpBehaviour
     {
         float diffuseFlag = (mergedDiffuseEnabled != null && mi < mergedDiffuseEnabled.Length && mergedDiffuseEnabled[mi]) ? 1f : 0f;
         float specularFlag = (mergedSpecularEnabled != null && mi < mergedSpecularEnabled.Length && mergedSpecularEnabled[mi]) ? 1f : 0f;
-        return new Vector4(mergedLayerSlice[mi], diffuseFlag, specularFlag, 0f);
+        float groupMask = (mergedGroupMask != null && mi < mergedGroupMask.Length) ? (float)mergedGroupMask[mi] : -1f;
+        return new Vector4(mergedLayerSlice[mi], diffuseFlag, specularFlag, groupMask);
     }
 
     private void UploadToShader(int count)
@@ -590,6 +647,7 @@ public class SpecularLightManager : UdonSharpBehaviour
         mergedIsAnimated = new bool[cap];
         mergedStyleIndex = new int[cap];
         mergedAnimationSpeed = new float[cap];
+        mergedGroupMask = new int[cap];
 
         for (int i = 0; i < cap; i++)
         {
@@ -599,6 +657,7 @@ public class SpecularLightManager : UdonSharpBehaviour
             mergedIsAnimated[i] = false;
             mergedStyleIndex[i] = 0;
             mergedAnimationSpeed[i] = 1.0f;
+            mergedGroupMask[i] = ~0;
         }
 
         _childTransforms = new Transform[cap];
@@ -606,6 +665,30 @@ public class SpecularLightManager : UdonSharpBehaviour
         {
             if (childLights != null && i < childLights.Length && childLights[i] != null)
                 _childTransforms[i] = childLights[i].transform;
+        }
+
+        // Ensure childLightGroupMask exists and is the right size — mirrors
+        // OnValidate's logic so this also works correctly if AllocateMergeBuffers
+        // runs first at runtime (e.g. via Start()) before OnValidate ever fires.
+        //
+        // NOTE: System.Array.Resize is NOT exposed to Udon, so we can't call it
+        // here (this method runs at Udon runtime via Start(), unlike OnValidate
+        // which is editor-only and CAN use Array.Resize freely). Instead we
+        // allocate a new array and copy manually — new int[] and indexed
+        // for-loops are both fine in Udon, only the static helper isn't.
+        if (childLightGroupIndex == null)
+        {
+            childLightGroupIndex = new int[cap];
+            for (int i = 0; i < cap; i++) childLightGroupIndex[i] = ~0;
+        }
+        else if (childLightGroupIndex.Length != cap)
+        {
+            int oldLength = childLightGroupIndex.Length;
+            int[] resized = new int[cap];
+            int copyLength = Mathf.Min(oldLength, cap);
+            for (int i = 0; i < copyLength; i++) resized[i] = childLightGroupIndex[i];
+            for (int i = copyLength; i < cap; i++) resized[i] = ~0;
+            childLightGroupIndex = resized;
         }
     }
 

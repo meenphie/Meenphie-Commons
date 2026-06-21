@@ -16,12 +16,21 @@
 //   _UdonLightLayerIndex[i]        x   = slice index (-1 = none)
 //                                  y   = diffuse enabled  (1.0 = on, 0.0 = off)
 //                                  z   = specular enabled (1.0 = on, 0.0 = off)
+//                                  w   = group bitmask (bit N = group N; light
+//                                        affects every group whose bit is set)
 //
 // Type flags (Dir.w):
 //   w < -0.9  → Point (omni)
 //   w < -0.1  → Bidir (two-sided)
 //   w == 0.0  → Area
 //   w >  0.0  → Spot  (w = cosOuter)
+//
+// Per-material group filter:
+//   _LightGroupMask is a per-material float bitmask (set by the auto-assigner
+//   from the material's "X - Group - Y" name, one bit per discovered group).
+//   A light is processed by a material only if their masks share at least
+//   one set bit. A light with mask ~0 (unconfigured / default) is processed
+//   by every material regardless of _LightGroupMask.
 // ==============================================================================
 
 #ifndef UDON_SPECULAR_SYSTEM
@@ -43,16 +52,24 @@
         uniform float4 _UdonSpecularLightUp[32];
         uniform float4 _UdonLightLayerIndex[32];
 
+        // Per-material group filter. Set by the auto-assigner to a power-of-two
+        // value corresponding to this material's parsed group name.
+        uniform float _LightGroupMask;
+
         UNITY_DECLARE_TEX2DARRAY(_UdonLightLayerArray);
 
         static const float _SpecBoost     = 0.4;
         static const float _FadeStartDist = 25.0;
         static const float _FadeEndDist   = 30.0;
 
-    #endif // UDON_SPECULAR_SYSTEM_PROPERTIES
+        static const float3 _BasisX = float3( 0.81649658,  0.0,        0.57735027);
+        static const float3 _BasisY = float3(-0.40824829,  0.70710678, 0.57735027);
+        static const float3 _BasisZ = float3(-0.40824829, -0.70710678, 0.57735027);
+
+    #endif
 
     // ------------------------------------------------------------------------------
-    // Helpers
+    // Helpers (unchanged)
     // ------------------------------------------------------------------------------
 
     float _UdonCameraFade(float3 lightPos)
@@ -91,8 +108,8 @@
     }
 
     float3 _UdonRepPoint(int i, bool isPointLight, bool isSpot,
-                         float3 L_vector, float3 L_norm,
-                         float distSq, float invDist, float3 R)
+    float3 L_vector, float3 L_norm,
+    float distSq, float invDist, float3 R)
     {
         float2 halfSize = float2(_UdonSpecularLightRight[i].w, _UdonSpecularLightUp[i].w);
 
@@ -107,45 +124,46 @@
             return L_vector - repDir * lightRadius;
         }
 
-        // === FIX 1: Closest-point-on-ray method to permanently eliminate infinite tunnels ===
         float3 lightPos = _UdonSpecularLightPos[i].xyz;
-        float3 wPos     = lightPos - L_vector; // Recovers World Position
-        
-        // Project light center onto reflection ray R safely without division
+        float3 wPos     = lightPos - L_vector;
         float  tRay     = max(dot(L_vector, R), 0.0);
         float3 pRefl    = wPos + R * tRay;
-        
-        // Map back to quad local space
         float3 lp     = pRefl - lightPos;
         float2 localP = float2(dot(lp, _UdonSpecularLightRight[i].xyz),
-                               dot(lp, _UdonSpecularLightUp[i].xyz));
+        dot(lp, _UdonSpecularLightUp[i].xyz));
         float2 clampP = clamp(localP, -halfSize, halfSize);
-
         return lightPos
-            + _UdonSpecularLightRight[i].xyz * clampP.x
-            + _UdonSpecularLightUp[i].xyz    * clampP.y
-            - wPos;
+        + _UdonSpecularLightRight[i].xyz * clampP.x
+        + _UdonSpecularLightUp[i].xyz    * clampP.y
+        - wPos;
     }
 
     // ------------------------------------------------------------------------------
-    // DirectSpecular
+    // Main lighting function
     // ------------------------------------------------------------------------------
+
     float3 DirectSpecular(
-        float3 Color,
-        float  Metallic,
-        float  Smoothness,
-        float3 ViewDir,
-        float3 WorldPos,
-        float3 WorldNormal,
-        float3 VertexNormal,
-        float2 LightmapUV,
-        out float3 Diffuse,
-        out float3 Specular
+    float3 Color,
+    float  Metallic,
+    float  Smoothness,
+    float3 ViewDir,
+    float3 WorldPos,
+    float3 Normal,
+    float3 WorldNormal,
+    float3 VertexNormal,
+    float2 LightmapUV,
+    out float3 Diffuse,
+    out float3 Specular
     )
     {
-        int loopCount = (int)_UdonSpecularLightData.x;
+        // Fix 1: Protect loop count precision
+        int loopCount = (int)round(_UdonSpecularLightData.x);
 
-        // Establish background lighting base from array index 0
+        float3 N_tangent = normalize(Normal);
+        float w1 = max(0.0, dot(N_tangent, _BasisX));
+        float w2 = max(0.0, dot(N_tangent, _BasisY));
+        float w3 = max(0.0, dot(N_tangent, _BasisZ));
+
         float3 diffAcc = float3(0.0, 0.0, 0.0);
         float3 baseSample = UNITY_SAMPLE_TEX2DARRAY(_UdonLightLayerArray, float3(LightmapUV, 0.0)).rgb;
         diffAcc += baseSample;
@@ -160,7 +178,6 @@
         float rangeScale = _UdonSpecularLightData.y;
 
         float3 N     = normalize(WorldNormal);
-        float3 N_geo = normalize(VertexNormal);
         float3 vDir  = normalize(ViewDir);
         float3 R     = reflect(-vDir, N);
 
@@ -175,11 +192,19 @@
 
         float3 specAcc = float3(0.0, 0.0, 0.0);
 
+        // Fix 2: Protect material group mask precision
+        int materialMask = (int)round(_LightGroupMask);
+
         for (int i = 0; i < loopCount; i++)
         {
-            // ------------------------------------------------------------------
-            // Light data
-            // ------------------------------------------------------------------
+            // Fix 3: Protect light bitmask precision
+            int lightGroupMask = (int)round(_UdonLightLayerIndex[i].w);
+
+            // If material mask is 0, process all lights (fallback).
+            // Otherwise, only process lights that share at least one group bit.
+            if (materialMask != 0 && (materialMask & lightGroupMask) == 0)
+            continue;
+
             float3 lightPos  = _UdonSpecularLightPos[i].xyz;
             float  bakedInt  = max(_UdonSpecularLightPos[i].w,    1e-4);
             float3 liveCol   = _UdonSpecularLightCol[i].rgb;
@@ -196,9 +221,6 @@
             float  invDist  = rsqrt(max(distSq, 1e-6));
             float3 L_norm   = L_vector * invDist;
 
-            // ------------------------------------------------------------------
-            // Light type configuration
-            // ------------------------------------------------------------------
             float4 dirAngle   = _UdonSpecularLightDir[i];
             bool isPointLight = dirAngle.w < -0.9;
             bool isBidir      = !isPointLight && dirAngle.w < -0.1;
@@ -209,17 +231,16 @@
             if      (isSpot) dirMask = _UdonSpotMask(L_norm, dirAngle.xyz, dirAngle.w);
             else if (isArea) dirMask = _UdonAreaMask(L_norm, dirAngle.xyz);
 
-            int  sliceIndex = (int)_UdonLightLayerIndex[i].x;
+            // Fix 4: Protect texture array slice index precision
+            int  sliceIndex = (int)round(_UdonLightLayerIndex[i].x);
             bool hasLayer   = sliceIndex >= 0;
             bool diffuseOn  = _UdonLightLayerIndex[i].y > 0.5;
             bool specularOn = _UdonLightLayerIndex[i].z > 0.5;
 
+
             float horizFade = _UdonHorizonFade(N, L_norm);
             float nDotL     = saturate(dot(N, L_norm));
 
-            // ------------------------------------------------------------------
-            // DIFFUSE CHANNEL
-            // ------------------------------------------------------------------
             float3 layerSample = float3(0.0, 0.0, 0.0);
 
             if (diffuseOn)
@@ -228,8 +249,13 @@
                 {
                     if (hasLayer)
                     {
-                        float targetSlice = (float)sliceIndex + 1.0;
-                        layerSample = UNITY_SAMPLE_TEX2DARRAY(_UdonLightLayerArray, float3(LightmapUV, targetSlice)).rgb;
+                        float baseSlice = (float)sliceIndex * 3.0 + 1.0;
+
+                        float3 sampleX = UNITY_SAMPLE_TEX2DARRAY(_UdonLightLayerArray, float3(LightmapUV, baseSlice + 0.0)).rgb;
+                        float3 sampleY = UNITY_SAMPLE_TEX2DARRAY(_UdonLightLayerArray, float3(LightmapUV, baseSlice + 1.0)).rgb;
+                        float3 sampleZ = UNITY_SAMPLE_TEX2DARRAY(_UdonLightLayerArray, float3(LightmapUV, baseSlice + 2.0)).rgb;
+
+                        layerSample = sampleX * w1 + sampleY * w2 + sampleZ * w3;
                         diffAcc += layerSample * (liveInt / bakedInt);
                     }
                 }
@@ -240,9 +266,7 @@
                 }
             }
 
-            // ------------------------------------------------------------------
-            // SPECULAR CHANNEL (Realtime GGX Execution)
-            // ------------------------------------------------------------------
+            // ---- Specular (unchanged) ----
             float3 repDiff   = _UdonRepPoint(i, isPointLight, isSpot, L_vector, L_norm, distSq, invDist, R);
             float  repDistSq = max(dot(repDiff, repDiff), 1e-6);
             float3 lDir      = repDiff * rsqrt(repDistSq);
@@ -251,18 +275,14 @@
             float  nDotH      = saturate(dot(N, H));
             float  nDotL_spec = saturate(dot(N, lDir));
 
-            // === FIX 2: Removed hard 'dot(N_geo, L_norm) <= 0.0' branch cutoff ===
             if (nDotL_spec <= 0.0) continue;
 
             float fade = _UdonCameraFade(lightPos);
             if (fade <= 0.0 || distSq > rangeSq) continue;
 
             float specFall = _UdonDistFalloff(distSq, rangeSq) * fade;
-
-            // === FIX 3: Evaluate a custom smooth horizon fade based on the shifted highlight direction ===
             float specHorizFade = _UdonHorizonFade(N, lDir);
 
-            // Specular Shadow Estimation using the offset slice reference
             float shadowEstimate = 1.0;
             if (isLightBaked && hasLayer)
             {
@@ -294,7 +314,7 @@
         Diffuse  = diffAcc * Color.rgb;
         Specular = specAcc * _SpecBoost;
 
-        return 0;
+        return Diffuse + Specular;
     }
 
 #endif // UDON_SPECULAR_SYSTEM
