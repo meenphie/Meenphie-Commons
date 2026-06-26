@@ -1,23 +1,12 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-// ============================================================================
-// Naming convention this script expects:
-//
-//   Textures:   {Group}_{LightName}_RNMX   (+ _RNMY, _RNMZ, optional _denoised)
-//               e.g. "Cube A_Point.001_RNMX"
-//
-//   Materials:  "{ShaderType} - {Group} - {MaterialName}"
-//               e.g. "GI Opaque - Cube A - Send"
-//
-// ============================================================================
-
-public static class SpecularLightLayerAutoAssigner
+public static class LayeredLightingAssigner
 {
     private const string LIGHTMAP_SEARCH_FOLDER = "Assets";
     private const string RNM_X_SUFFIX = "_RNMX";
@@ -38,7 +27,7 @@ public static class SpecularLightLayerAutoAssigner
     private const FilterMode FILTER = FilterMode.Trilinear;
     private const int ANISO = 1;
 
-    private const int MAX_GROUPS = 20;   // float32 bitmask precision cap
+    private const int MAX_GROUPS = 20;
 
     private static Material _blitCopyMat;
 
@@ -54,71 +43,75 @@ public static class SpecularLightLayerAutoAssigner
         public bool IsValid => X != null || Y != null || Z != null;
     }
 
-    // =========================================================================
-    // MENU ENTRY
-    // =========================================================================
-
-    [MenuItem("Meenphie/Lighting/Speculars/Auto-Assign Light Layers (Build Array)")]
+    [MenuItem("Meenphie/Layered Lighting/Build Array")]
     public static void AutoAssignLightLayers()
     {
         try
         {
             EditorUtility.DisplayProgressBar("Specular Auto-Assign", "Initialising…", 0f);
 
-            SpecularLightManager mgr = UnityEngine.Object.FindObjectOfType<SpecularLightManager>();
+            LayeredLightingManager mgr = UnityEngine.Object.FindObjectOfType<LayeredLightingManager>();
             if (mgr == null)
             {
-                Debug.LogError("[Specular World] No SpecularLightManager found in scene.");
+                Debug.LogError("[Specular World] No LayeredLightingManager found in scene.");
                 return;
             }
 
-            SpecularLightManagerEditor.ForceRescanNow();
+            LayeredLightingEditor.RebuildLightData();
 
             if (mgr.childLights == null || mgr.childLights.Length == 0)
             {
-                Debug.LogError("[Specular World] SpecularLightManager has no childLights — nothing to assign.");
+                Debug.LogError("[Specular World] LayeredLightingManager has no childLights — nothing to assign.");
                 return;
             }
 
             var report = new System.Text.StringBuilder();
 
-            // ---- 1. Find all materials with the group naming pattern ----
             EditorUtility.DisplayProgressBar("Specular Auto-Assign", "Scanning material groups…", 0.03f);
             var groupMaterials = CollectSpecularMaterialGroups();
             if (groupMaterials.Count == 0)
             {
-                Debug.LogError("[Specular World] No materials found with pattern " +
-                              $"\"X{MATERIAL_GROUP_DELIMITER}Group{MATERIAL_GROUP_DELIMITER}Y\". Nothing to assign.");
+                Debug.LogError("[Specular World] No materials found with pattern X - Group - Y. Nothing to assign.");
                 return;
             }
 
             var groupNames = groupMaterials.Keys.OrderBy(g => g, StringComparer.OrdinalIgnoreCase).ToList();
             if (groupNames.Count > MAX_GROUPS)
             {
-                Debug.LogError($"[Specular World] {groupNames.Count} groups found, but bitmask packing only " +
-                                $"supports up to {MAX_GROUPS}. Aborting.");
+                Debug.LogError("[Specular World] " + groupNames.Count + " groups found, but bitmask packing only supports up to " + MAX_GROUPS + ". Aborting.");
                 return;
             }
 
-            report.AppendLine($"=== {groupNames.Count} groups: {string.Join(", ", groupNames)} ===");
+            report.AppendLine("=== " + groupNames.Count + " groups: " + string.Join(", ", groupNames) + " ===");
 
-            // ---- 2. Collect all project textures ----
             EditorUtility.DisplayProgressBar("Specular Auto-Assign", "Collecting project textures…", 0.08f);
             Dictionary<string, string> texturesByName = CollectProjectTextures();
-            report.AppendLine($"{texturesByName.Count} textures found under \"{LIGHTMAP_SEARCH_FOLDER}\".");
+            report.AppendLine(texturesByName.Count + " textures found under Assets.");
 
-            // ---- 3. Read light data from manager ----
             int originalLightCount = mgr.childLights.Length;
-            var lightData = new (Light light, Transform transform, float bakedIntensity, Vector3 bakedColor,
-                                Vector2 halfExtents, bool isRealtime, bool diffuse, bool specular,
-                                bool animated, int styleIdx, float animSpeed)[originalLightCount];
+
+            var lightData = new (
+                Light light,
+                Transform transform,
+                Vector3 bakedColor,
+                Vector2 halfExtents,
+                bool isRealtime,
+                bool diffuse,
+                bool specular,
+                float specularMaxDist,
+                float diffuseMaxDist,
+                bool animated,
+                int animModel,
+                bool isBroken,
+                float failureRate,
+                AudioClip audioOverride
+            )[originalLightCount];
 
             for (int i = 0; i < originalLightCount; i++)
             {
                 Light l = mgr.childLights[i];
                 if (l == null) continue;
-                float bakedInt = (mgr.childLightBakedIntensities != null && i < mgr.childLightBakedIntensities.Length)
-                    ? mgr.childLightBakedIntensities[i] : l.intensity;
+
                 Vector3 bakedCol = (mgr.childLightBakedColors != null && i < mgr.childLightBakedColors.Length)
                     ? mgr.childLightBakedColors[i] : new Vector3(l.color.r, l.color.g, l.color.b);
                 Vector2 halfExt = (mgr.childLightHalfExtents != null && i < mgr.childLightHalfExtents.Length)
@@ -127,31 +120,41 @@ public static class SpecularLightLayerAutoAssigner
                     ? mgr.childLightIsRealtime[i] : true;
                 bool diff = (mgr.childLightDiffuseEnabled != null && i < mgr.childLightDiffuseEnabled.Length)
                     ? mgr.childLightDiffuseEnabled[i] : true;
-                bool spec = (mgr.childLightSpecularEnabled != null && i < mgr.childLightSpecularEnabled.Length)
-                    ? mgr.childLightSpecularEnabled[i] : true;
+                bool spec = (mgr.childLightSpecularDistance != null && i < mgr.childLightSpecularDistance.Length)
+                    ? mgr.childLightSpecularDistance[i] : true;
+                float specMax = (mgr.childLightSpecularMaxDistance != null && i < mgr.childLightSpecularMaxDistance.Length)
+                    ? mgr.childLightSpecularMaxDistance[i] : 0f;
+                float diffMax = (mgr.childLightDiffuseMaxDistance != null && i < mgr.childLightDiffuseMaxDistance.Length)
+                    ? mgr.childLightDiffuseMaxDistance[i] : 0f;
                 bool anim = (mgr.childLightIsAnimated != null && i < mgr.childLightIsAnimated.Length)
                     ? mgr.childLightIsAnimated[i] : false;
-                int stIdx = (mgr.childLightStyleIndex != null && i < mgr.childLightStyleIndex.Length)
-                    ? mgr.childLightStyleIndex[i] : 0;
-                float spd = (mgr.childLightAnimationSpeed != null && i < mgr.childLightAnimationSpeed.Length)
-                    ? mgr.childLightAnimationSpeed[i] : 1.0f;
+                int animMdl = (mgr.childLightAnimationModel != null && i < mgr.childLightAnimationModel.Length)
+                    ? mgr.childLightAnimationModel[i] : 0;
+                bool broken = (mgr.childLightIsBroken != null && i < mgr.childLightIsBroken.Length)
+                    ? mgr.childLightIsBroken[i] : false;
+                float failureRate = (mgr.childLightFailureRate != null && i < mgr.childLightFailureRate.Length)
+                    ? mgr.childLightFailureRate[i] : 0.5f;
+                AudioClip audioOvr = (mgr.childLightAudioClipOverride != null && i < mgr.childLightAudioClipOverride.Length)
+                    ? mgr.childLightAudioClipOverride[i] : null;
 
-                lightData[i] = (l, l.transform, bakedInt, bakedCol, halfExt, isRt, diff, spec, anim, stIdx, spd);
+                lightData[i] = (l, l.transform, bakedCol, halfExt, isRt, diff, spec, specMax, diffMax, anim, animMdl, broken, failureRate, audioOvr);
             }
 
-            // ---- 4. Match lights to groups ----
-            var newChildLights  = new List<Light>();
-            var newSlice        = new List<int>();
-            var newGroupMask    = new List<int>();
-            var newBakedInt     = new List<float>();
-            var newBakedCol     = new List<Vector3>();
-            var newHalfExt      = new List<Vector2>();
-            var newIsRt         = new List<bool>();
-            var newDiff         = new List<bool>();
-            var newSpec         = new List<bool>();
-            var newAnim         = new List<bool>();
-            var newStyleIdx     = new List<int>();
-            var newAnimSpeed    = new List<float>();
+            var newChildLights = new List<Light>();
+            var newSlice = new List<int>();
+            var newGroupMask = new List<int>();
+            var newBakedCol = new List<Vector3>();
+            var newHalfExt = new List<Vector2>();
+            var newIsRt = new List<bool>();
+            var newDiff = new List<bool>();
+            var newSpec = new List<bool>();
+            var newSpecMax = new List<float>();
+            var newDiffMax = new List<float>();
+            var newAnim = new List<bool>();
+            var newAnimModel = new List<int>();
+            var newIsBroken = new List<bool>();
+            var newFailureRate = new List<float>();
+            var newAudioOverride = new List<AudioClip>();
 
             var orderedTextures = new List<Texture2D>();
             int matchCount = 0;
@@ -160,7 +163,7 @@ public static class SpecularLightLayerAutoAssigner
             {
                 float p = 0.12f + 0.38f * ((float)li / Mathf.Max(originalLightCount - 1, 1));
                 EditorUtility.DisplayProgressBar("Specular Auto-Assign",
-                    $"Matching lights to groups… ({li + 1} / {originalLightCount})", p);
+                    "Matching lights to groups… (" + (li + 1) + " / " + originalLightCount + ")", p);
 
                 var data = lightData[li];
                 if (data.light == null) continue;
@@ -177,22 +180,25 @@ public static class SpecularLightLayerAutoAssigner
                     newSlice.Add(sliceSlot);
                     int bit = 1 << groupNames.IndexOf(group);
                     newGroupMask.Add(bit);
-                    newBakedInt.Add(data.bakedIntensity);
                     newBakedCol.Add(data.bakedColor);
                     newHalfExt.Add(data.halfExtents);
                     newIsRt.Add(data.isRealtime);
                     newDiff.Add(data.diffuse);
                     newSpec.Add(data.specular);
+                    newSpecMax.Add(data.specularMaxDist);
+                    newDiffMax.Add(data.diffuseMaxDist);
                     newAnim.Add(data.animated);
-                    newStyleIdx.Add(data.styleIdx);
-                    newAnimSpeed.Add(data.animSpeed);
+                    newAnimModel.Add(data.animModel);
+                    newIsBroken.Add(data.isBroken);
+                    newFailureRate.Add(data.failureRate);
+                    newAudioOverride.Add(data.audioOverride);
 
                     orderedTextures.Add(rnm.X);
                     orderedTextures.Add(rnm.Y);
                     orderedTextures.Add(rnm.Z);
                     hasAnyGroup = true;
                     matchCount++;
-                    report.AppendLine($"  [ok]   {lightName}  group {group} -> slice slot {sliceSlot} (bit {bit})");
+                    report.AppendLine("  [ok]   " + lightName + "  group " + group + " -> slice slot " + sliceSlot + " (bit " + bit + ")");
                 }
 
                 if (!hasAnyGroup)
@@ -200,33 +206,34 @@ public static class SpecularLightLayerAutoAssigner
                     newChildLights.Add(data.light);
                     newSlice.Add(-1);
                     newGroupMask.Add(~0);
-                    newBakedInt.Add(data.bakedIntensity);
                     newBakedCol.Add(data.bakedColor);
                     newHalfExt.Add(data.halfExtents);
                     newIsRt.Add(data.isRealtime);
                     newDiff.Add(data.diffuse);
                     newSpec.Add(data.specular);
+                    newSpecMax.Add(data.specularMaxDist);
+                    newDiffMax.Add(data.diffuseMaxDist);
                     newAnim.Add(data.animated);
-                    newStyleIdx.Add(data.styleIdx);
-                    newAnimSpeed.Add(data.animSpeed);
-                    report.AppendLine($"  [skip] {lightName} -> no group textures, default global light");
+                    newAnimModel.Add(data.animModel);
+                    newIsBroken.Add(data.isBroken);
+                    newFailureRate.Add(data.failureRate);
+                    newAudioOverride.Add(data.audioOverride);
+                    report.AppendLine("  [skip] " + lightName + " -> no group textures, default global light");
                 }
             }
 
-            // ---- 5. Base texture (slice 0) ----
             EditorUtility.DisplayProgressBar("Specular Auto-Assign", "Resolving base texture…", 0.51f);
             Texture2D baseTex = ResolveBaseTexture(texturesByName, orderedTextures, out bool basePlaceholder, report);
             if (baseTex == null)
             {
-                Debug.LogError("[Specular World] Could not resolve base texture.\n" + report);
+                Debug.LogError("[Specular World] Could not resolve base texture.\n" + report.ToString());
                 return;
             }
 
             var finalTextureList = new List<Texture2D> { baseTex };
             finalTextureList.AddRange(orderedTextures);
-            report.AppendLine($"Total array depth: {finalTextureList.Count} slices (1 base + {matchCount} lights × 3)");
+            report.AppendLine("Total array depth: " + finalTextureList.Count + " slices (1 base + " + matchCount + " lights x 3)");
 
-            // ---- 6. Build array (progress 0.52 → 0.90 inside BuildArray) ----
             Texture2DArray builtArray = BuildArray(finalTextureList, report);
             if (basePlaceholder) UnityEngine.Object.DestroyImmediate(baseTex);
             foreach (var tex in orderedTextures)
@@ -235,31 +242,31 @@ public static class SpecularLightLayerAutoAssigner
 
             if (builtArray == null)
             {
-                Debug.LogError("[Specular World] Texture array build failed.\n" + report);
+                Debug.LogError("[Specular World] Texture array build failed.\n" + report.ToString());
                 return;
             }
 
-            // ---- 7. Save asset ----
             EditorUtility.DisplayProgressBar("Specular Auto-Assign", "Saving texture array asset…", 0.91f);
             Texture2DArray savedArray = SaveArrayAsset(builtArray, mgr);
             mgr.lightLayerArray = savedArray;
 
-            // ---- 8. Write back arrays ----
             EditorUtility.DisplayProgressBar("Specular Auto-Assign", "Writing manager arrays…", 0.94f);
-            mgr.childLights                = newChildLights.ToArray();
-            mgr.childLightLayerSlices      = newSlice.ToArray();
-            mgr.childLightGroupIndex       = newGroupMask.ToArray();
-            mgr.childLightBakedIntensities = newBakedInt.ToArray();
-            mgr.childLightBakedColors      = newBakedCol.ToArray();
-            mgr.childLightHalfExtents      = newHalfExt.ToArray();
-            mgr.childLightIsRealtime       = newIsRt.ToArray();
-            mgr.childLightDiffuseEnabled   = newDiff.ToArray();
-            mgr.childLightSpecularEnabled  = newSpec.ToArray();
-            mgr.childLightIsAnimated       = newAnim.ToArray();
-            mgr.childLightStyleIndex       = newStyleIdx.ToArray();
-            mgr.childLightAnimationSpeed   = newAnimSpeed.ToArray();
+            mgr.childLights = newChildLights.ToArray();
+            mgr.childLightLayerSlices = newSlice.ToArray();
+            mgr.childLightGroupIndex = newGroupMask.ToArray();
+            mgr.childLightBakedColors = newBakedCol.ToArray();
+            mgr.childLightHalfExtents = newHalfExt.ToArray();
+            mgr.childLightIsRealtime = newIsRt.ToArray();
+            mgr.childLightDiffuseEnabled = newDiff.ToArray();
+            mgr.childLightSpecularDistance = newSpec.ToArray();
+            mgr.childLightSpecularMaxDistance = newSpecMax.ToArray();
+            mgr.childLightDiffuseMaxDistance = newDiffMax.ToArray();
+            mgr.childLightIsAnimated = newAnim.ToArray();
+            mgr.childLightAnimationModel = newAnimModel.ToArray();
+            mgr.childLightIsBroken = newIsBroken.ToArray();
+            mgr.childLightFailureRate = newFailureRate.ToArray();
+            mgr.childLightAudioClipOverride = newAudioOverride.ToArray();
 
-            // ---- 9. Assign material group masks ----
             EditorUtility.DisplayProgressBar("Specular Auto-Assign", "Assigning material group masks…", 0.97f);
             foreach (string group in groupNames)
             {
@@ -269,15 +276,15 @@ public static class SpecularLightLayerAutoAssigner
                 {
                     mat.SetFloat("_LightGroupMask", matMask);
                     EditorUtility.SetDirty(mat);
-                    report.AppendLine($"  [mat]  {mat.name}  ->  _LightGroupMask = {matMask}  (group: {group})");
+                    report.AppendLine("  [mat]  " + mat.name + "  ->  _LightGroupMask = " + matMask + "  (group: " + group + ")");
                 }
             }
 
             EditorUtility.SetDirty(mgr);
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[Specular World] Created {matchCount} per‑group light slots across {groupNames.Count} groups. " +
-                      $"Array: {savedArray.width}x{savedArray.height}, {savedArray.depth} slices, {ARRAY_FORMAT}.\n" + report);
+            Debug.Log("[Specular World] Created " + matchCount + " per-group light slots across " + groupNames.Count + " groups. " +
+                      "Array: " + savedArray.width + "x" + savedArray.height + ", " + savedArray.depth + " slices, " + ARRAY_FORMAT + ".\n" + report.ToString());
         }
         finally
         {
@@ -285,13 +292,9 @@ public static class SpecularLightLayerAutoAssigner
         }
     }
 
-    // =========================================================================
-    // HELPERS
-    // =========================================================================
-
     private static Dictionary<string, List<Material>> CollectSpecularMaterialGroups()
     {
-        var result   = new Dictionary<string, List<Material>>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, List<Material>>(StringComparer.OrdinalIgnoreCase);
         var unparsed = new List<string>();
         Material[] allMats = Resources.FindObjectsOfTypeAll<Material>();
 
@@ -313,7 +316,7 @@ public static class SpecularLightLayerAutoAssigner
         }
 
         if (unparsed.Count > 0)
-            Debug.LogWarning($"[Specular World] {unparsed.Count} material(s) contain \"-\" but didn't match: " +
+            Debug.LogWarning("[Specular World] " + unparsed.Count + " material(s) contain dash but did not match: " +
                              string.Join(", ", unparsed));
 
         return result;
@@ -327,7 +330,7 @@ public static class SpecularLightLayerAutoAssigner
 
     private static Dictionary<string, string> CollectProjectTextures()
     {
-        var dict  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { LIGHTMAP_SEARCH_FOLDER });
         foreach (string guid in guids)
         {
@@ -343,11 +346,11 @@ public static class SpecularLightLayerAutoAssigner
         var rnm = new RNMSet();
         foreach (string sfx in new[] { DENOISED_INFIX, "" })
         {
-            if (rnm.X == null && texturesByName.TryGetValue($"{group}_{lightName}{RNM_X_SUFFIX}{sfx}", out string px))
+            if (rnm.X == null && texturesByName.TryGetValue(group + "_" + lightName + RNM_X_SUFFIX + sfx, out string px))
                 rnm.X = AssetDatabase.LoadAssetAtPath<Texture2D>(px);
-            if (rnm.Y == null && texturesByName.TryGetValue($"{group}_{lightName}{RNM_Y_SUFFIX}{sfx}", out string py))
+            if (rnm.Y == null && texturesByName.TryGetValue(group + "_" + lightName + RNM_Y_SUFFIX + sfx, out string py))
                 rnm.Y = AssetDatabase.LoadAssetAtPath<Texture2D>(py);
-            if (rnm.Z == null && texturesByName.TryGetValue($"{group}_{lightName}{RNM_Z_SUFFIX}{sfx}", out string pz))
+            if (rnm.Z == null && texturesByName.TryGetValue(group + "_" + lightName + RNM_Z_SUFFIX + sfx, out string pz))
                 rnm.Z = AssetDatabase.LoadAssetAtPath<Texture2D>(pz);
         }
         return rnm;
@@ -362,7 +365,7 @@ public static class SpecularLightLayerAutoAssigner
             var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath);
             if (tex != null)
             {
-                report.AppendLine($"  [base] slice 0 <- {basePath}");
+                report.AppendLine("  [base] slice 0 <- " + basePath);
                 return tex;
             }
         }
@@ -371,7 +374,7 @@ public static class SpecularLightLayerAutoAssigner
         {
             if (t != null)
             {
-                report.AppendLine($"  [base] slice 0 <- black placeholder, sized to \"{t.name}\" (no Base_Lightmap found)");
+                report.AppendLine("  [base] slice 0 <- black placeholder, sized to " + t.name + " (no Base_Lightmap found)");
                 isPlaceholder = true;
                 return CreateBlackPlaceholder(t.width, t.height);
             }
@@ -391,7 +394,6 @@ public static class SpecularLightLayerAutoAssigner
         return tex;
     }
 
-    // Progress inside BuildArray covers the range 0.52 → 0.90
     private static Texture2DArray BuildArray(List<Texture2D> textures, System.Text.StringBuilder report)
     {
         if (textures.Count == 0) return null;
@@ -413,7 +415,7 @@ public static class SpecularLightLayerAutoAssigner
         bool isCompressed = !UncompressedFormats.Contains(ARRAY_FORMAT);
         var textureArray = new Texture2DArray(sizeX, sizeY, textures.Count, ARRAY_FORMAT, MIPMAPS, LINEAR)
         {
-            wrapMode   = WRAP,
+            wrapMode = WRAP,
             filterMode = FILTER,
             anisoLevel = ANISO
         };
@@ -428,11 +430,11 @@ public static class SpecularLightLayerAutoAssigner
         {
             float p = 0.52f + 0.38f * ((float)i / Mathf.Max(textures.Count - 1, 1));
             EditorUtility.DisplayProgressBar("Specular Auto-Assign",
-                $"Building texture array… slice {i + 1} / {textures.Count}", p);
+                "Building texture array… slice " + (i + 1) + " / " + textures.Count, p);
 
             Texture2D src = textures[i];
             if (src.width != sizeX || src.height != sizeY)
-                report.AppendLine($"  (note) \"{src.name}\" is {src.width}x{src.height}, resized to {sizeX}x{sizeY}");
+                report.AppendLine("  (note) " + src.name + " is " + src.width + "x" + src.height + ", resized to " + sizeX + "x" + sizeY);
 
             RenderTexture.active = rt;
             bool cachedSrgb = GL.sRGBWrite;
@@ -479,7 +481,7 @@ public static class SpecularLightLayerAutoAssigner
             to.SetPixels(from.GetPixels(mipLevel), arrayIndex, mipLevel);
     }
 
-    private static Texture2DArray SaveArrayAsset(Texture2DArray array, SpecularLightManager mgr)
+    private static Texture2DArray SaveArrayAsset(Texture2DArray array, LayeredLightingManager mgr)
     {
         if (mgr.lightLayerArray != null)
         {
@@ -499,7 +501,7 @@ public static class SpecularLightLayerAutoAssigner
             AssetDatabase.Refresh();
         }
 
-        string path = AssetDatabase.GenerateUniqueAssetPath($"{OUTPUT_FOLDER}/{OUTPUT_NAME}.asset");
+        string path = AssetDatabase.GenerateUniqueAssetPath(OUTPUT_FOLDER + "/" + OUTPUT_NAME + ".asset");
         AssetDatabase.CreateAsset(array, path);
         AssetDatabase.SaveAssets();
         EditorGUIUtility.PingObject(array);
