@@ -1,7 +1,8 @@
-#if UNITY_EDITOR
+#if UNITY_EDITOR && UDONSHARP
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using UnityEditorInternal;
 
 [InitializeOnLoad]
 public static class LayeredLightingEditor
@@ -15,52 +16,43 @@ public static class LayeredLightingEditor
     private const float DEFAULT_RANGE_SCALE = 10f;
     private const double RESCAN_DEBOUNCE_SECONDS = 0.25;
 
-    // ── Fluorescent simplified constants (same as runtime) ─────────────────────
-    private const int FLUOR_OFF = 0;
-    private const int FLUOR_PREHEAT = 1;
-    private const int FLUOR_FLASH = 2;
-    private const int FLUOR_ON = 3;
-    private const int FLUOR_FLICKER = 4;
-    private const int FLUOR_DYING = 5;
+    // ── Fault animation constants (identical to runtime) ────────────────────
+    private const float FAULT_FADE_SPEED = 15.0f;
 
-    private const float OFF_MIN = 0.3f;
-    private const float OFF_MAX = 2.0f;
-    private const float PREHEAT_MIN = 0.2f;
-    private const float PREHEAT_MAX = 0.8f;
-    private const float FLASH_MIN = 0.03f;
-    private const float FLASH_MAX = 0.12f;
-    private const float ON_MIN = 0.5f;
-    private const float ON_MAX = 6.0f;
-    private const float FLICKER_MIN = 0.3f;
-    private const float FLICKER_MAX = 2.0f;
-    private const float DYING_MIN = 0.15f;
-    private const float DYING_MAX = 0.5f;
-    private const float BASE_IGNITION_CHANCE = 0.50f;
-    private const float DOUBLE_FLASH_CHANCE = 0.20f;
+    private const float PANIC_ON_MEAN_SLOW = 0.30f;
+    private const float PANIC_ON_MEAN_FAST = 0.01f;
+    private const float PANIC_OFF_MEAN_SLOW = 0.80f;
+    private const float PANIC_OFF_MEAN_FAST = 0.02f;
 
-    // Incandescent tuning
-    private const float INCAND_THERMAL_SPEED = 4f;
-    private const float INCAND_DRIFT_RATE_MIN = 0.8f;
-    private const float INCAND_DRIFT_RATE_MAX = 2.5f;
-    private const float INCAND_DRIFT_AMPLITUDE = 0.03f;
-    private const float INCAND_WAVER_FREQ = 0.4f;
-    private const float INCAND_WAVER_AMPLITUDE = 0.01f;
+    // Defaults used when a light has no previously-stored per-light fault settings
+    // (mirrors LayeredLightingManager.OnValidate defaults)
+    private const float DEFAULT_BROKEN_ON_MIN = 0.01f;
+    private const float DEFAULT_BROKEN_ON_MAX = 1.5f;
+    private const float DEFAULT_BROKEN_OFF_MIN = 0.5f;
+    private const float DEFAULT_BROKEN_OFF_MAX = 2.0f;
+    private const float DEFAULT_BROKEN_ON_INTENSITY = 0.8f;
+    private const float DEFAULT_PANIC_SPEED = 0.5f;
+    private const float DEFAULT_PANIC_INTENSITY_MIN = 0.1f;
+    private const float DEFAULT_PANIC_INTENSITY_MAX = 1.2f;
 
-    // ── Physical animation state (editor preview) ─────────────────────────────
-    private static float[] _fluorStateTimer;
-    private static float[] _fluorFlickerPhase;
-    private static float[] _fluorIntensity;
-    private static int[] _fluorState;
-
-    private static float[] _incandThermalMass;
-    private static float[] _incandDriftVal;
-    private static float[] _incandDriftTarget;
-    private static float[] _incandDriftTimer;
-    private static float[] _incandPhase;
-
+    // ── Physical animation state (editor preview) ──────────────────────────
+    private static float[] _faultStateTimer;
+    private static bool[] _faultIsOn;
+    private static float[] _faultIntensity;
+    private static float[] _panicTargetIntensity;
     private static float[] _animatedIntensityPreview;
 
-    // ── Editor state ──────────────────────────────────────────────────────────
+    // Per-light fault timing, preserved across rescans by Light reference
+    private static float[] _brokenOnMin;
+    private static float[] _brokenOnMax;
+    private static float[] _brokenOffMin;
+    private static float[] _brokenOffMax;
+    private static float[] _brokenOnIntensity;
+    private static float[] _panicSpeed;
+    private static float[] _panicIntensityMin;
+    private static float[] _panicIntensityMax;
+
+    // ── Editor state ───────────────────────────────────────────────────────
     private static GameObject _worldRoot;
     private static Light[] _lights;
     private static Vector2[] _halfExtents;
@@ -69,10 +61,7 @@ public static class LayeredLightingEditor
     private static bool[] _specularEnabled;
     private static float[] _specularMaxDistances;
     private static float[] _diffuseMaxDistances;
-    private static bool[] _isAnimated;
-    private static int[] _animationModels;
-    private static bool[] _isBroken;
-    private static float[] _failureRates;
+    private static LightFaultState[] _faultStates;
     private static Vector3[] _bakedColors;
     private static int[] _layerSlices;
     private static int[] _groupMasks;
@@ -84,6 +73,23 @@ public static class LayeredLightingEditor
     private static double _lastPrevTime;
     private static double _lastHierarchyChangeRequest = double.NegativeInfinity;
     private static bool _rescanPending;
+
+    private static double _lastViewerTick;
+    private static int _lastFinalCount = -1;
+
+    // Tracks whether the Scene view is actually being drawn. OnSceneGui only fires
+    // while its tab is visible, and (when "Always Refresh" / Animated Materials is
+    // off) only on interaction rather than continuously — so this timestamp doubles
+    // as our signal for "is there any point computing right now".
+    private static double _lastSceneGuiTime = double.NegativeInfinity;
+    private const double SCENE_VISIBLE_TIMEOUT = 0.5;
+
+    // Real "Always Refresh" (Animated Materials) flag read off the SceneView, via
+    // reflection since the backing field/property name has changed across Unity
+    // versions (showMaterialUpdate / materialUpdate / animateMaterials / alwaysRefresh).
+    private static bool _lastKnownAlwaysRefresh = true;
+    private static bool _alwaysRefreshKnown = false;
+    private static bool _alwaysRefreshFieldMissingLogged = false;
 
     private static Vector3[] _lastLightPositions;
     private static Quaternion[] _lastLightRotations;
@@ -101,7 +107,7 @@ public static class LayeredLightingEditor
 
     private static Texture2DArray _previewLayerArray;
 
-    // ── Bootstrap ─────────────────────────────────────────────────────────────
+    // ── Bootstrap ──────────────────────────────────────────────────────────
     static LayeredLightingEditor()
     {
         EditorApplication.update -= OnEditorUpdate;
@@ -112,7 +118,6 @@ public static class LayeredLightingEditor
         EditorApplication.hierarchyChanged += OnHierarchyChanged;
     }
 
-    // ── Event hooks ───────────────────────────────────────────────────────────
     private static void OnHierarchyChanged()
     {
         if (Application.isPlaying) return;
@@ -122,14 +127,133 @@ public static class LayeredLightingEditor
 
     private static void OnSceneGui(SceneView sv)
     {
+        _lastSceneGuiTime = EditorApplication.timeSinceStartup;
         if (!_previewEnabled || Application.isPlaying) return;
         UploadToShader();
+    }
+
+    // Reads the real "Always Refresh" (a.k.a. Animated Materials) toggle off the
+    // active SceneView. Field name has changed across Unity versions, so this
+    // tries several known names via reflection rather than hardcoding one that
+    // might not compile/exist on the user's Unity version.
+    private static readonly string[] _alwaysRefreshFieldNames =
+        { "alwaysRefresh", "showMaterialUpdate", "materialUpdate", "animateMaterials" };
+
+    private static bool TryGetAlwaysRefresh(out bool value)
+    {
+        value = true;
+        SceneView sv = SceneView.lastActiveSceneView;
+        if (sv == null) return false;
+
+        var stateProp = typeof(SceneView).GetProperty("sceneViewState",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        object state = stateProp != null ? stateProp.GetValue(sv) : null;
+        if (state == null) return false;
+
+        var stateType = state.GetType();
+        foreach (var name in _alwaysRefreshFieldNames)
+        {
+            var f = stateType.GetField(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            if (f != null && f.FieldType == typeof(bool))
+            {
+                value = (bool)f.GetValue(state);
+                return true;
+            }
+            var p = stateType.GetProperty(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            if (p != null && p.PropertyType == typeof(bool))
+            {
+                value = (bool)p.GetValue(state);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Polls the real Always Refresh flag, logs it whenever it changes (so you can
+    // actually see it doing something), and resets lights to their default,
+    // non-animated intensity the moment it gets switched off.
+    private static void PollAlwaysRefresh()
+    {
+        bool found = TryGetAlwaysRefresh(out bool current);
+        if (!found)
+        {
+            if (!_alwaysRefreshFieldMissingLogged)
+            {
+                Debug.LogWarning("[LayeredLightingEditor] Could not read the Always Refresh flag on this Unity version (reflection lookup failed). Falling back to repaint-timing heuristic only.");
+                _alwaysRefreshFieldMissingLogged = true;
+            }
+            return;
+        }
+
+        if (!_alwaysRefreshKnown || current != _lastKnownAlwaysRefresh)
+        {
+            Debug.Log("[LayeredLightingEditor] Always Refresh (Animated Materials) = " + current);
+            if (_alwaysRefreshKnown && _lastKnownAlwaysRefresh && !current)
+                ResetToDefaults();
+            _lastKnownAlwaysRefresh = current;
+            _alwaysRefreshKnown = true;
+        }
+    }
+
+    // Called when Always Refresh flips from ON to OFF: snaps every light back to
+    // its clean, non-faulted intensity instead of leaving it frozen mid-flicker.
+    private static void ResetToDefaults()
+    {
+        if (_lights == null) return;
+
+        for (int i = 0; i < _lights.Length; i++)
+        {
+            _faultIntensity[i] = 1f;
+            _faultIsOn[i] = true;
+            if (_animatedIntensityPreview != null && i < _animatedIntensityPreview.Length)
+                _animatedIntensityPreview[i] = 1f;
+            if (_panicTargetIntensity != null && i < _panicTargetIntensity.Length &&
+                _panicIntensityMax != null && i < _panicIntensityMax.Length)
+                _panicTargetIntensity[i] = _panicIntensityMax[i];
+        }
+
+        for (int i = 0; i < _lastFinalCount && i < _lastIndicesSorted.Length; i++)
+        {
+            int li = _lastIndicesSorted[i];
+            if (li < 0) continue;
+            int baseIdx = i * 8 + 1;
+            Vector4 cv = _shaderBuffer[baseIdx + 1];
+            float baseInt = (_lastLightIntensities != null && li < _lastLightIntensities.Length)
+                ? _lastLightIntensities[li] : cv.w;
+            _shaderBuffer[baseIdx + 1] = new Vector4(cv.x, cv.y, cv.z, baseInt);
+            if (i < _lastAnimatedIntensity.Length) _lastAnimatedIntensity[i] = baseInt;
+        }
+
+        UploadToShader();
+        RepaintSceneViews();
+        Debug.Log("[LayeredLightingEditor] Always Refresh disabled — lights reset to default intensity.");
     }
 
     private static void OnEditorUpdate()
     {
         if (Application.isPlaying) return;
         if (!_previewEnabled) return;
+
+        double now = EditorApplication.timeSinceStartup;
+
+        PollAlwaysRefresh();
+
+        // Stop everything if: the Unity application is minimized / not the active
+        // OS window, OR the Scene view tab isn't currently being drawn (user
+        // switched to another tab, or "Always Refresh" is off and nothing is
+        // triggering a repaint), OR Always Refresh is explicitly off. Update
+        // _lastPrevTime AND _lastTick regardless, so we don't get a giant dt spike
+        // or an artificial "catch-up" Tick (which was reshuffling light slots and
+        // looked like random blinking) once things resume.
+        bool editorActive = InternalEditorUtility.isApplicationActive;
+        bool sceneVisible = (now - _lastSceneGuiTime) < SCENE_VISIBLE_TIMEOUT;
+        bool refreshAllowed = !_alwaysRefreshKnown || _lastKnownAlwaysRefresh;
+        if (!editorActive || !sceneVisible || !refreshAllowed)
+        {
+            _lastPrevTime = now;
+            _lastTick = now;
+            return;
+        }
 
         if (_worldRoot == null)
         {
@@ -155,10 +279,9 @@ public static class LayeredLightingEditor
         }
 
         LayeredLightingManager liveMgr = _worldRoot.GetComponent<LayeredLightingManager>();
-        if (liveMgr != null && HasExternalArrayEdits(liveMgr))
+        if (liveMgr != null && ShouldCheckExternalEditsNow() && HasExternalArrayEdits(liveMgr))
             Rescan(liveMgr);
 
-        double now = EditorApplication.timeSinceStartup;
         float dt = (float)(now - _lastPrevTime);
         _lastPrevTime = now;
         dt = Mathf.Clamp(dt, 0f, 0.1f);
@@ -168,7 +291,7 @@ public static class LayeredLightingEditor
         if (tickThisFrame)
         {
             _lastTick = now;
-            Tick(dt);
+            Tick(dt, liveMgr);
         }
         else
         {
@@ -177,7 +300,7 @@ public static class LayeredLightingEditor
         }
     }
 
-    // ── Rescan ────────────────────────────────────────────────────────────────
+    // ── Rescan ─────────────────────────────────────────────────────────────
     private static bool ShouldRescanNow()
     {
         double now = EditorApplication.timeSinceStartup;
@@ -192,6 +315,17 @@ public static class LayeredLightingEditor
             return true;
         }
         return false;
+    }
+
+    private static double _lastExternalEditsCheck = 0;
+    private const double EXTERNAL_EDITS_CHECK_INTERVAL = 0.25;
+
+    private static bool ShouldCheckExternalEditsNow()
+    {
+        double now = EditorApplication.timeSinceStartup;
+        if (now - _lastExternalEditsCheck < EXTERNAL_EDITS_CHECK_INTERVAL) return false;
+        _lastExternalEditsCheck = now;
+        return true;
     }
 
     private static bool HasExternalArrayEdits(LayeredLightingManager mgr)
@@ -226,56 +360,26 @@ public static class LayeredLightingEditor
         Light[] freshLights = Object.FindObjectsOfType<Light>(includeInactive: true);
         int count = freshLights.Length;
 
-        // Dynamic mesh scan (mirrors runtime setup)
-        int dynamicReceiverCount = 0;
-        Renderer[] renderers = Object.FindObjectsOfType<Renderer>(includeInactive: false);
-        Vector3 viewerPos = GetViewerPos();
-
-        foreach (Renderer r in renderers)
-        {
-            if (!(r is MeshRenderer || r is SkinnedMeshRenderer))
-                continue;
-            if (!r.enabled || !r.gameObject.activeInHierarchy)
-                continue;
-
-            bool isDynamic = false;
-            foreach (Material mat in r.sharedMaterials)
-            {
-                if (mat == null) continue;
-                if (mat.HasProperty("_IsDynamicMesh") && mat.GetFloat("_IsDynamicMesh") > 0.5f)
-                {
-                    isDynamic = true;
-                    break;
-                }
-            }
-            if (!isDynamic) continue;
-
-            float maxDistance = r.allowOcclusionWhenDynamic
-                ? float.MaxValue
-                : r.GetComponent<LODGroup>() != null
-                    ? float.MaxValue
-                    : QualitySettings.lodBias;
-
-            if (Vector3.Distance(viewerPos, r.bounds.center) > maxDistance)
-                continue;
-
-            dynamicReceiverCount++;
-        }
-        mgr.dynamicMeshCount = dynamicReceiverCount;
-
         // Preserve previous settings by light reference
         var oldRealtimeByLight = new Dictionary<Light, bool>();
         var oldDiffuseByLight = new Dictionary<Light, bool>();
         var oldSpecularByLight = new Dictionary<Light, bool>();
         var oldMaxDistByLight = new Dictionary<Light, float>();
         var oldDiffuseMaxDistByLight = new Dictionary<Light, float>();
-        var oldAnimatedByLight = new Dictionary<Light, bool>();
-        var oldAnimModelByLight = new Dictionary<Light, int>();
-        var oldBrokenByLight = new Dictionary<Light, bool>();
-        var oldFailureRateByLight = new Dictionary<Light, float>();
+        var oldFaultStateByLight = new Dictionary<Light, LightFaultState>();
         var oldSliceByLight = new Dictionary<Light, int>();
         var oldGroupMaskByLight = new Dictionary<Light, int>();
         var oldBakedColByLight = new Dictionary<Light, Vector3>();
+
+        // Per-light fault timing (mirrors the fields edited via the Light inspector)
+        var oldBrokenOnMinByLight = new Dictionary<Light, float>();
+        var oldBrokenOnMaxByLight = new Dictionary<Light, float>();
+        var oldBrokenOffMinByLight = new Dictionary<Light, float>();
+        var oldBrokenOffMaxByLight = new Dictionary<Light, float>();
+        var oldBrokenOnIntensityByLight = new Dictionary<Light, float>();
+        var oldPanicSpeedByLight = new Dictionary<Light, float>();
+        var oldPanicIntensityMinByLight = new Dictionary<Light, float>();
+        var oldPanicIntensityMaxByLight = new Dictionary<Light, float>();
 
         if (previousLights != null)
         {
@@ -293,20 +397,31 @@ public static class LayeredLightingEditor
                     oldMaxDistByLight[l] = mgr.childLightSpecularMaxDistance[i];
                 if (mgr.childLightDiffuseMaxDistance != null && i < mgr.childLightDiffuseMaxDistance.Length)
                     oldDiffuseMaxDistByLight[l] = mgr.childLightDiffuseMaxDistance[i];
-                if (mgr.childLightIsAnimated != null && i < mgr.childLightIsAnimated.Length)
-                    oldAnimatedByLight[l] = mgr.childLightIsAnimated[i];
-                if (mgr.childLightAnimationModel != null && i < mgr.childLightAnimationModel.Length)
-                    oldAnimModelByLight[l] = mgr.childLightAnimationModel[i];
-                if (mgr.childLightIsBroken != null && i < mgr.childLightIsBroken.Length)
-                    oldBrokenByLight[l] = mgr.childLightIsBroken[i];
-                if (mgr.childLightFailureRate != null && i < mgr.childLightFailureRate.Length)
-                    oldFailureRateByLight[l] = mgr.childLightFailureRate[i];
+                if (mgr.childLightFaultState != null && i < mgr.childLightFaultState.Length)
+                    oldFaultStateByLight[l] = mgr.childLightFaultState[i];
                 if (mgr.childLightLayerSlices != null && i < mgr.childLightLayerSlices.Length)
                     oldSliceByLight[l] = mgr.childLightLayerSlices[i];
                 if (mgr.childLightGroupIndex != null && i < mgr.childLightGroupIndex.Length)
                     oldGroupMaskByLight[l] = mgr.childLightGroupIndex[i];
                 if (mgr.childLightBakedColors != null && i < mgr.childLightBakedColors.Length)
                     oldBakedColByLight[l] = mgr.childLightBakedColors[i];
+
+                if (mgr.childLightBrokenOnMin != null && i < mgr.childLightBrokenOnMin.Length)
+                    oldBrokenOnMinByLight[l] = mgr.childLightBrokenOnMin[i];
+                if (mgr.childLightBrokenOnMax != null && i < mgr.childLightBrokenOnMax.Length)
+                    oldBrokenOnMaxByLight[l] = mgr.childLightBrokenOnMax[i];
+                if (mgr.childLightBrokenOffMin != null && i < mgr.childLightBrokenOffMin.Length)
+                    oldBrokenOffMinByLight[l] = mgr.childLightBrokenOffMin[i];
+                if (mgr.childLightBrokenOffMax != null && i < mgr.childLightBrokenOffMax.Length)
+                    oldBrokenOffMaxByLight[l] = mgr.childLightBrokenOffMax[i];
+                if (mgr.childLightBrokenOnIntensity != null && i < mgr.childLightBrokenOnIntensity.Length)
+                    oldBrokenOnIntensityByLight[l] = mgr.childLightBrokenOnIntensity[i];
+                if (mgr.childLightPanicSpeed != null && i < mgr.childLightPanicSpeed.Length)
+                    oldPanicSpeedByLight[l] = mgr.childLightPanicSpeed[i];
+                if (mgr.childLightPanicIntensityMin != null && i < mgr.childLightPanicIntensityMin.Length)
+                    oldPanicIntensityMinByLight[l] = mgr.childLightPanicIntensityMin[i];
+                if (mgr.childLightPanicIntensityMax != null && i < mgr.childLightPanicIntensityMax.Length)
+                    oldPanicIntensityMaxByLight[l] = mgr.childLightPanicIntensityMax[i];
             }
         }
 
@@ -316,13 +431,19 @@ public static class LayeredLightingEditor
         _specularEnabled = new bool[count];
         _specularMaxDistances = new float[count];
         _diffuseMaxDistances = new float[count];
-        _isAnimated = new bool[count];
-        _animationModels = new int[count];
-        _isBroken = new bool[count];
-        _failureRates = new float[count];
+        _faultStates = new LightFaultState[count];
         _bakedColors = new Vector3[count];
         _layerSlices = new int[count];
         _groupMasks = new int[count];
+
+        _brokenOnMin = new float[count];
+        _brokenOnMax = new float[count];
+        _brokenOffMin = new float[count];
+        _brokenOffMax = new float[count];
+        _brokenOnIntensity = new float[count];
+        _panicSpeed = new float[count];
+        _panicIntensityMin = new float[count];
+        _panicIntensityMax = new float[count];
 
         for (int i = 0; i < count; i++)
         {
@@ -336,13 +457,19 @@ public static class LayeredLightingEditor
             _specularEnabled[i] = oldSpecularByLight.TryGetValue(l, out bool prevSpec) ? prevSpec : true;
             _specularMaxDistances[i] = oldMaxDistByLight.TryGetValue(l, out float prevMax) ? prevMax : 30f;
             _diffuseMaxDistances[i] = oldDiffuseMaxDistByLight.TryGetValue(l, out float prevDiffMax) ? prevDiffMax : 60f;
-            _isAnimated[i] = oldAnimatedByLight.TryGetValue(l, out bool prevAnim) ? prevAnim : false;
-            _animationModels[i] = oldAnimModelByLight.TryGetValue(l, out int prevModel) ? prevModel : 0;
-            _isBroken[i] = oldBrokenByLight.TryGetValue(l, out bool prevBroken) ? prevBroken : false;
-            _failureRates[i] = oldFailureRateByLight.TryGetValue(l, out float prevRate) ? prevRate : 0.5f;
+            _faultStates[i] = oldFaultStateByLight.TryGetValue(l, out LightFaultState prevFault) ? prevFault : LightFaultState.Normal;
             _layerSlices[i] = oldSliceByLight.TryGetValue(l, out int prevSlice) ? prevSlice : -1;
             _groupMasks[i] = oldGroupMaskByLight.TryGetValue(l, out int prevMask) ? prevMask : ~0;
             _bakedColors[i] = oldBakedColByLight.TryGetValue(l, out Vector3 prevCol) ? prevCol : new Vector3(l.color.r, l.color.g, l.color.b);
+
+            _brokenOnMin[i] = oldBrokenOnMinByLight.TryGetValue(l, out float bMin) ? bMin : DEFAULT_BROKEN_ON_MIN;
+            _brokenOnMax[i] = oldBrokenOnMaxByLight.TryGetValue(l, out float bMax) ? bMax : DEFAULT_BROKEN_ON_MAX;
+            _brokenOffMin[i] = oldBrokenOffMinByLight.TryGetValue(l, out float bOffMin) ? bOffMin : DEFAULT_BROKEN_OFF_MIN;
+            _brokenOffMax[i] = oldBrokenOffMaxByLight.TryGetValue(l, out float bOffMax) ? bOffMax : DEFAULT_BROKEN_OFF_MAX;
+            _brokenOnIntensity[i] = oldBrokenOnIntensityByLight.TryGetValue(l, out float bOnInt) ? bOnInt : DEFAULT_BROKEN_ON_INTENSITY;
+            _panicSpeed[i] = oldPanicSpeedByLight.TryGetValue(l, out float pSpeed) ? pSpeed : DEFAULT_PANIC_SPEED;
+            _panicIntensityMin[i] = oldPanicIntensityMinByLight.TryGetValue(l, out float pMin) ? pMin : DEFAULT_PANIC_INTENSITY_MIN;
+            _panicIntensityMax[i] = oldPanicIntensityMaxByLight.TryGetValue(l, out float pMax) ? pMax : DEFAULT_PANIC_INTENSITY_MAX;
         }
 
         mgr.childLights = freshLights;
@@ -351,14 +478,20 @@ public static class LayeredLightingEditor
         mgr.childLightSpecularDistance = _specularEnabled;
         mgr.childLightSpecularMaxDistance = _specularMaxDistances;
         mgr.childLightDiffuseMaxDistance = _diffuseMaxDistances;
-        mgr.childLightIsAnimated = _isAnimated;
-        mgr.childLightAnimationModel = _animationModels;
-        mgr.childLightIsBroken = _isBroken;
-        mgr.childLightFailureRate = _failureRates;
+        mgr.childLightFaultState = _faultStates;
         mgr.childLightHalfExtents = _halfExtents;
         mgr.childLightLayerSlices = _layerSlices;
         mgr.childLightGroupIndex = _groupMasks;
         mgr.childLightBakedColors = _bakedColors;
+
+        mgr.childLightBrokenOnMin = _brokenOnMin;
+        mgr.childLightBrokenOnMax = _brokenOnMax;
+        mgr.childLightBrokenOffMin = _brokenOffMin;
+        mgr.childLightBrokenOffMax = _brokenOffMax;
+        mgr.childLightBrokenOnIntensity = _brokenOnIntensity;
+        mgr.childLightPanicSpeed = _panicSpeed;
+        mgr.childLightPanicIntensityMin = _panicIntensityMin;
+        mgr.childLightPanicIntensityMax = _panicIntensityMax;
 
         EditorUtility.SetDirty(mgr);
         _lights = freshLights;
@@ -368,55 +501,62 @@ public static class LayeredLightingEditor
             _previewLayerArray = mgr.lightLayerArray;
             Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
         }
+        Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
+        int groupCount = mgr.lightmapGroupCount;
+        Shader.SetGlobalFloat("_UdonLightmapSliceOffset", (float)groupCount);
 
         for (int i = 0; i < MAX_LIGHTS; i++) _lastAnimatedIntensity[i] = -1f;
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
         _lastUploadedSlotCount = 0;
 
+        _lastFinalCount = -1;
+        _lastViewerTick = 0;
+
         AllocPhysicalState(count);
         CacheLightStates();
         _lastTick = 0;
         _lastPrevTime = EditorApplication.timeSinceStartup;
-        Tick(0f);
+        Tick(0f, mgr);
     }
 
-    // ── Physical state allocation ──────────────────────────────────────────────
     private static void AllocPhysicalState(int count)
     {
-        _fluorStateTimer = new float[count];
-        _fluorFlickerPhase = new float[count];
-        _fluorIntensity = new float[count];
-        _fluorState = new int[count];
-
-        _incandThermalMass = new float[count];
-        _incandDriftVal = new float[count];
-        _incandDriftTarget = new float[count];
-        _incandDriftTimer = new float[count];
-        _incandPhase = new float[count];
-
+        _faultStateTimer = new float[count];
+        _faultIsOn = new bool[count];
+        _faultIntensity = new float[count];
+        _panicTargetIntensity = new float[count];
         _animatedIntensityPreview = new float[count];
 
         for (int i = 0; i < count; i++)
         {
-            _incandThermalMass[i] = 1f;
-            _incandDriftTarget[i] = 1f;
-            _incandDriftVal[i] = 1f;
-
-            _fluorStateTimer[i] = Random.Range(0f, 2f);
-            _fluorFlickerPhase[i] = Random.Range(0f, Mathf.PI * 2f);
-            _fluorIntensity[i] = 0f;
-            _fluorState[i] = FLUOR_OFF;
-
+            _faultStateTimer[i] = Random.Range(0f, 1f);
+            _faultIsOn[i] = true;
+            _faultIntensity[i] = 1f;
+            _panicTargetIntensity[i] = (_panicIntensityMax != null && i < _panicIntensityMax.Length)
+                ? _panicIntensityMax[i] : DEFAULT_PANIC_INTENSITY_MAX;
             _animatedIntensityPreview[i] = 1f;
         }
     }
 
-    // ── Tick ──────────────────────────────────────────────────────────────────
-    private static void Tick(float dt)
+    private static void Tick(float dt, LayeredLightingManager mgr)
     {
         if (_lights == null || _lights.Length == 0) return;
 
-        int finalCount = SortNearest(GetViewerPos());
+        double now = EditorApplication.timeSinceStartup;
+        float viewerInterval = (mgr != null) ? mgr.viewerUpdateInterval : 1.0f;
+
+        bool viewerDue = (now - _lastViewerTick) >= viewerInterval || _lastFinalCount < 0;
+
+        int finalCount;
+        if (viewerDue)
+        {
+            _lastViewerTick = now;
+            finalCount = SortNearest(GetViewerPos());
+        }
+        else
+        {
+            finalCount = _lastFinalCount;
+        }
 
         if (_lightToShader == null || _lightToShader.Length != _lights.Length)
             _lightToShader = new int[_lights.Length];
@@ -432,20 +572,16 @@ public static class LayeredLightingEditor
         {
             int idx = _indices[i];
             if (_isRealtime[idx]) dynCount++; else statCount++;
-            if (_isAnimated[idx]) animCount++;
+            if (_faultStates[idx] != LightFaultState.Normal) animCount++;
             if (_specularEnabled[idx]) specCount++;
             int sl = (_layerSlices != null && idx < _layerSlices.Length) ? _layerSlices[idx] : -1;
-            if (sl >= 0 && sl < 32)
-            {
-                lmCount++;
-                sliceMask |= (1 << sl);
-            }
+            if (sl >= 0 && sl < 32) { lmCount++; sliceMask |= (1 << sl); }
         }
 
-        LayeredLightingManager mgr = _worldRoot != null
-            ? _worldRoot.GetComponent<LayeredLightingManager>() : null;
         if (mgr != null)
         {
+            bool wasDirty = EditorUtility.IsDirty(mgr);
+
             mgr.currentStaticLights = statCount;
             mgr.currentDynamicLights = dynCount;
             mgr.currentAnimatedLights = animCount;
@@ -454,48 +590,55 @@ public static class LayeredLightingEditor
             mgr.sampledLightmapsCount = CountBits(sliceMask);
             mgr.shaderWasUpdated = true;
             mgr.shaderUpdatesThisFrame = 1;
-            mgr.updateReason = "Editor: Tick[" + finalCount + " lights]";
-            EditorUtility.SetDirty(mgr);
+            mgr.updateReason = viewerDue
+                ? "Editor: Tick[" + finalCount + " lights, resort]"
+                : "Editor: Tick[" + finalCount + " lights]";
+
+            // Robust safety net: these are transient debug/preview fields recomputed
+            // every tick, never meant to require saving. If the object was clean
+            // before this script touched it, force it back to clean afterward so
+            // this script's own writes can never be the reason the scene shows
+            // unsaved changes. A genuine unsaved edit (wasDirty == true already)
+            // is left alone.
+            if (!wasDirty) EditorUtility.ClearDirty(mgr);
         }
 
         CacheLightStates();
         FillUploadBuffers(finalCount);
 
-        // Animation happens AFTER fill, exactly like runtime.
-        // TickPhysicalAnimationPreview writes animated intensity directly into _shaderBuffer.
         TickPhysicalAnimationPreview(dt);
 
         UploadToShader();
         RepaintSceneViews();
+
+        _lastFinalCount = finalCount;
     }
 
-    // ── Physical animation preview ────────────────────────────────────────────
+    // ── Fault animation preview (identical logic to runtime Broken/Panic) ──
+    // Converts a 0-1 speed value into on/off means using exponential curves,
+    // matching LayeredLightingManager.SpeedToMeans exactly.
+    private static void SpeedToMeans(float speed, out float onMean, out float offMean)
+    {
+        float t = speed * speed; // slight ease-in so low values stay sparse longer
+        onMean = Mathf.Lerp(PANIC_ON_MEAN_SLOW, PANIC_ON_MEAN_FAST, t);
+        offMean = Mathf.Lerp(PANIC_OFF_MEAN_SLOW, PANIC_OFF_MEAN_FAST, t);
+    }
+
     private static bool TickPhysicalAnimationPreview(float dt)
     {
         if (_lights == null || _lights.Length == 0) return false;
-        if (_fluorStateTimer == null || _fluorStateTimer.Length != _lights.Length)
-            AllocPhysicalState(_lights.Length);
-
         bool anyChanged = false;
 
         for (int i = 0; i < _lights.Length; i++)
         {
-            if (!_isAnimated[i]) continue;
+            if (_faultStates[i] == LightFaultState.Normal) continue;
             int si = (_lightToShader != null && i < _lightToShader.Length) ? _lightToShader[i] : -1;
             if (si < 0) continue;
 
-            float newVal;
-            int model = (_animationModels != null && i < _animationModels.Length) ? _animationModels[i] : 0;
-
-            if (model == (int)LightAnimationModel.Fluorescent)
-                newVal = TickFluorescentPreview(i, dt);
-            else
-                newVal = TickIncandescentPreview(i, dt);
-
+            float newVal = TickFaultPreview(i, _faultStates[i], dt);
             _animatedIntensityPreview[i] = newVal;
 
-            float baseInt = (_lastLightIntensities != null && i < _lastLightIntensities.Length)
-                ? _lastLightIntensities[i] : 1f;
+            float baseInt = _lastLightIntensities[i];
             float animated = baseInt * newVal;
 
             int baseIdx = si * 8 + 1;
@@ -512,189 +655,47 @@ public static class LayeredLightingEditor
         return anyChanged;
     }
 
-    // ── Fluorescent preview (matches runtime simplified model) ──────────────
-    private static float TickFluorescentPreview(int i, float dt)
+    // Mirrors LayeredLightingManager.TickFault exactly: per-light Broken timing
+    // arrays, and Panic driven by SpeedToMeans + exponential-distributed timer
+    // with a randomized on-intensity target each cycle.
+    private static float TickFaultPreview(int i, LightFaultState state, float dt)
     {
-        if (_isBroken == null || i >= _isBroken.Length || !_isBroken[i])
+        if (state == LightFaultState.Panic)
         {
-            _fluorIntensity[i] = 1f;
-            return 1f;
+            float onMean, offMean;
+            SpeedToMeans(_panicSpeed[i], out onMean, out offMean);
+
+            _faultStateTimer[i] -= dt;
+            while (_faultStateTimer[i] <= 0f)
+            {
+                _faultIsOn[i] = !_faultIsOn[i];
+                float mean = _faultIsOn[i] ? onMean : offMean;
+                float u = 1f - Random.value;
+                if (u <= 0.0001f) u = 0.0001f;
+                _faultStateTimer[i] += -mean * Mathf.Log(u);
+                if (_faultIsOn[i])
+                    _panicTargetIntensity[i] = Random.Range(_panicIntensityMin[i], _panicIntensityMax[i]);
+            }
+            _faultIntensity[i] = _faultIsOn[i] ? _panicTargetIntensity[i] : 0f;
+            return _faultIntensity[i];
         }
-
-        float failureRate = (_failureRates != null && i < _failureRates.Length)
-            ? Mathf.Clamp01(_failureRates[i]) : 0.5f;
-
-        int state = _fluorState[i];
-        _fluorStateTimer[i] -= dt;
-        float t = _fluorStateTimer[i];
-
-        switch (state)
+        else // Broken
         {
-            case FLUOR_OFF:
-                {
-                    if (t <= 0f)
-                    {
-                        if (Random.value < 0.25f)
-                        {
-                            _fluorState[i] = FLUOR_FLASH;
-                            _fluorStateTimer[i] = Random.Range(FLASH_MIN, FLASH_MAX);
-                        }
-                        else
-                        {
-                            _fluorState[i] = FLUOR_PREHEAT;
-                            _fluorStateTimer[i] = Random.Range(PREHEAT_MIN, PREHEAT_MAX);
-                        }
-                    }
-                    return SmoothIntensityPreview(i, 0f, dt);
-                }
-
-            case FLUOR_PREHEAT:
-                {
-                    float glow = 0.04f + 0.06f * Mathf.PingPong(Time.time * 3f + i, 1f);
-                    if (t <= 0f)
-                    {
-                        _fluorState[i] = FLUOR_FLASH;
-                        _fluorStateTimer[i] = Random.Range(FLASH_MIN, FLASH_MAX);
-                    }
-                    return SmoothIntensityPreview(i, glow, dt);
-                }
-
-            case FLUOR_FLASH:
-                {
-                    _fluorFlickerPhase[i] += dt * Random.Range(300f, 600f);
-                    float flash = 0.7f + 0.3f * Mathf.PerlinNoise(_fluorFlickerPhase[i] * 0.3f, i * 7.3f);
-                    flash = Mathf.Clamp01(flash);
-
-                    if (t <= 0f)
-                    {
-                        bool tubeStillHot = _fluorIntensity[i] > 0.20f;
-                        float chance = Mathf.Lerp(BASE_IGNITION_CHANCE, 0.05f, failureRate);
-                        if (tubeStillHot) chance += 0.30f;
-
-                        if (Random.value < chance)
-                        {
-                            _fluorState[i] = FLUOR_ON;
-                            float onTime = Random.Range(ON_MIN, ON_MAX) * (1f - failureRate * 0.7f);
-                            _fluorStateTimer[i] = Mathf.Max(0.4f, onTime);
-                        }
-                        else
-                        {
-                            if (Random.value < DOUBLE_FLASH_CHANCE)
-                            {
-                                _fluorState[i] = FLUOR_FLASH;
-                                _fluorStateTimer[i] = Random.Range(0.02f, 0.06f);
-                            }
-                            else
-                            {
-                                _fluorState[i] = FLUOR_OFF;
-                                _fluorStateTimer[i] = Random.Range(OFF_MIN, OFF_MAX)
-                                                        * Mathf.Lerp(0.3f, 1.1f, failureRate);
-                            }
-                        }
-                    }
-                    return SmoothIntensityPreview(i, flash, dt);
-                }
-
-            case FLUOR_ON:
-                {
-                    _fluorFlickerPhase[i] += dt * 100f;
-                    float flicker = 1f + Mathf.Sin(_fluorFlickerPhase[i]) * 0.008f;
-
-                    if (Random.value < 0.005f + failureRate * 0.01f)
-                        flicker *= Random.Range(0.75f, 0.95f);
-
-                    if (t <= 0f)
-                    {
-                        if (Random.value < 0.35f)
-                        {
-                            _fluorState[i] = FLUOR_OFF;
-                            _fluorStateTimer[i] = Random.Range(OFF_MIN, OFF_MAX);
-                        }
-                        else
-                        {
-                            _fluorState[i] = FLUOR_FLICKER;
-                            _fluorStateTimer[i] = Random.Range(FLICKER_MIN, FLICKER_MAX);
-                        }
-                    }
-                    return SmoothIntensityPreview(i, flicker, dt);
-                }
-
-            case FLUOR_FLICKER:
-                {
-                    if (Random.value < 0.15f)
-                        _fluorFlickerPhase[i] += dt * Random.Range(10f, 80f);
-                    else
-                        _fluorFlickerPhase[i] += dt * Random.Range(30f, 60f);
-
-                    float flicker = 0.30f + 0.45f * Mathf.Sin(_fluorFlickerPhase[i]);
-
-                    if (Random.value < 0.08f + failureRate * 0.25f)
-                        flicker *= Random.Range(0.0f, 0.40f);
-
-                    flicker = Mathf.Max(0.0f, flicker);
-
-                    if (t <= 0f)
-                    {
-                        _fluorState[i] = FLUOR_DYING;
-                        _fluorStateTimer[i] = Random.Range(DYING_MIN, DYING_MAX);
-                    }
-                    return SmoothIntensityPreview(i, flicker, dt);
-                }
-
-            case FLUOR_DYING:
-                {
-                    float intensity = Mathf.Max(0f, t * 0.5f);
-
-                    if (Random.value < 0.25f)
-                        intensity += Random.value * 0.15f;
-                    intensity = Mathf.Min(intensity, 0.35f);
-
-                    if (t <= 0f)
-                    {
-                        _fluorState[i] = FLUOR_OFF;
-                        _fluorStateTimer[i] = Random.Range(OFF_MIN, OFF_MAX);
-                    }
-                    return SmoothIntensityPreview(i, intensity, dt);
-                }
+            _faultStateTimer[i] -= dt;
+            if (_faultStateTimer[i] <= 0f)
+            {
+                _faultIsOn[i] = !_faultIsOn[i];
+                _faultStateTimer[i] = _faultIsOn[i]
+                    ? Random.Range(_brokenOnMin[i], _brokenOnMax[i])
+                    : Random.Range(_brokenOffMin[i], _brokenOffMax[i]);
+            }
+            float target = _faultIsOn[i] ? _brokenOnIntensity[i] : 0f;
+            _faultIntensity[i] = Mathf.MoveTowards(_faultIntensity[i], target, FAULT_FADE_SPEED * dt);
+            return _faultIntensity[i];
         }
-
-        _fluorState[i] = FLUOR_OFF;
-        _fluorStateTimer[i] = Random.Range(0.2f, 1.0f);
-        return SmoothIntensityPreview(i, 0f, dt);
     }
 
-    private static float SmoothIntensityPreview(int i, float target, float dt)
-    {
-        float current = _fluorIntensity[i];
-        if (target > current + 0.3f)
-            _fluorIntensity[i] = Mathf.Lerp(current, target, dt * 40f);
-        else
-        {
-            float speed = (target > current) ? 12f : 6f;
-            _fluorIntensity[i] = Mathf.Lerp(current, target, dt * speed);
-        }
-        return _fluorIntensity[i];
-    }
-
-    // ── Incandescent preview ────────────────────────────────────────────────
-    private static float TickIncandescentPreview(int i, float dt)
-    {
-        _incandDriftTimer[i] -= dt;
-        if (_incandDriftTimer[i] <= 0f)
-        {
-            _incandDriftTimer[i] = Random.Range(INCAND_DRIFT_RATE_MIN, INCAND_DRIFT_RATE_MAX);
-            _incandDriftTarget[i] = 1f + Random.Range(-INCAND_DRIFT_AMPLITUDE, INCAND_DRIFT_AMPLITUDE);
-        }
-
-        _incandDriftVal[i] = Mathf.Lerp(_incandDriftVal[i], _incandDriftTarget[i], dt * 0.8f);
-        _incandThermalMass[i] = Mathf.Lerp(_incandThermalMass[i], _incandDriftVal[i], dt * INCAND_THERMAL_SPEED);
-        _incandPhase[i] += dt * INCAND_WAVER_FREQ * Mathf.PI * 2f;
-        float waver = Mathf.Sin(_incandPhase[i]) * INCAND_WAVER_AMPLITUDE;
-
-        return Mathf.Clamp01(_incandThermalMass[i] + waver);
-    }
-
-    // ── Sort ──────────────────────────────────────────────────────────────────
+    // ── Sort, Fill, Upload ───────────────────────────────────────────────────
     private static int SortNearest(Vector3 viewerPos)
     {
         int count = 0;
@@ -710,10 +711,8 @@ public static class LayeredLightingEditor
             float distSq = Vector3.SqrMagnitude(viewerPos - l.transform.position);
             float dist = Mathf.Sqrt(distSq);
 
-            // Same dual-distance budget cull as runtime: only drop a light
-            // entirely if it's out of range for BOTH specular and diffuse.
-            float specLimit = (_specularMaxDistances != null && i < _specularMaxDistances.Length) ? _specularMaxDistances[i] : 0f;
-            float diffLimit = (_diffuseMaxDistances != null && i < _diffuseMaxDistances.Length) ? _diffuseMaxDistances[i] : 0f;
+            float specLimit = _specularMaxDistances[i];
+            float diffLimit = _diffuseMaxDistances[i];
             bool specInRange = specLimit <= 0f || dist <= specLimit;
             bool diffInRange = diffLimit <= 0f || dist <= diffLimit;
 
@@ -738,11 +737,9 @@ public static class LayeredLightingEditor
         return count;
     }
 
-    // ── UpdateLiveData ────────────────────────────────────────────────────────
     private static bool UpdateLiveData()
     {
         if (_lightToShader == null || _lightToShader.Length != _lights.Length) return false;
-
         bool changed = false;
 
         for (int li = 0; li < _lights.Length; li++)
@@ -778,7 +775,7 @@ public static class LayeredLightingEditor
 
             Vector3 bakedCol = (_bakedColors != null && li < _bakedColors.Length)
                 ? _bakedColors[li] : col;
-            float realtimeFlag = (_isRealtime != null && li < _isRealtime.Length && _isRealtime[li]) ? 1.0f : 0.0f;
+            float realtimeFlag = _isRealtime[li] ? 1.0f : 0.0f;
 
             if (posChanged || intChanged)
                 _shaderBuffer[baseIdx + 0] = new Vector4(pos.x, pos.y, pos.z, intensity);
@@ -811,27 +808,24 @@ public static class LayeredLightingEditor
                 ? _worldRoot.GetComponent<LayeredLightingManager>() : null;
             if (mgr != null)
             {
+                bool wasDirty = EditorUtility.IsDirty(mgr);
+
                 mgr.shaderWasUpdated = true;
                 mgr.shaderUpdatesThisFrame = 1;
                 mgr.updateReason = "Editor: LiveData";
-                EditorUtility.SetDirty(mgr);
+
+                // Same safety net as in Tick(): never let this script's own
+                // transient writes be the reason the scene stays "unsaved".
+                if (!wasDirty) EditorUtility.ClearDirty(mgr);
             }
         }
 
         return changed;
     }
 
-    // ── FillUploadBuffers ─────────────────────────────────────────────────────
     private static void FillUploadBuffers(int finalCount)
     {
-        float lodBias = 0.3f;
-        if (_worldRoot != null)
-        {
-            LayeredLightingManager mgr = _worldRoot.GetComponent<LayeredLightingManager>();
-            if (mgr != null) lodBias = mgr.lightmapLODBias;
-        }
-
-        _shaderBuffer[0] = new Vector4((float)finalCount, _rangeScale, lodBias, 1f);
+        _shaderBuffer[0] = new Vector4((float)finalCount, _rangeScale, 0f, 1f);
         for (int i = 0; i < finalCount; i++)
         {
             int li = _indices[i];
@@ -844,12 +838,14 @@ public static class LayeredLightingEditor
 
             Vector3 bakedCol = (_bakedColors != null && li < _bakedColors.Length)
                 ? _bakedColors[li] : rawColor;
-            float realtimeFlag = (_isRealtime != null && li < _isRealtime.Length && _isRealtime[li]) ? 1.0f : 0.0f;
+            float realtimeFlag = _isRealtime[li] ? 1.0f : 0.0f;
 
             Vector3 fwd = l.transform.forward;
             Vector3 right = l.transform.right;
             Vector3 up = l.transform.up;
             float cosOuter = ComputeCosOuter(l.type, l.spotAngle);
+            float cosInner = ComputeCosInner(cosOuter);
+            int lightTypeInt = GetLightTypeInt(cosOuter);
 
             float halfX = (_halfExtents != null && li < _halfExtents.Length) ? _halfExtents[li].x : 0.01f;
             float halfY = (_halfExtents != null && li < _halfExtents.Length) ? _halfExtents[li].y : 0.01f;
@@ -869,12 +865,11 @@ public static class LayeredLightingEditor
             _shaderBuffer[baseIdx + 4] = new Vector4(up.x, up.y, up.z, halfY);
             _shaderBuffer[baseIdx + 5] = new Vector4(bakedCol.x, bakedCol.y, bakedCol.z, realtimeFlag);
             _shaderBuffer[baseIdx + 6] = new Vector4(layerSlice, diffuseOn ? 1f : 0f, specularOn ? 1f : 0f, groupMask);
-            _shaderBuffer[baseIdx + 7] = new Vector4(specMaxDist, diffMaxDist, 0f, 0f);
+            _shaderBuffer[baseIdx + 7] = new Vector4(specMaxDist, diffMaxDist, (float)lightTypeInt, cosInner);
 
             _lastIndicesSorted[i] = li;
         }
 
-        // Clear remaining slots so stale lights don't persist
         int clearUpTo = Mathf.Max(finalCount, _lastUploadedSlotCount);
         for (int i = finalCount; i < clearUpTo; i++)
         {
@@ -888,12 +883,19 @@ public static class LayeredLightingEditor
         _lastUploadedSlotCount = finalCount;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     private static void UploadToShader()
     {
         Shader.SetGlobalVectorArray("_UdonLightData", _shaderBuffer);
-        if (_previewLayerArray != null)
-            Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
+        Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
+        Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
+
+        LayeredLightingManager mgr = _worldRoot?.GetComponent<LayeredLightingManager>();
+        if (mgr != null)
+        {
+            Shader.SetGlobalFloat("_UdonLODDistanceNear", mgr.lodDistanceNear);
+            Shader.SetGlobalFloat("_UdonLODDistanceFar", mgr.lodDistanceFar);
+            Shader.SetGlobalFloat("_UdonLODMaxMip", mgr.lodAtFar);
+        }
     }
 
     private static Vector3 GetViewerPos()
@@ -907,6 +909,24 @@ public static class LayeredLightingEditor
         if (type == LightType.Spot) return Mathf.Cos(spotAngleDegrees * 0.5f * Mathf.Deg2Rad);
         if (type == LightType.Area) return 0.0f;
         return -1.0f;
+    }
+
+    // Identical to LayeredLightingManager.ComputeCosInner: 15% penumbra in angular space
+    private static float ComputeCosInner(float cosOuter)
+    {
+        if (cosOuter < -0.9f) return -1.0f; // point — unused
+        if (cosOuter <= 0.0f) return 0.0f;  // area — unused
+        float angleOuter = Mathf.Acos(cosOuter);
+        float angleInner = angleOuter * 0.85f; // 15% penumbra
+        return Mathf.Cos(angleInner);
+    }
+
+    // Identical to LayeredLightingManager.GetLightTypeInt: 0=point, 1=spot, 2=area
+    private static int GetLightTypeInt(float cosOuter)
+    {
+        if (cosOuter < -0.9f) return 0;   // point
+        if (cosOuter <= 0.0f) return 2;   // area
+        return 1;                         // spot
     }
 
     private static int CountBits(int v)
@@ -937,13 +957,11 @@ public static class LayeredLightingEditor
         }
     }
 
-    // ── Menu items ────────────────────────────────────────────────────────────
     [MenuItem("Meenphie/Layered Lighting/Rebuild Light Data")]
     public static void RebuildLightData()
     {
         TryFindAndRescan();
         _previewEnabled = true;
-        Debug.Log("[Layered Lighting] Light data rebuilt. Preview enabled.");
     }
 
     [MenuItem("Meenphie/Layered Lighting/Toggle Specular Preview")]
@@ -986,7 +1004,6 @@ public static class LayeredLightingEditor
         }
 
         RepaintSceneViews();
-        Debug.Log("[Layered Lighting] Preview cleared.");
     }
 }
 #endif

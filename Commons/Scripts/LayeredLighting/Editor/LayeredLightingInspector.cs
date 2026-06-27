@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+#if UNITY_EDITOR && UDONSHARP
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -10,13 +10,15 @@ public class LayeredLightingInspector : Editor
     private Editor _defaultEditor;
     private bool _foldoutOpen = true;
 
-    private static readonly string[] StyleNames = new string[]
-    {
-        "Fluorescent — 50 Hz flicker + warm-up reboot",
-        "Incandescent — thermal inertia + organic drift"
-    };
+    private static readonly string[] FaultStateNames = { "Normal", "Broken", "Panic" };
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+    private void OnSceneGUI()
+    {
+        var method = _defaultEditor?.GetType().GetMethod("OnSceneGUI",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        method?.Invoke(_defaultEditor, null);
+    }
 
     private void OnEnable()
     {
@@ -34,7 +36,7 @@ public class LayeredLightingInspector : Editor
         }
     }
 
-    // ── Main GUI ──────────────────────────────────────────────────────────────
+    // ── Main GUI ───────────────────────────────────────────────────────────
 
     public override void OnInspectorGUI()
     {
@@ -47,7 +49,7 @@ public class LayeredLightingInspector : Editor
         DrawLayeredLightingFoldout();
     }
 
-    // ── Data helper ───────────────────────────────────────────────────────────
+    // ── Entry struct ───────────────────────────────────────────────────────
 
     private struct Entry
     {
@@ -56,7 +58,7 @@ public class LayeredLightingInspector : Editor
         public Light light;
     }
 
-    // ── Foldout ───────────────────────────────────────────────────────────────
+    // ── Foldout ────────────────────────────────────────────────────────────
 
     private void DrawLayeredLightingFoldout()
     {
@@ -85,10 +87,15 @@ public class LayeredLightingInspector : Editor
                 && mgr.childLightSpecularDistance != null && index < mgr.childLightSpecularDistance.Length
                 && mgr.childLightSpecularMaxDistance != null && index < mgr.childLightSpecularMaxDistance.Length
                 && mgr.childLightDiffuseMaxDistance != null && index < mgr.childLightDiffuseMaxDistance.Length
-                && mgr.childLightIsAnimated != null && index < mgr.childLightIsAnimated.Length
-                && mgr.childLightAnimationModel != null && index < mgr.childLightAnimationModel.Length
-                && mgr.childLightIsBroken != null && index < mgr.childLightIsBroken.Length
-                && mgr.childLightFailureRate != null && index < mgr.childLightFailureRate.Length;
+                && mgr.childLightFaultState != null && index < mgr.childLightFaultState.Length
+                && mgr.childLightBrokenOnMin != null && index < mgr.childLightBrokenOnMin.Length
+                && mgr.childLightBrokenOnMax != null && index < mgr.childLightBrokenOnMax.Length
+                && mgr.childLightBrokenOffMin != null && index < mgr.childLightBrokenOffMin.Length
+                && mgr.childLightBrokenOffMax != null && index < mgr.childLightBrokenOffMax.Length
+                && mgr.childLightBrokenOnIntensity != null && index < mgr.childLightBrokenOnIntensity.Length
+                && mgr.childLightPanicSpeed != null && index < mgr.childLightPanicSpeed.Length
+                && mgr.childLightPanicIntensityMin != null && index < mgr.childLightPanicIntensityMin.Length
+                && mgr.childLightPanicIntensityMax != null && index < mgr.childLightPanicIntensityMax.Length;
 
             if (!valid)
             {
@@ -101,7 +108,7 @@ public class LayeredLightingInspector : Editor
 
         if (tracked.Count > 0)
         {
-            // ── Rendering ────────────────────────────────────────────────────
+            // ── Rendering ─────────────────────────────────────────────────
 
             EditorGUILayout.LabelField("Rendering", EditorStyles.boldLabel);
 
@@ -125,91 +132,130 @@ public class LayeredLightingInspector : Editor
 
             DrawSharedSlider(
                 tracked, "Max Specular Distance",
-                "Maximum distance for this light to contribute to specular/realtime lighting. 0 = unlimited (uses default range). Fades out smoothly as it approaches this distance.",
-                0f, 100f,
+                "Maximum distance for specular/realtime lighting. 0 = unlimited.",
+                0f, 30f,
                 e => e.manager.childLightSpecularMaxDistance[e.index],
                 (e, v) => e.manager.childLightSpecularMaxDistance[e.index] = v);
 
             DrawSharedSlider(
                 tracked, "Max Diffuse Distance",
-                "Maximum distance for this light to contribute diffuse lighting. 0 = unlimited (uses default range). Applies to both static (lightmap) and dynamic meshes: lightmap sampling hard-cuts at this distance (no fade, perf-only), while realtime diffuse fades out smoothly like specular does.",
-                0f, 100f,
+                "Maximum distance for diffuse lighting. 0 = unlimited. Lightmap sampling hard-cuts; realtime diffuse fades.",
+                0f, 200f,
                 e => e.manager.childLightDiffuseMaxDistance[e.index],
                 (e, v) => e.manager.childLightDiffuseMaxDistance[e.index] = v);
 
-            // ── Animation ────────────────────────────────────────────────────
+            // ── Animation ─────────────────────────────────────────────────
 
             EditorGUILayout.Space(6);
             EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
 
-            DrawSharedToggle(
-                tracked, "Is Animated",
-                "Enables physical light animation (Fluorescent or Incandescent model).",
-                e => e.manager.childLightIsAnimated[e.index],
-                (e, v) => e.manager.childLightIsAnimated[e.index] = v);
+            DrawSharedDropdown(
+                tracked, "State",
+                "Normal: not animated.\nBroken: slow irregular blink with smooth fade.\nPanic: rapid erratic flicker at random intensities.",
+                FaultStateNames,
+                e => (int)e.manager.childLightFaultState[e.index],
+                (e, v) => e.manager.childLightFaultState[e.index] = (LightFaultState)v);
 
-            bool anyAnimated = false;
+            // Determine which states are present across the selection
+            bool anyBroken = false, anyPanic = false;
             foreach (var e in tracked)
-                if (e.manager.childLightIsAnimated[e.index]) { anyAnimated = true; break; }
-
-            if (anyAnimated)
             {
-                DrawSharedDropdown(
-                    tracked, "Model",
-                    "Physical model driving the intensity animation.",
-                    StyleNames,
-                    e => e.manager.childLightAnimationModel[e.index],
-                    (e, v) => e.manager.childLightAnimationModel[e.index] = v);
+                var s = e.manager.childLightFaultState[e.index];
+                if (s == LightFaultState.Broken) anyBroken = true;
+                if (s == LightFaultState.Panic) anyPanic = true;
+            }
+            bool anyNonNormal = anyBroken || anyPanic;
 
-                bool anyFluorescent = false;
-                foreach (var e in tracked)
-                    if (e.manager.childLightAnimationModel[e.index] == 0) { anyFluorescent = true; break; }
+            if (anyBroken)
+            {
+                EditorGUILayout.Space(4);
+                EditorGUILayout.LabelField("Broken timing", EditorStyles.miniBoldLabel);
 
-                if (anyFluorescent)
-                {
-                    DrawSharedToggle(
-                        tracked, "Is Broken",
-                        "When enabled, the fluorescent light enters a broken cycle: off, attempts to start (rarely succeeds), stays on briefly, then fails again.",
-                        e => e.manager.childLightIsBroken[e.index],
-                        (e, v) => e.manager.childLightIsBroken[e.index] = v);
+                DrawSharedSlider(
+                    tracked, "On min",
+                    "Minimum duration (seconds) the light stays on per blink.",
+                    0.001f, 5f,
+                    e => e.manager.childLightBrokenOnMin[e.index],
+                    (e, v) => e.manager.childLightBrokenOnMin[e.index] = v);
 
-                    DrawSharedSlider(
-                        tracked, "Failure Rate",
-                        "Controls the time the light stays off before attempting a restart. 0 = long off time, 1 = short off time.",
-                        0f, 1f,
-                        e => e.manager.childLightFailureRate[e.index],
-                        (e, v) => e.manager.childLightFailureRate[e.index] = v);
-                }
+                DrawSharedSlider(
+                    tracked, "On max",
+                    "Maximum duration (seconds) the light stays on per blink.",
+                    0.001f, 5f,
+                    e => e.manager.childLightBrokenOnMax[e.index],
+                    (e, v) => e.manager.childLightBrokenOnMax[e.index] = v);
 
-                // ── Audio override ────────────────────────────────────────────
+                DrawSharedSlider(
+                    tracked, "Off min",
+                    "Minimum duration (seconds) the light stays off per blink.",
+                    0.001f, 5f,
+                    e => e.manager.childLightBrokenOffMin[e.index],
+                    (e, v) => e.manager.childLightBrokenOffMin[e.index] = v);
 
+                DrawSharedSlider(
+                    tracked, "Off max",
+                    "Maximum duration (seconds) the light stays off per blink.",
+                    0.001f, 5f,
+                    e => e.manager.childLightBrokenOffMax[e.index],
+                    (e, v) => e.manager.childLightBrokenOffMax[e.index] = v);
+
+                DrawSharedSlider(
+                    tracked, "On intensity",
+                    "Intensity multiplier (0–1) applied to the light's base intensity when it is in its on-phase.",
+                    0f, 1f,
+                    e => e.manager.childLightBrokenOnIntensity[e.index],
+                    (e, v) => e.manager.childLightBrokenOnIntensity[e.index] = v);
+            }
+
+            if (anyPanic)
+            {
+                EditorGUILayout.Space(4);
+                EditorGUILayout.LabelField("Panic timing", EditorStyles.miniBoldLabel);
+
+                DrawSharedSlider(
+                    tracked, "Speed",
+                    "Controls how fast the light flickers. 0 = slow sparse blinks, 1 = rapid near-continuous strobe. " +
+                    "LightAnomalyController overwrites this at runtime based on proximity.",
+                    0f, 1f,
+                    e => e.manager.childLightPanicSpeed[e.index],
+                    (e, v) => e.manager.childLightPanicSpeed[e.index] = v);
+
+                DrawSharedSlider(
+                    tracked, "Intensity min",
+                    "Minimum random multiplier applied to the light's base intensity during a Panic on-phase. Values above 1 overshoot the base intensity.",
+                    0f, 2f,
+                    e => e.manager.childLightPanicIntensityMin[e.index],
+                    (e, v) => e.manager.childLightPanicIntensityMin[e.index] = v);
+
+                DrawSharedSlider(
+                    tracked, "Intensity max",
+                    "Maximum random multiplier applied to the light's base intensity during a Panic on-phase. Values above 1 overshoot the base intensity.",
+                    0f, 2f,
+                    e => e.manager.childLightPanicIntensityMax[e.index],
+                    (e, v) => e.manager.childLightPanicIntensityMax[e.index] = v);
+            }
+
+            // ── Audio override ─────────────────────────────────────────────
+
+            if (anyNonNormal)
+            {
                 EditorGUILayout.Space(4);
                 EditorGUILayout.LabelField("Audio (optional override)", EditorStyles.miniBoldLabel);
 
-                bool hasOverride = false;
                 if (tracked.Count == 1)
                 {
                     var e = tracked[0];
-                    bool ov = e.manager.childLightAudioClipOverride != null
-                           && e.index < e.manager.childLightAudioClipOverride.Length
-                           && e.manager.childLightAudioClipOverride[e.index] != null;
-                    hasOverride = ov;
-
-                    int model = e.manager.childLightAnimationModel[e.index];
-                    string defaultInfo = model == 0
-                        ? "Model default: Fluorescent clip (assigned on manager)"
-                        : "Model default: Incandescent clip (assigned on manager, usually silent)";
-
+                    bool hasOverride = e.manager.childLightAudioClipOverride != null
+                                   && e.index < e.manager.childLightAudioClipOverride.Length
+                                   && e.manager.childLightAudioClipOverride[e.index] != null;
                     if (!hasOverride)
-                    {
-                        EditorGUILayout.HelpBox(defaultInfo, MessageType.None);
-                    }
+                        EditorGUILayout.HelpBox("Default: the manager's fault audio clip.", MessageType.None);
                 }
 
                 DrawSharedAudioClipField(
                     tracked,
                     "Clip Override",
-                    "Optional: replaces the model-default clip for this specific light. Leave None to use the manager's model clip.",
+                    "Replaces the manager's default fault clip for this specific light. Leave None to use the manager's clip.",
                     e => (e.manager.childLightAudioClipOverride != null &&
                           e.index < e.manager.childLightAudioClipOverride.Length)
                          ? e.manager.childLightAudioClipOverride[e.index] : null,
@@ -249,11 +295,9 @@ public class LayeredLightingInspector : Editor
                         EditorGUI.EndDisabledGroup();
 
                         if (!Mathf.Approximately(src.spatialBlend, 1f))
-                        {
                             EditorGUILayout.HelpBox(
                                 "Spatial Blend is not 1 — audio will not be fully 3D.",
                                 MessageType.Warning);
-                        }
                     }
                 }
             }
@@ -273,9 +317,7 @@ public class LayeredLightingInspector : Editor
         EditorGUILayout.EndFoldoutHeaderGroup();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Shared control helpers
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Shared control helpers ─────────────────────────────────────────────
 
     private static void DrawSharedToggle(
         List<Entry> entries, string label, string tooltip,
@@ -354,7 +396,7 @@ public class LayeredLightingInspector : Editor
             CommitChange(entries, "Change " + label, e => setValue(e, newValue));
     }
 
-    // ── Generic undo-aware commit ─────────────────────────────────────────────
+    // ── Generic undo-aware commit ──────────────────────────────────────────
 
     private static void CommitChange(
         List<Entry> entries, string undoLabel,
@@ -368,7 +410,7 @@ public class LayeredLightingInspector : Editor
         foreach (var mgr in managers) EditorUtility.SetDirty(mgr);
     }
 
-    // ── Manager lookup ────────────────────────────────────────────────────────
+    // ── Manager lookup ─────────────────────────────────────────────────────
 
     private static LayeredLightingManager FindManagerFor(Light light, out int index)
     {
