@@ -26,9 +26,7 @@ public static class LayeredLightingAssigner
     private const TextureWrapMode WRAP = TextureWrapMode.Clamp;
     private const FilterMode FILTER = FilterMode.Trilinear;
     private const int ANISO = 1;
-
     private const int MAX_GROUPS = 20;
-
     private const string REQUIRED_PREFIX = "GI";
 
     private static Material _blitCopyMat;
@@ -84,7 +82,7 @@ public static class LayeredLightingAssigner
             var lightData = new (
                 Light light, Vector3 bakedColor, Vector2 halfExtents,
                 bool isRealtime, bool diffuse, bool specular,
-                float specularMaxDist, float diffuseMaxDist,
+                float specularMaxDist, float diffuseStaticMaxDist, float diffuseRealtimeMaxDist,
                 LightFaultState faultState,
                 AudioClip audioOverride
             )[originalLightCount];
@@ -102,7 +100,8 @@ public static class LayeredLightingAssigner
                     SafeBool(mgr.childLightDiffuseEnabled, i, true),
                     SafeBool(mgr.childLightSpecularDistance, i, true),
                     SafeFloat(mgr.childLightSpecularMaxDistance, i, 30f),
-                    SafeFloat(mgr.childLightDiffuseMaxDistance, i, 60f),
+                    SafeFloat(mgr.childLightDiffuseStaticMaxDistance, i, 200f),
+                    SafeFloat(mgr.childLightDiffuseRealtimeMaxDistance, i, 200f),
                     SafeFaultState(mgr.childLightFaultState, i, LightFaultState.Normal),
                     SafeClip(mgr.childLightAudioClipOverride, i)
                 );
@@ -177,7 +176,8 @@ public static class LayeredLightingAssigner
             var newDiff = new List<bool>();
             var newSpec = new List<bool>();
             var newSpecMax = new List<float>();
-            var newDiffMax = new List<float>();
+            var newDiffStaticMax = new List<float>();
+            var newDiffRealtimeMax = new List<float>();
             var newFault = new List<LightFaultState>();
             var newAudioOverride = new List<AudioClip>();
             var orderedTextures = new List<Texture2D>();
@@ -211,7 +211,8 @@ public static class LayeredLightingAssigner
                     newDiff.Add(d.diffuse);
                     newSpec.Add(d.specular);
                     newSpecMax.Add(d.specularMaxDist);
-                    newDiffMax.Add(d.diffuseMaxDist);
+                    newDiffStaticMax.Add(d.diffuseStaticMaxDist);
+                    newDiffRealtimeMax.Add(d.diffuseRealtimeMaxDist);
                     newFault.Add(d.faultState);
                     newAudioOverride.Add(d.audioOverride);
 
@@ -238,7 +239,8 @@ public static class LayeredLightingAssigner
                     newDiff.Add(d.diffuse);
                     newSpec.Add(d.specular);
                     newSpecMax.Add(d.specularMaxDist);
-                    newDiffMax.Add(d.diffuseMaxDist);
+                    newDiffStaticMax.Add(d.diffuseStaticMaxDist);
+                    newDiffRealtimeMax.Add(d.diffuseRealtimeMaxDist);
                     newFault.Add(d.faultState);
                     newAudioOverride.Add(d.audioOverride);
                     report.AppendLine("  [skip] " + lightName + " -> no group textures");
@@ -324,7 +326,8 @@ public static class LayeredLightingAssigner
             mgr.childLightDiffuseEnabled = newDiff.ToArray();
             mgr.childLightSpecularDistance = newSpec.ToArray();
             mgr.childLightSpecularMaxDistance = newSpecMax.ToArray();
-            mgr.childLightDiffuseMaxDistance = newDiffMax.ToArray();
+            mgr.childLightDiffuseStaticMaxDistance = newDiffStaticMax.ToArray();
+            mgr.childLightDiffuseRealtimeMaxDistance = newDiffRealtimeMax.ToArray();
             mgr.childLightFaultState = newFault.ToArray();
             mgr.childLightAudioClipOverride = newAudioOverride.ToArray();
 
@@ -566,7 +569,7 @@ public static class LayeredLightingAssigner
         if (parts.Length < 3) return null;
 
         string prefix = parts[0].Trim();
-        if (!prefix.StartsWith("GI", StringComparison.OrdinalIgnoreCase))
+        if (!prefix.StartsWith(REQUIRED_PREFIX, StringComparison.OrdinalIgnoreCase))
             return null;
 
         return parts[1].Trim();

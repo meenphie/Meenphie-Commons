@@ -53,7 +53,11 @@ public class LayeredLightingManager : UdonSharpBehaviour
     [HideInInspector] public bool[] childLightDiffuseEnabled;
     [HideInInspector] public bool[] childLightSpecularDistance;
     [HideInInspector] public float[] childLightSpecularMaxDistance;
-    [HideInInspector] public float[] childLightDiffuseMaxDistance;
+    // Split so a light retains independent distance caps for its baked (static)
+    // and realtime diffuse behavior, since toggling childLightIsRealtime no
+    // longer clobbers whichever distance wasn't currently active.
+    [HideInInspector] public float[] childLightDiffuseStaticMaxDistance;
+    [HideInInspector] public float[] childLightDiffuseRealtimeMaxDistance;
 
     [HideInInspector] public LightFaultState[] childLightFaultState;
     [HideInInspector] public int[] childLightGroupIndex;
@@ -172,8 +176,10 @@ public class LayeredLightingManager : UdonSharpBehaviour
             childLightSpecularDistance = new bool[cap];
         if (childLightSpecularMaxDistance == null || childLightSpecularMaxDistance.Length != cap)
             childLightSpecularMaxDistance = new float[cap];
-        if (childLightDiffuseMaxDistance == null || childLightDiffuseMaxDistance.Length != cap)
-            childLightDiffuseMaxDistance = new float[cap];
+        if (childLightDiffuseStaticMaxDistance == null || childLightDiffuseStaticMaxDistance.Length != cap)
+            childLightDiffuseStaticMaxDistance = new float[cap];
+        if (childLightDiffuseRealtimeMaxDistance == null || childLightDiffuseRealtimeMaxDistance.Length != cap)
+            childLightDiffuseRealtimeMaxDistance = new float[cap];
         if (childLightFaultState == null || childLightFaultState.Length != cap)
             System.Array.Resize(ref childLightFaultState, cap);
         if (childLightGroupIndex == null)
@@ -304,8 +310,9 @@ public class LayeredLightingManager : UdonSharpBehaviour
         childLightLayerSlices = ResizeOrDefault(childLightLayerSlices, cap, -1);
         childLightDiffuseEnabled = ResizeOrDefault(childLightDiffuseEnabled, cap, true);
         childLightSpecularDistance = ResizeOrDefault(childLightSpecularDistance, cap, true);
-        childLightSpecularMaxDistance = ResizeOrDefault(childLightSpecularMaxDistance, cap, 30f);
-        childLightDiffuseMaxDistance = ResizeOrDefault(childLightDiffuseMaxDistance, cap, 60f);
+        childLightSpecularMaxDistance = ResizeOrDefault(childLightSpecularMaxDistance, cap, 15f);
+        childLightDiffuseStaticMaxDistance = ResizeOrDefault(childLightDiffuseStaticMaxDistance, cap, 200f);
+        childLightDiffuseRealtimeMaxDistance = ResizeOrDefault(childLightDiffuseRealtimeMaxDistance, cap, 200f);
         childLightFaultState = ResizeOrDefault(childLightFaultState, cap, LightFaultState.Normal);
         childLightGroupIndex = ResizeOrDefault(childLightGroupIndex, cap, ~0);
 
@@ -864,7 +871,11 @@ public class LayeredLightingManager : UdonSharpBehaviour
             mergedDiffuseEnabled[mi] = childLightDiffuseEnabled[li];
             mergedSpecularEnabled[mi] = childLightSpecularDistance[li];
             mergedSpecularMaxDistance[mi] = childLightSpecularMaxDistance[li];
-            mergedDiffuseMaxDistance[mi] = childLightDiffuseMaxDistance[li];
+            // Resolve to whichever distance cap applies to this light's current
+            // rendering branch; the shader still only ever sees one value.
+            mergedDiffuseMaxDistance[mi] = childLightIsRealtime[li]
+                ? childLightDiffuseRealtimeMaxDistance[li]
+                : childLightDiffuseStaticMaxDistance[li];
             mergedFaultState[mi] = faultState;
             mergedGroupMask[mi] = childLightGroupIndex[li];
 

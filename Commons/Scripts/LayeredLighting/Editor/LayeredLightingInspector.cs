@@ -86,7 +86,8 @@ public class LayeredLightingInspector : Editor
                 && mgr.childLightDiffuseEnabled != null && index < mgr.childLightDiffuseEnabled.Length
                 && mgr.childLightSpecularDistance != null && index < mgr.childLightSpecularDistance.Length
                 && mgr.childLightSpecularMaxDistance != null && index < mgr.childLightSpecularMaxDistance.Length
-                && mgr.childLightDiffuseMaxDistance != null && index < mgr.childLightDiffuseMaxDistance.Length
+                && mgr.childLightDiffuseStaticMaxDistance != null && index < mgr.childLightDiffuseStaticMaxDistance.Length
+                && mgr.childLightDiffuseRealtimeMaxDistance != null && index < mgr.childLightDiffuseRealtimeMaxDistance.Length
                 && mgr.childLightFaultState != null && index < mgr.childLightFaultState.Length
                 && mgr.childLightBrokenOnMin != null && index < mgr.childLightBrokenOnMin.Length
                 && mgr.childLightBrokenOnMax != null && index < mgr.childLightBrokenOnMax.Length
@@ -138,11 +139,18 @@ public class LayeredLightingInspector : Editor
                 (e, v) => e.manager.childLightSpecularMaxDistance[e.index] = v);
 
             DrawSharedSlider(
-                tracked, "Max Diffuse Distance",
-                "Maximum distance for diffuse lighting. 0 = unlimited. Lightmap sampling hard-cuts; realtime diffuse fades.",
+                tracked, "Max Static Diffuse Distance",
+                "Maximum distance for lightmap-baked diffuse lighting. 0 = unlimited. Hard cutoff: contribution stops abruptly beyond this distance.",
                 0f, 200f,
-                e => e.manager.childLightDiffuseMaxDistance[e.index],
-                (e, v) => e.manager.childLightDiffuseMaxDistance[e.index] = v);
+                e => e.manager.childLightDiffuseStaticMaxDistance[e.index],
+                (e, v) => e.manager.childLightDiffuseStaticMaxDistance[e.index] = v);
+
+            DrawSharedSlider(
+                tracked, "Max Realtime Diffuse Distance",
+                "Maximum distance for realtime (non-lightmap) diffuse lighting. 0 = unlimited. Fades smoothly as it approaches this distance.",
+                0f, 200f,
+                e => e.manager.childLightDiffuseRealtimeMaxDistance[e.index],
+                (e, v) => e.manager.childLightDiffuseRealtimeMaxDistance[e.index] = v);
 
             // ── Animation ─────────────────────────────────────────────────
 

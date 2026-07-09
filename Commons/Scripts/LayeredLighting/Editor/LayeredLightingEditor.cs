@@ -60,7 +60,8 @@ public static class LayeredLightingEditor
     private static bool[] _diffuseEnabled;
     private static bool[] _specularEnabled;
     private static float[] _specularMaxDistances;
-    private static float[] _diffuseMaxDistances;
+    private static float[] _diffuseStaticMaxDistances;
+    private static float[] _diffuseRealtimeMaxDistances;
     private static LightFaultState[] _faultStates;
     private static Vector3[] _bakedColors;
     private static int[] _layerSlices;
@@ -365,7 +366,8 @@ public static class LayeredLightingEditor
         var oldDiffuseByLight = new Dictionary<Light, bool>();
         var oldSpecularByLight = new Dictionary<Light, bool>();
         var oldMaxDistByLight = new Dictionary<Light, float>();
-        var oldDiffuseMaxDistByLight = new Dictionary<Light, float>();
+        var oldDiffuseStaticMaxDistByLight = new Dictionary<Light, float>();
+        var oldDiffuseRealtimeMaxDistByLight = new Dictionary<Light, float>();
         var oldFaultStateByLight = new Dictionary<Light, LightFaultState>();
         var oldSliceByLight = new Dictionary<Light, int>();
         var oldGroupMaskByLight = new Dictionary<Light, int>();
@@ -395,8 +397,10 @@ public static class LayeredLightingEditor
                     oldSpecularByLight[l] = mgr.childLightSpecularDistance[i];
                 if (mgr.childLightSpecularMaxDistance != null && i < mgr.childLightSpecularMaxDistance.Length)
                     oldMaxDistByLight[l] = mgr.childLightSpecularMaxDistance[i];
-                if (mgr.childLightDiffuseMaxDistance != null && i < mgr.childLightDiffuseMaxDistance.Length)
-                    oldDiffuseMaxDistByLight[l] = mgr.childLightDiffuseMaxDistance[i];
+                if (mgr.childLightDiffuseStaticMaxDistance != null && i < mgr.childLightDiffuseStaticMaxDistance.Length)
+                    oldDiffuseStaticMaxDistByLight[l] = mgr.childLightDiffuseStaticMaxDistance[i];
+                if (mgr.childLightDiffuseRealtimeMaxDistance != null && i < mgr.childLightDiffuseRealtimeMaxDistance.Length)
+                    oldDiffuseRealtimeMaxDistByLight[l] = mgr.childLightDiffuseRealtimeMaxDistance[i];
                 if (mgr.childLightFaultState != null && i < mgr.childLightFaultState.Length)
                     oldFaultStateByLight[l] = mgr.childLightFaultState[i];
                 if (mgr.childLightLayerSlices != null && i < mgr.childLightLayerSlices.Length)
@@ -430,7 +434,8 @@ public static class LayeredLightingEditor
         _diffuseEnabled = new bool[count];
         _specularEnabled = new bool[count];
         _specularMaxDistances = new float[count];
-        _diffuseMaxDistances = new float[count];
+        _diffuseStaticMaxDistances = new float[count];
+        _diffuseRealtimeMaxDistances = new float[count];
         _faultStates = new LightFaultState[count];
         _bakedColors = new Vector3[count];
         _layerSlices = new int[count];
@@ -455,8 +460,9 @@ public static class LayeredLightingEditor
             _isRealtime[i] = oldRealtimeByLight.TryGetValue(l, out bool prevRt) ? prevRt : false;
             _diffuseEnabled[i] = oldDiffuseByLight.TryGetValue(l, out bool prevDiff) ? prevDiff : true;
             _specularEnabled[i] = oldSpecularByLight.TryGetValue(l, out bool prevSpec) ? prevSpec : true;
-            _specularMaxDistances[i] = oldMaxDistByLight.TryGetValue(l, out float prevMax) ? prevMax : 30f;
-            _diffuseMaxDistances[i] = oldDiffuseMaxDistByLight.TryGetValue(l, out float prevDiffMax) ? prevDiffMax : 60f;
+            _specularMaxDistances[i] = oldMaxDistByLight.TryGetValue(l, out float prevMax) ? prevMax : 15f;
+            _diffuseStaticMaxDistances[i] = oldDiffuseStaticMaxDistByLight.TryGetValue(l, out float prevDiffStaticMax) ? prevDiffStaticMax : 0f;
+            _diffuseRealtimeMaxDistances[i] = oldDiffuseRealtimeMaxDistByLight.TryGetValue(l, out float prevDiffRealtimeMax) ? prevDiffRealtimeMax : 0f;
             _faultStates[i] = oldFaultStateByLight.TryGetValue(l, out LightFaultState prevFault) ? prevFault : LightFaultState.Normal;
             _layerSlices[i] = oldSliceByLight.TryGetValue(l, out int prevSlice) ? prevSlice : -1;
             _groupMasks[i] = oldGroupMaskByLight.TryGetValue(l, out int prevMask) ? prevMask : ~0;
@@ -477,7 +483,8 @@ public static class LayeredLightingEditor
         mgr.childLightDiffuseEnabled = _diffuseEnabled;
         mgr.childLightSpecularDistance = _specularEnabled;
         mgr.childLightSpecularMaxDistance = _specularMaxDistances;
-        mgr.childLightDiffuseMaxDistance = _diffuseMaxDistances;
+        mgr.childLightDiffuseStaticMaxDistance = _diffuseStaticMaxDistances;
+        mgr.childLightDiffuseRealtimeMaxDistance = _diffuseRealtimeMaxDistances;
         mgr.childLightFaultState = _faultStates;
         mgr.childLightHalfExtents = _halfExtents;
         mgr.childLightLayerSlices = _layerSlices;
@@ -712,7 +719,10 @@ public static class LayeredLightingEditor
             float dist = Mathf.Sqrt(distSq);
 
             float specLimit = _specularMaxDistances[i];
-            float diffLimit = _diffuseMaxDistances[i];
+            // Resolve the applicable diffuse cap per-light, same as the runtime's
+            // BuildMergedGroups: baked/static lights use their static cap, realtime
+            // lights use their realtime cap.
+            float diffLimit = _isRealtime[i] ? _diffuseRealtimeMaxDistances[i] : _diffuseStaticMaxDistances[i];
             bool specInRange = specLimit <= 0f || dist <= specLimit;
             bool diffInRange = diffLimit <= 0f || dist <= diffLimit;
 
@@ -838,7 +848,8 @@ public static class LayeredLightingEditor
 
             Vector3 bakedCol = (_bakedColors != null && li < _bakedColors.Length)
                 ? _bakedColors[li] : rawColor;
-            float realtimeFlag = _isRealtime[li] ? 1.0f : 0.0f;
+            bool liRealtime = (_isRealtime != null && li < _isRealtime.Length) && _isRealtime[li];
+            float realtimeFlag = liRealtime ? 1.0f : 0.0f;
 
             Vector3 fwd = l.transform.forward;
             Vector3 right = l.transform.right;
@@ -856,7 +867,11 @@ public static class LayeredLightingEditor
             int groupMask = (_groupMasks != null && li < _groupMasks.Length) ? _groupMasks[li] : ~0;
 
             float specMaxDist = (_specularMaxDistances != null && li < _specularMaxDistances.Length) ? _specularMaxDistances[li] : 0f;
-            float diffMaxDist = (_diffuseMaxDistances != null && li < _diffuseMaxDistances.Length) ? _diffuseMaxDistances[li] : 0f;
+            // Resolve to whichever distance cap applies to this light's current
+            // rendering branch, mirroring BuildMergedGroups at runtime.
+            float diffMaxDist = liRealtime
+                ? ((_diffuseRealtimeMaxDistances != null && li < _diffuseRealtimeMaxDistances.Length) ? _diffuseRealtimeMaxDistances[li] : 0f)
+                : ((_diffuseStaticMaxDistances != null && li < _diffuseStaticMaxDistances.Length) ? _diffuseStaticMaxDistances[li] : 0f);
 
             _shaderBuffer[baseIdx + 0] = new Vector4(pos.x, pos.y, pos.z, intensity);
             _shaderBuffer[baseIdx + 1] = new Vector4(rawColor.x, rawColor.y, rawColor.z, intensity);
