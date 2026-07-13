@@ -3,7 +3,7 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
-public enum LightFaultState { Normal, Broken, Panic }
+public enum LightFaultState { Normal, Broken, Panic, Off }
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class LayeredLightingManager : UdonSharpBehaviour
@@ -12,6 +12,7 @@ public class LayeredLightingManager : UdonSharpBehaviour
     public float updateInterval = 0.025f;
     public float viewerUpdateInterval = 0.25f;
     [Range(1, MAX_LIGHTS)] public int activeSpecularCount = MAX_LIGHTS;
+    [Tooltip("Global culling distance – lights beyond this are skipped on the CPU.")]
     public float rangeScale = 10f;
 
     [Header("Lightmap Layer")]
@@ -25,6 +26,7 @@ public class LayeredLightingManager : UdonSharpBehaviour
     public AudioClip faultAudioClip;
     [Range(0f, 1f)] public float audioMasterVolume = 0.8f;
 
+#if UNITY_EDITOR
     [Header("Debug (read-only)")]
     public int currentStaticLights;
     public int currentDynamicLights;
@@ -35,10 +37,10 @@ public class LayeredLightingManager : UdonSharpBehaviour
     public bool shaderWasUpdated;
     public int shaderUpdatesThisFrame;
     public string updateReason = "None";
-    public int dynamicMeshCount;
+#endif
 
     public const int MAX_LIGHTS = 32;
-    public const float MOTION_EPSILON_SQ = 0.0001f;
+    public const float MOTION_EPSILON_SQ = 0.000001f;
     public const float COLOR_EPSILON = 0.004f;
     public const float INTENSITY_EPSILON = 0.001f;
 
@@ -52,25 +54,16 @@ public class LayeredLightingManager : UdonSharpBehaviour
 
     [HideInInspector] public bool[] childLightDiffuseEnabled;
     [HideInInspector] public bool[] childLightSpecularDistance;
-    [HideInInspector] public float[] childLightSpecularMaxDistance;
-    // Split so a light retains independent distance caps for its baked (static)
-    // and realtime diffuse behavior, since toggling childLightIsRealtime no
-    // longer clobbers whichever distance wasn't currently active.
-    [HideInInspector] public float[] childLightDiffuseStaticMaxDistance;
-    [HideInInspector] public float[] childLightDiffuseRealtimeMaxDistance;
 
     [HideInInspector] public LightFaultState[] childLightFaultState;
     [HideInInspector] public int[] childLightGroupIndex;
     [HideInInspector] public AudioClip[] childLightAudioClipOverride;
 
-    // Per-light fault timing — edited via the Light inspector, not the manager
     [HideInInspector] public float[] childLightBrokenOnMin;
     [HideInInspector] public float[] childLightBrokenOnMax;
     [HideInInspector] public float[] childLightBrokenOffMin;
     [HideInInspector] public float[] childLightBrokenOffMax;
     [HideInInspector] public float[] childLightBrokenOnIntensity;
-    // Panic uses a single 0-1 speed value; on/off means are derived from it at runtime.
-    // Written directly by LightAnomalyController each tick for proximity-driven panic.
     [HideInInspector] public float[] childLightPanicSpeed;
     [HideInInspector] public float[] childLightPanicIntensityMin;
     [HideInInspector] public float[] childLightPanicIntensityMax;
@@ -84,25 +77,21 @@ public class LayeredLightingManager : UdonSharpBehaviour
     [HideInInspector] public int[] mergedLayerSlice;
     [HideInInspector] public bool[] mergedDiffuseEnabled;
     [HideInInspector] public bool[] mergedSpecularEnabled;
-    [HideInInspector] public float[] mergedSpecularMaxDistance;
-    [HideInInspector] public float[] mergedDiffuseMaxDistance;
     [HideInInspector] public LightFaultState[] mergedFaultState;
     [HideInInspector] public int[] mergedGroupMask;
     [HideInInspector] public int mergedCount;
 
-    // Fault animation state — indexed by CHILD index (li), stable across rebuilds
+    // Precalculated trig to avoid Acos/Cos in loops
+    [HideInInspector] public float[] mergedCosInner;
+
     private float[] _faultStateTimer;
     private bool[] _faultIsOn;
     [HideInInspector] public float[] _faultIntensity;
     private float[] _panicTargetIntensity;
 
-    // Per-merged-slot base intensity — written by BuildMergedGroups, read by anim
     private float[] _mergedBaseIntensity;
-
-    // Per-merged-slot last animated intensity pushed to shader — for change detection
     private float[] _mergedLastAnimated;
 
-    // Merged-slot mirrors of per-light fault timing (copied each BuildMergedGroups)
     private float[] _mergedBrokenOnMin;
     private float[] _mergedBrokenOnMax;
     private float[] _mergedBrokenOffMin;
@@ -150,38 +139,26 @@ public class LayeredLightingManager : UdonSharpBehaviour
     private bool _specularEnabled = true;
     private float[] _lastAnimatedIntensity = new float[MAX_LIGHTS];
 
-    // How fast Broken fades in/out (units per second)
     private const float FAULT_FADE_SPEED = 15.0f;
 
-    // Panic speed → on/off mean curves.
-    // speed=0 → onMean=0.30s, offMean=0.80s  (slow sparse flicker)
-    // speed=1 → onMean=0.01s, offMean=0.02s  (rapid near-continuous strobe)
     private const float PANIC_ON_MEAN_SLOW = 0.30f;
     private const float PANIC_ON_MEAN_FAST = 0.01f;
     private const float PANIC_OFF_MEAN_SLOW = 0.80f;
     private const float PANIC_OFF_MEAN_FAST = 0.02f;
 
-    // ── Editor-only validation ─────────────────────────────────────────────
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
     private void OnValidate()
     {
         if (childLights == null) return;
         int cap = childLights.Length;
 
-        if (childLightIsRealtime == null || childLightIsRealtime.Length != cap)
-            childLightIsRealtime = new bool[cap];
-        if (childLightDiffuseEnabled == null || childLightDiffuseEnabled.Length != cap)
-            childLightDiffuseEnabled = new bool[cap];
-        if (childLightSpecularDistance == null || childLightSpecularDistance.Length != cap)
-            childLightSpecularDistance = new bool[cap];
-        if (childLightSpecularMaxDistance == null || childLightSpecularMaxDistance.Length != cap)
-            childLightSpecularMaxDistance = new float[cap];
-        if (childLightDiffuseStaticMaxDistance == null || childLightDiffuseStaticMaxDistance.Length != cap)
-            childLightDiffuseStaticMaxDistance = new float[cap];
-        if (childLightDiffuseRealtimeMaxDistance == null || childLightDiffuseRealtimeMaxDistance.Length != cap)
-            childLightDiffuseRealtimeMaxDistance = new float[cap];
+        ResizeBoolArray(ref childLightIsRealtime, cap, true);
+        ResizeBoolArray(ref childLightDiffuseEnabled, cap, true);
+        ResizeBoolArray(ref childLightSpecularDistance, cap, true);
+
         if (childLightFaultState == null || childLightFaultState.Length != cap)
             System.Array.Resize(ref childLightFaultState, cap);
+
         if (childLightGroupIndex == null)
         {
             childLightGroupIndex = new int[cap];
@@ -193,6 +170,7 @@ public class LayeredLightingManager : UdonSharpBehaviour
             System.Array.Resize(ref childLightGroupIndex, cap);
             for (int i = oldLen; i < cap; i++) childLightGroupIndex[i] = ~0;
         }
+
         if (childLightAudioClipOverride == null || childLightAudioClipOverride.Length != cap)
             System.Array.Resize(ref childLightAudioClipOverride, cap);
 
@@ -206,6 +184,16 @@ public class LayeredLightingManager : UdonSharpBehaviour
         EnsureFloatArray(ref childLightPanicIntensityMax, cap, 1.2f);
     }
 
+    private static void ResizeBoolArray(ref bool[] arr, int cap, bool def)
+    {
+        if (arr != null && arr.Length == cap) return;
+        bool[] r = new bool[cap];
+        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+        if (c > 0) System.Array.Copy(arr, r, c);
+        for (int i = c; i < cap; i++) r[i] = def;
+        arr = r;
+    }
+
     private static void EnsureFloatArray(ref float[] arr, int cap, float def)
     {
         if (arr != null && arr.Length == cap) return;
@@ -215,7 +203,6 @@ public class LayeredLightingManager : UdonSharpBehaviour
     }
 #endif
 
-    // ── Start ──────────────────────────────────────────────────────────────
     void Start()
     {
         _localPlayer = Networking.LocalPlayer;
@@ -310,9 +297,6 @@ public class LayeredLightingManager : UdonSharpBehaviour
         childLightLayerSlices = ResizeOrDefault(childLightLayerSlices, cap, -1);
         childLightDiffuseEnabled = ResizeOrDefault(childLightDiffuseEnabled, cap, true);
         childLightSpecularDistance = ResizeOrDefault(childLightSpecularDistance, cap, true);
-        childLightSpecularMaxDistance = ResizeOrDefault(childLightSpecularMaxDistance, cap, 15f);
-        childLightDiffuseStaticMaxDistance = ResizeOrDefault(childLightDiffuseStaticMaxDistance, cap, 200f);
-        childLightDiffuseRealtimeMaxDistance = ResizeOrDefault(childLightDiffuseRealtimeMaxDistance, cap, 200f);
         childLightFaultState = ResizeOrDefault(childLightFaultState, cap, LightFaultState.Normal);
         childLightGroupIndex = ResizeOrDefault(childLightGroupIndex, cap, ~0);
 
@@ -330,7 +314,7 @@ public class LayeredLightingManager : UdonSharpBehaviour
             AudioClip[] tmp = new AudioClip[cap];
             int copyLen = (childLightAudioClipOverride != null)
                 ? Mathf.Min(childLightAudioClipOverride.Length, cap) : 0;
-            for (int i = 0; i < copyLen; i++) tmp[i] = childLightAudioClipOverride[i];
+            if (copyLen > 0) System.Array.Copy(childLightAudioClipOverride, tmp, copyLen);
             childLightAudioClipOverride = tmp;
         }
         _isReady = cap > 0;
@@ -349,14 +333,14 @@ public class LayeredLightingManager : UdonSharpBehaviour
         mergedLayerSlice = new int[cap];
         mergedDiffuseEnabled = new bool[cap];
         mergedSpecularEnabled = new bool[cap];
-        mergedSpecularMaxDistance = new float[cap];
-        mergedDiffuseMaxDistance = new float[cap];
         mergedFaultState = new LightFaultState[cap];
         mergedGroupMask = new int[cap];
         _mergedAudioSources = new AudioSource[cap];
         _mergedBaseIntensity = new float[cap];
         _mergedLastAnimated = new float[cap];
         _mergedToChild = new int[cap];
+
+        mergedCosInner = new float[cap];
 
         _mergedBrokenOnMin = new float[cap];
         _mergedBrokenOnMax = new float[cap];
@@ -378,6 +362,8 @@ public class LayeredLightingManager : UdonSharpBehaviour
             _mergedLastAnimated[i] = -1f;
             _mergedToChild[i] = -1;
 
+            mergedCosInner[i] = -1f;
+
             _mergedBrokenOnMin[i] = 0.01f;
             _mergedBrokenOnMax[i] = 1.5f;
             _mergedBrokenOffMin[i] = 0.5f;
@@ -397,57 +383,62 @@ public class LayeredLightingManager : UdonSharpBehaviour
     }
 
     // ── ResizeOrDefault helpers ────────────────────────────────────────────
-    private LightFaultState[] ResizeOrDefault(LightFaultState[] arr, int cap, LightFaultState def)
-    {
-        if (arr != null && arr.Length == cap) return arr;
-        LightFaultState[] r = new LightFaultState[cap];
-        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-        for (int i = 0; i < c; i++) r[i] = arr[i];
-        for (int i = c; i < cap; i++) r[i] = def;
-        return r;
-    }
-    private bool[] ResizeOrDefault(bool[] arr, int cap, bool def)
-    {
-        if (arr != null && arr.Length == cap) return arr;
-        bool[] r = new bool[cap];
-        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-        for (int i = 0; i < c; i++) r[i] = arr[i];
-        for (int i = c; i < cap; i++) r[i] = def;
-        return r;
-    }
-    private int[] ResizeOrDefault(int[] arr, int cap, int def)
-    {
-        if (arr != null && arr.Length == cap) return arr;
-        int[] r = new int[cap];
-        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-        for (int i = 0; i < c; i++) r[i] = arr[i];
-        for (int i = c; i < cap; i++) r[i] = def;
-        return r;
-    }
-    private float[] ResizeOrDefault(float[] arr, int cap, float def)
-    {
-        if (arr != null && arr.Length == cap) return arr;
-        float[] r = new float[cap];
-        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-        for (int i = 0; i < c; i++) r[i] = arr[i];
-        for (int i = c; i < cap; i++) r[i] = def;
-        return r;
-    }
     private Vector2[] ResizeOrDefault(Vector2[] arr, int cap, Vector2 def)
     {
         if (arr != null && arr.Length == cap) return arr;
         Vector2[] r = new Vector2[cap];
         int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-        for (int i = 0; i < c; i++) r[i] = arr[i];
+        if (c > 0) System.Array.Copy(arr, r, c);
         for (int i = c; i < cap; i++) r[i] = def;
         return r;
     }
+
+    private bool[] ResizeOrDefault(bool[] arr, int cap, bool def)
+    {
+        if (arr != null && arr.Length == cap) return arr;
+        bool[] r = new bool[cap];
+        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+        if (c > 0) System.Array.Copy(arr, r, c);
+        for (int i = c; i < cap; i++) r[i] = def;
+        return r;
+    }
+
     private Vector3[] ResizeOrDefault(Vector3[] arr, int cap, Vector3 def)
     {
         if (arr != null && arr.Length == cap) return arr;
         Vector3[] r = new Vector3[cap];
         int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-        for (int i = 0; i < c; i++) r[i] = arr[i];
+        if (c > 0) System.Array.Copy(arr, r, c);
+        for (int i = c; i < cap; i++) r[i] = def;
+        return r;
+    }
+
+    private int[] ResizeOrDefault(int[] arr, int cap, int def)
+    {
+        if (arr != null && arr.Length == cap) return arr;
+        int[] r = new int[cap];
+        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+        if (c > 0) System.Array.Copy(arr, r, c);
+        for (int i = c; i < cap; i++) r[i] = def;
+        return r;
+    }
+
+    private float[] ResizeOrDefault(float[] arr, int cap, float def)
+    {
+        if (arr != null && arr.Length == cap) return arr;
+        float[] r = new float[cap];
+        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+        if (c > 0) System.Array.Copy(arr, r, c);
+        for (int i = c; i < cap; i++) r[i] = def;
+        return r;
+    }
+
+    private LightFaultState[] ResizeOrDefault(LightFaultState[] arr, int cap, LightFaultState def)
+    {
+        if (arr != null && arr.Length == cap) return arr;
+        LightFaultState[] r = new LightFaultState[cap];
+        int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+        if (c > 0) System.Array.Copy(arr, r, c);
         for (int i = c; i < cap; i++) r[i] = def;
         return r;
     }
@@ -478,12 +469,14 @@ public class LayeredLightingManager : UdonSharpBehaviour
         for (int i = 1; i < _shaderData.Length; i++) _shaderData[i] = Vector4.zero;
         VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
         _lastFinalCount = 0;
+#if UNITY_EDITOR
         currentStaticLights = 0;
         currentDynamicLights = 0;
         currentAnimatedLights = 0;
         currentSpecularsCount = 0;
         sampledLightmapsCount = 0;
         currentSlicesCount = 0;
+#endif
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
         if (_childAudioSources != null)
             for (int i = 0; i < _childAudioSources.Length; i++)
@@ -491,10 +484,12 @@ public class LayeredLightingManager : UdonSharpBehaviour
     }
 
     // ── Update ─────────────────────────────────────────────────────────────
-    void Update()
+    public override void PostLateUpdate()
     {
+#if UNITY_EDITOR
         shaderWasUpdated = false;
         shaderUpdatesThisFrame = 0;
+#endif
         if (!_isReady || childLights == null || childLights.Length == 0) return;
 
         float dt = Time.deltaTime;
@@ -513,6 +508,25 @@ public class LayeredLightingManager : UdonSharpBehaviour
         if (_tickTimer >= updateInterval)
         {
             _tickTimer = 0f;
+
+            bool hasAnimatedLights = _animatedMask != 0;
+            bool needsResort = _viewerTickTimer + dt >= viewerUpdateInterval || _lastFinalCount < 0;
+
+            if (!hasAnimatedLights && !needsResort)
+            {
+                TickAudio();
+                bool liveChanged = UpdateLiveData(dt);
+                if (liveChanged)
+                {
+                    VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
+#if UNITY_EDITOR
+                    shaderWasUpdated = true;
+                    shaderUpdatesThisFrame++;
+#endif
+                }
+                return;
+            }
+
             Tick();
         }
         else
@@ -522,8 +536,10 @@ public class LayeredLightingManager : UdonSharpBehaviour
             if (liveChanged || animated)
             {
                 VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
+#if UNITY_EDITOR
                 shaderWasUpdated = true;
                 shaderUpdatesThisFrame++;
+#endif
             }
         }
     }
@@ -545,6 +561,8 @@ public class LayeredLightingManager : UdonSharpBehaviour
 
         for (int mi = 0; mi < mergedCount; mi++)
         {
+            if (mergedFaultState[mi] == LightFaultState.Off) continue;
+
             LightFaultState state = mergedFaultState[mi];
             int li = _mergedToChild[mi];
             if (li < 0) continue;
@@ -579,20 +597,20 @@ public class LayeredLightingManager : UdonSharpBehaviour
         return _faultIntensity[li];
     }
 
-    // ── Fault state machines ───────────────────────────────────────────────
-    // Converts a 0-1 speed value into on/off means using exponential curves so
-    // the feel scales non-linearly: slow end is sparse, fast end is near-strobing.
-    private static void SpeedToMeans(float speed,
-        out float onMean, out float offMean)
+    private static void SpeedToMeans(float speed, out float onMean, out float offMean)
     {
-        // Lerp in log space so the middle of the slider feels like "medium"
-        float t = speed * speed; // slight ease-in so low values stay sparse longer
+        float t = speed * speed;
         onMean = Mathf.Lerp(PANIC_ON_MEAN_SLOW, PANIC_ON_MEAN_FAST, t);
         offMean = Mathf.Lerp(PANIC_OFF_MEAN_SLOW, PANIC_OFF_MEAN_FAST, t);
     }
 
     private float TickFault(int li, int mi, LightFaultState state, float dt)
     {
+        if (state == LightFaultState.Off)
+        {
+            _faultIntensity[li] = 0f;
+            return 0f;
+        }
         if (state == LightFaultState.Panic)
         {
             float onMean, offMean;
@@ -613,7 +631,7 @@ public class LayeredLightingManager : UdonSharpBehaviour
             _faultIntensity[li] = _faultIsOn[li] ? _panicTargetIntensity[li] : 0f;
             return _faultIntensity[li];
         }
-        else // Broken
+        else
         {
             _faultStateTimer[li] -= dt;
             if (_faultStateTimer[li] <= 0f)
@@ -631,7 +649,7 @@ public class LayeredLightingManager : UdonSharpBehaviour
     }
 
     // ── Audio ──────────────────────────────────────────────────────────────
-    private void TickAudio(float dt)
+    private void TickAudio()
     {
         if (_childAudioSources == null) return;
         int childCount = (childLights != null) ? childLights.Length : 0;
@@ -643,8 +661,9 @@ public class LayeredLightingManager : UdonSharpBehaviour
 
             int mi = (_lightToMerged != null && li < _lightToMerged.Length) ? _lightToMerged[li] : -1;
             bool isFaulted = (mi >= 0) && mergedFaultState[mi] != LightFaultState.Normal;
+            bool isOff = (mi >= 0) && mergedFaultState[mi] == LightFaultState.Off;
 
-            if (!isFaulted)
+            if (!isFaulted || isOff)
             {
                 if (src.isPlaying) src.Stop();
                 continue;
@@ -720,7 +739,11 @@ public class LayeredLightingManager : UdonSharpBehaviour
                 Vector3 fwd = rot * Vector3.forward;
                 Vector3 right = rot * Vector3.right;
                 Vector3 up = rot * Vector3.up;
-                mergedDir[mi] = new Vector4(fwd.x, fwd.y, fwd.z, mergedDir[mi].w);
+
+                float cosOuter = ComputeCosOuter(l.type, l.spotAngle);
+                mergedDir[mi] = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
+                mergedCosInner[mi] = ComputeCosInner(cosOuter);
+
                 mergedRight[mi] = new Vector4(right.x, right.y, right.z, mergedRight[mi].w);
                 mergedUp[mi] = new Vector4(up.x, up.y, up.z, mergedUp[mi].w);
                 _shaderData[baseIdx + 2] = mergedDir[mi];
@@ -770,7 +793,7 @@ public class LayeredLightingManager : UdonSharpBehaviour
             finalCount = _lastFinalCount;
         }
 
-        for (int i = 0; i < MAX_LIGHTS; i++) _mergedToShader[i] = -1;
+        for (int i = 0; i < mergedCount; i++) _mergedToShader[i] = -1;
         for (int i = 0; i < finalCount; i++) _mergedToShader[_indices[i]] = i;
 
         int dynCount = 0, statCount = 0, animCount = 0, specCount = 0, sliceCount = 0, sliceMask = 0;
@@ -778,17 +801,19 @@ public class LayeredLightingManager : UdonSharpBehaviour
         {
             int mi = _indices[i];
             if (mergedBakedCol[mi].w > 0.5f) dynCount++; else statCount++;
-            if (mergedFaultState[mi] != LightFaultState.Normal) animCount++;
+            if (mergedFaultState[mi] == LightFaultState.Broken || mergedFaultState[mi] == LightFaultState.Panic) animCount++;
             if (mergedSpecularEnabled[mi]) specCount++;
             int sl = mergedLayerSlice[mi];
             if (sl >= 0 && sl < 32) { sliceCount++; sliceMask |= (1 << sl); }
         }
+#if UNITY_EDITOR
         currentStaticLights = statCount;
         currentDynamicLights = dynCount;
         currentAnimatedLights = animCount;
         currentSpecularsCount = specCount;
         currentSlicesCount = sliceCount;
         sampledLightmapsCount = CountBits(sliceMask);
+#endif
 
         bool isDirty = finalCount != _lastFinalCount;
         if (!isDirty)
@@ -798,14 +823,14 @@ public class LayeredLightingManager : UdonSharpBehaviour
         FillUploadBuffers(finalCount);
         bool liveChanged = UpdateLiveData(dt);
         bool animated = TickPhysicalAnimation(dt);
-        TickAudio(dt);
+        TickAudio();
 
         if (isDirty || animated || liveChanged)
         {
             VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
+#if UNITY_EDITOR
             shaderWasUpdated = true;
             shaderUpdatesThisFrame++;
-#if UNITY_EDITOR
             updateReason = BuildTickReason(isDirty, animated, finalCount, animCount, viewerDue);
             if (liveChanged) updateReason += " +LiveData";
             Debug.Log("[LLM] " + updateReason);
@@ -851,31 +876,52 @@ public class LayeredLightingManager : UdonSharpBehaviour
             if (mergedCount >= mergedPos.Length) continue;
 
             Transform t = _childTransforms[li];
-            Vector3 pos = t.position;
-            float intensity = l.intensity;
-            Color lColor = l.color;
-            Vector3 rawColor = new Vector3(lColor.r, lColor.g, lColor.b);
+
+            bool isRealtime = childLightIsRealtime[li];
+            Vector3 pos;
+            float intensity;
+            Color lColor;
+
+            if (isRealtime)
+            {
+                pos = t.position;
+                intensity = l.intensity;
+                lColor = l.color;
+            }
+            else
+            {
+                pos = lastLightPositions[li];
+                intensity = lastLightIntensities[li];
+                lColor = new Color(lastLightColors[li].x, lastLightColors[li].y, lastLightColors[li].z, 1f);
+            }
 
             LightFaultState faultState = childLightFaultState[li];
+
+            // Force zero intensity for OFF lights
+            if (faultState == LightFaultState.Off)
+            {
+                intensity = 0f;
+                lColor = isRealtime ? l.color : new Color(lastLightColors[li].x, lastLightColors[li].y, lastLightColors[li].z);
+            }
+
             int mi = mergedCount;
 
             mergedPos[mi] = new Vector4(pos.x, pos.y, pos.z, intensity);
-            mergedCol[mi] = new Vector4(rawColor.x, rawColor.y, rawColor.z, intensity);
+            mergedCol[mi] = new Vector4(lColor.r, lColor.g, lColor.b, intensity);
             mergedRight[mi] = new Vector4(t.right.x, t.right.y, t.right.z, childLightHalfExtents[li].x);
             mergedUp[mi] = new Vector4(t.up.x, t.up.y, t.up.z, childLightHalfExtents[li].y);
-            mergedDir[mi] = new Vector4(t.forward.x, t.forward.y, t.forward.z, ComputeCosOuter(l.type, l.spotAngle));
+
+            float cosOuter = ComputeCosOuter(l.type, l.spotAngle);
+            mergedDir[mi] = new Vector4(t.forward.x, t.forward.y, t.forward.z, cosOuter);
+            mergedCosInner[mi] = ComputeCosInner(cosOuter);
+
             mergedBakedCol[mi] = new Vector4(
                 childLightBakedColors[li].x, childLightBakedColors[li].y, childLightBakedColors[li].z,
-                childLightIsRealtime[li] ? 1f : 0f);
+                isRealtime ? 1f : 0f);
             mergedLayerSlice[mi] = childLightLayerSlices[li];
             mergedDiffuseEnabled[mi] = childLightDiffuseEnabled[li];
             mergedSpecularEnabled[mi] = childLightSpecularDistance[li];
-            mergedSpecularMaxDistance[mi] = childLightSpecularMaxDistance[li];
-            // Resolve to whichever distance cap applies to this light's current
-            // rendering branch; the shader still only ever sees one value.
-            mergedDiffuseMaxDistance[mi] = childLightIsRealtime[li]
-                ? childLightDiffuseRealtimeMaxDistance[li]
-                : childLightDiffuseStaticMaxDistance[li];
+
             mergedFaultState[mi] = faultState;
             mergedGroupMask[mi] = childLightGroupIndex[li];
 
@@ -895,28 +941,28 @@ public class LayeredLightingManager : UdonSharpBehaviour
             _lightToMerged[li] = mi;
 
             bool settling = Mathf.Abs(_faultIntensity[li] - 1f) > INTENSITY_EPSILON;
-            if (faultState != LightFaultState.Normal || settling)
-                _animatedMask |= (1 << mi);
+            // Off state is never animated
+            if (faultState == LightFaultState.Broken || faultState == LightFaultState.Panic || settling)
+                _animatedMask |= 1 << mi;
 
             mergedCount++;
         }
     }
 
-    // ── SortNearest ────────────────────────────────────────────────────────
+    // ── SortNearest (global distance culling) ──────────────────────────────
     public int SortNearest(Vector3 viewerPos)
     {
         int count = 0;
+        float maxDistSq = rangeScale * rangeScale;
         float vx = viewerPos.x, vy = viewerPos.y, vz = viewerPos.z;
+
         for (int i = 0; i < mergedCount; i++)
         {
             Vector4 mp = mergedPos[i];
             float dx = vx - mp.x, dy = vy - mp.y, dz = vz - mp.z;
             float distSq = dx * dx + dy * dy + dz * dz;
-            float dist = Mathf.Sqrt(distSq);
 
-            bool specInRange = mergedSpecularMaxDistance[i] <= 0f || dist <= mergedSpecularMaxDistance[i];
-            bool diffInRange = mergedDiffuseMaxDistance[i] <= 0f || dist <= mergedDiffuseMaxDistance[i];
-            if (!specInRange && !diffInRange) continue;
+            if (distSq > maxDistSq) continue;
 
             int ins = count;
             while (ins > 0 && _distances[ins - 1] > distSq) ins--;
@@ -938,14 +984,17 @@ public class LayeredLightingManager : UdonSharpBehaviour
     // ── FillUploadBuffers ──────────────────────────────────────────────────
     private void FillUploadBuffers(int finalCount)
     {
-        _shaderData[0] = new Vector4((float)finalCount, rangeScale, 0f, _specularEnabled ? 1f : 0f);
+        _shaderData[0] = new Vector4((float)finalCount, 0f, 0f, _specularEnabled ? 1f : 0f);
+
         for (int i = 0; i < finalCount; i++)
         {
             int idx = _indices[i];
             int baseIdx = i * 8 + 1;
+
+            float cosInner = mergedCosInner[idx];
             float cosOuter = mergedDir[idx].w;
-            float cosInner = ComputeCosInner(cosOuter);
             int lightTypeInt = GetLightTypeInt(cosOuter);
+
             _shaderData[baseIdx + 0] = mergedPos[idx];
             _shaderData[baseIdx + 1] = mergedCol[idx];
             _shaderData[baseIdx + 2] = mergedDir[idx];
@@ -953,14 +1002,12 @@ public class LayeredLightingManager : UdonSharpBehaviour
             _shaderData[baseIdx + 4] = mergedUp[idx];
             _shaderData[baseIdx + 5] = mergedBakedCol[idx];
             _shaderData[baseIdx + 6] = PackLayerIndex(idx);
-            _shaderData[baseIdx + 7] = new Vector4(
-                mergedSpecularMaxDistance[idx],
-                mergedDiffuseMaxDistance[idx],
-                (float)lightTypeInt,
-                cosInner); // ← packedExtra.w = cosInner
+            _shaderData[baseIdx + 7] = new Vector4(0f, 0f, (float)lightTypeInt, cosInner);
+
             _lastIndicesSorted[i] = idx;
             _mergedLastAnimated[idx] = -1f;
         }
+
         int clearUpTo = Mathf.Max(finalCount, _lastUploadedSlotCount);
         for (int i = finalCount; i < clearUpTo; i++)
         {
@@ -990,13 +1037,12 @@ public class LayeredLightingManager : UdonSharpBehaviour
         return -1.0f;
     }
 
-    // Pré-calcule le cosinus de l'angle inner (85% de l'outer) pour une pénombre correcte en espace angulaire
     private static float ComputeCosInner(float cosOuter)
     {
-        if (cosOuter < -0.9f) return -1.0f; // point — pas utilisé
-        if (cosOuter <= 0.0f) return 0.0f;  // area — pas utilisé
+        if (cosOuter < -0.9f) return -1.0f;
+        if (cosOuter <= 0.0f) return 0.0f;
         float angleOuter = Mathf.Acos(cosOuter);
-        float angleInner = angleOuter * 0.85f; // 15% de pénombre
+        float angleInner = angleOuter * 0.85f;
         return Mathf.Cos(angleInner);
     }
 
@@ -1034,9 +1080,9 @@ public class LayeredLightingManager : UdonSharpBehaviour
         _specularEnabled = enabled;
         _shaderData[0] = new Vector4(_shaderData[0].x, _shaderData[0].y, _shaderData[0].z, enabled ? 1f : 0f);
         VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
+#if UNITY_EDITOR
         shaderWasUpdated = true;
         shaderUpdatesThisFrame++;
-#if UNITY_EDITOR
         updateReason = enabled ? "Manual[Specular:ON]" : "Manual[Specular:OFF]";
         Debug.Log("[LLM] " + updateReason);
 #endif
@@ -1057,12 +1103,11 @@ public class LayeredLightingManager : UdonSharpBehaviour
         _mergedLastAnimated[mi] = c.w;
     }
 
-    // Maps cosOuter to light type: 0=point, 1=spot, 2=area
     private static int GetLightTypeInt(float cosOuter)
     {
-        if (cosOuter < -0.9f) return 0;   // point
-        if (cosOuter <= 0.0f) return 2;   // area
-        return 1;                         // spot
+        if (cosOuter < -0.9f) return 0;
+        if (cosOuter <= 0.0f) return 2;
+        return 1;
     }
 
     public bool IsSpecularEnabled() => _specularEnabled;

@@ -10,7 +10,7 @@ public class LayeredLightingInspector : Editor
     private Editor _defaultEditor;
     private bool _foldoutOpen = true;
 
-    private static readonly string[] FaultStateNames = { "Normal", "Broken", "Panic" };
+    private static readonly string[] FaultStateNames = { "Normal", "Broken", "Panic", "Off" };
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
     private void OnSceneGUI()
@@ -85,9 +85,6 @@ public class LayeredLightingInspector : Editor
                 && mgr.childLightIsRealtime != null && index < mgr.childLightIsRealtime.Length
                 && mgr.childLightDiffuseEnabled != null && index < mgr.childLightDiffuseEnabled.Length
                 && mgr.childLightSpecularDistance != null && index < mgr.childLightSpecularDistance.Length
-                && mgr.childLightSpecularMaxDistance != null && index < mgr.childLightSpecularMaxDistance.Length
-                && mgr.childLightDiffuseStaticMaxDistance != null && index < mgr.childLightDiffuseStaticMaxDistance.Length
-                && mgr.childLightDiffuseRealtimeMaxDistance != null && index < mgr.childLightDiffuseRealtimeMaxDistance.Length
                 && mgr.childLightFaultState != null && index < mgr.childLightFaultState.Length
                 && mgr.childLightBrokenOnMin != null && index < mgr.childLightBrokenOnMin.Length
                 && mgr.childLightBrokenOnMax != null && index < mgr.childLightBrokenOnMax.Length
@@ -130,27 +127,6 @@ public class LayeredLightingInspector : Editor
                 "Include the selected light(s) in the specular channel.",
                 e => e.manager.childLightSpecularDistance[e.index],
                 (e, v) => e.manager.childLightSpecularDistance[e.index] = v);
-
-            DrawSharedSlider(
-                tracked, "Max Specular Distance",
-                "Maximum distance for specular/realtime lighting. 0 = unlimited.",
-                0f, 30f,
-                e => e.manager.childLightSpecularMaxDistance[e.index],
-                (e, v) => e.manager.childLightSpecularMaxDistance[e.index] = v);
-
-            DrawSharedSlider(
-                tracked, "Max Static Diffuse Distance",
-                "Maximum distance for lightmap-baked diffuse lighting. 0 = unlimited. Hard cutoff: contribution stops abruptly beyond this distance.",
-                0f, 200f,
-                e => e.manager.childLightDiffuseStaticMaxDistance[e.index],
-                (e, v) => e.manager.childLightDiffuseStaticMaxDistance[e.index] = v);
-
-            DrawSharedSlider(
-                tracked, "Max Realtime Diffuse Distance",
-                "Maximum distance for realtime (non-lightmap) diffuse lighting. 0 = unlimited. Fades smoothly as it approaches this distance.",
-                0f, 200f,
-                e => e.manager.childLightDiffuseRealtimeMaxDistance[e.index],
-                (e, v) => e.manager.childLightDiffuseRealtimeMaxDistance[e.index] = v);
 
             // ── Animation ─────────────────────────────────────────────────
 
