@@ -1,5 +1,4 @@
-﻿#if VRC_SDK_VRCSDK3 && UDON
-using System;
+﻿using System;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
@@ -13,8 +12,6 @@ public class LanguageDetection : UdonSharpBehaviour
     void Start()
     {
         locale = VRCPlayerApi.GetCurrentLanguage();
-
         Debug.Log(locale);
     }
 }
-#endif

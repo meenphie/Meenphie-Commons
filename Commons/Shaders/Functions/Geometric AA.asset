@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78b2425a2284af743826c689403a4924, type: 3}
   m_Name: Geometric AA
   m_EditorClassIdentifier: 
-  m_functionInfo: "// Made with Amplify Shader Editor v1.9.9.10\n// Available at
-    the Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19910\n{\"type\":\"AmplifyShaderEditor.StaticSwitch,
+  m_functionInfo: "// Made with Amplify Shader Editor v1.9.9.12\n// Available at
+    the Unity Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=19912\n{\"type\":\"AmplifyShaderEditor.StaticSwitch,
     AmplifyShaderEditor\",\"id\":15,\"pos\":[0,-32],\"params\":[\"Inherit\",\"False\",\"Property\",\"_UseGeometricAA\",\"Use
     Geometric AA\",\"0\",\"0\",\"Create\",\"True\",\"0\",\"0\",\"0\",\"False\",\"0\",\"False\",\"\",\"0\",\"1\",\"1\",\"True\",\"\",\"Toggle\",\"2\",\"Key0\",\"Key1\",\"Create\",\"True\",\"True\",\"All\",\"9\",\"1\",\"FLOAT\",\"0\",\"False\",\"0\",\"FLOAT\",\"0\",\"False\",\"2\",\"FLOAT\",\"0\",\"False\",\"3\",\"FLOAT\",\"0\",\"False\",\"4\",\"FLOAT\",\"0\",\"False\",\"5\",\"FLOAT\",\"0\",\"False\",\"6\",\"FLOAT\",\"0\",\"False\",\"7\",\"FLOAT\",\"0\",\"False\",\"8\",\"FLOAT\",\"0\",\"False\",\"1\",\"FLOAT\",\"0\"]}\n{\"type\":\"AmplifyShaderEditor.FunctionInput,
     AmplifyShaderEditor\",\"id\":19,\"pos\":[-544,-32],\"params\":[\"Inherit\",\"False\",\"Roughness\",\"1\",\"0\",\"False\",\"1\",\"0\",\"FLOAT\",\"0\",\"False\",\"1\",\"FLOAT\",\"0\"]}\n{\"type\":\"AmplifyShaderEditor.FunctionInput,
@@ -22,8 +22,8 @@ MonoBehaviour:
     Normal\",\"3\",\"2\",\"False\",\"1\",\"0\",\"FLOAT3\",\"0,0,0\",\"False\",\"1\",\"FLOAT3\",\"0\"]}\n{\"type\":\"AmplifyShaderEditor.CustomExpressionNode,
     AmplifyShaderEditor\",\"id\":21,\"pos\":[-288,64],\"params\":[\"Inherit\",\"False\",\"
     \",\"1\",\"File\",\"3\",\"True\",\"Roughness\",\"FLOAT\",\"0\",\"In\",\"\",\"Inherit\",\"False\",\"True\",\"Metallic\",\"FLOAT\",\"0\",\"In\",\"\",\"Inherit\",\"False\",\"True\",\"WorldNormal\",\"FLOAT3\",\"0,0,0\",\"In\",\"\",\"Inherit\",\"False\",\"Geometric
-    AA\",\"False\",\"False\",\"0\",\"477c0ae22a4e562f18da17147b42d890\",\"False\",\"3\",\"0\",\"FLOAT\",\"0\",\"False\",\"1\",\"FLOAT\",\"0\",\"False\",\"2\",\"FLOAT3\",\"0,0,0\",\"False\",\"1\",\"FLOAT\",\"0\"]}\n{\"type\":\"AmplifyShaderEditor.FunctionOutput,
-    AmplifyShaderEditor\",\"id\":0,\"pos\":[384,-32],\"params\":[\"Inherit\",\"False\",\"True\",\"-1\",\"Roughness\",\"0\",\"False\",\"1\",\"0\",\"FLOAT\",\"0\",\"False\",\"1\",\"FLOAT\",\"0\"]}\n{\"wire\":[15,1,19,0]}\n{\"wire\":[15,0,21,0]}\n{\"wire\":[21,0,19,0]}\n{\"wire\":[21,1,22,0]}\n{\"wire\":[21,2,18,0]}\n{\"wire\":[0,0,15,0]}\nASEEND*/\n//CHKSM=CFA92E391489901D8A964E1CC5499BA66C3CC32E"
+    AA\",\"False\",\"False\",\"0\",\"952d0f4c1a2bba0b8acc0e5e62780903\",\"False\",\"3\",\"0\",\"FLOAT\",\"0\",\"False\",\"1\",\"FLOAT\",\"0\",\"False\",\"2\",\"FLOAT3\",\"0,0,0\",\"False\",\"1\",\"FLOAT\",\"0\"]}\n{\"type\":\"AmplifyShaderEditor.FunctionOutput,
+    AmplifyShaderEditor\",\"id\":0,\"pos\":[384,-32],\"params\":[\"Inherit\",\"False\",\"True\",\"-1\",\"Roughness\",\"0\",\"False\",\"1\",\"0\",\"FLOAT\",\"0\",\"False\",\"1\",\"FLOAT\",\"0\"]}\n{\"wire\":[15,1,19,0]}\n{\"wire\":[15,0,21,0]}\n{\"wire\":[21,0,19,0]}\n{\"wire\":[21,1,22,0]}\n{\"wire\":[21,2,18,0]}\n{\"wire\":[0,0,15,0]}\nASEEND*/\n//CHKSM=82C970B3CFFC8A6110C3D220F3389AE170E8ABC0"
   m_functionName: 
   m_description: 
   m_additionalIncludes:

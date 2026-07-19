@@ -1,11 +1,11 @@
-#if UNITY_EDITOR && UDONSHARP
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using Meenphie.Commons;
 
 [CustomEditor(typeof(Light))]
 [CanEditMultipleObjects]
-public class LayeredLightingInspector : Editor
+public class LightInspector : Editor
 {
     private Editor _defaultEditor;
     private bool _foldoutOpen = true;
@@ -53,7 +53,7 @@ public class LayeredLightingInspector : Editor
 
     private struct Entry
     {
-        public LayeredLightingManager manager;
+        public LightingManager manager;
         public int index;
         public Light light;
     }
@@ -79,7 +79,7 @@ public class LayeredLightingInspector : Editor
             Light light = t as Light;
             if (light == null) continue;
 
-            LayeredLightingManager mgr = FindManagerFor(light, out int index);
+            LightingManager mgr = FindManagerFor(light, out int index);
 
             bool valid = mgr != null && index >= 0
                 && mgr.childLightIsRealtime != null && index < mgr.childLightIsRealtime.Length
@@ -292,8 +292,8 @@ public class LayeredLightingInspector : Editor
             string names = string.Join(", ", untracked.ToArray());
             EditorGUILayout.HelpBox(
                 tracked.Count > 0
-                    ? $"Not yet tracked by a LayeredLightingManager: {names}."
-                    : $"{names} is not tracked by any LayeredLightingManager in the scene.",
+                    ? $"Not yet tracked by a LightingManager: {names}."
+                    : $"{names} is not tracked by any LightingManager in the scene.",
                 MessageType.Info);
         }
 
@@ -386,7 +386,7 @@ public class LayeredLightingInspector : Editor
         List<Entry> entries, string undoLabel,
         System.Action<Entry> apply)
     {
-        var managers = new HashSet<LayeredLightingManager>();
+        var managers = new HashSet<LightingManager>();
         foreach (var e in entries) managers.Add(e.manager);
 
         foreach (var mgr in managers) Undo.RecordObject(mgr, undoLabel);
@@ -396,13 +396,13 @@ public class LayeredLightingInspector : Editor
 
     // ── Manager lookup ─────────────────────────────────────────────────────
 
-    private static LayeredLightingManager FindManagerFor(Light light, out int index)
+    private static LightingManager FindManagerFor(Light light, out int index)
     {
         index = -1;
-        LayeredLightingManager[] managers =
-            Object.FindObjectsOfType<LayeredLightingManager>(true);
+        LightingManager[] managers =
+            Object.FindObjectsOfType<LightingManager>(true);
 
-        foreach (LayeredLightingManager mgr in managers)
+        foreach (LightingManager mgr in managers)
         {
             if (mgr.childLights == null) continue;
             for (int i = 0; i < mgr.childLights.Length; i++)
@@ -417,4 +417,3 @@ public class LayeredLightingInspector : Editor
         return null;
     }
 }
-#endif

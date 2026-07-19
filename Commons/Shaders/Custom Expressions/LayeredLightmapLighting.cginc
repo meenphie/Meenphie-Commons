@@ -275,14 +275,14 @@
         float  oneMinusH  = 1.0 - hDotV;
         float  oneMinusH2 = oneMinusH * oneMinusH;
         float  fCurve     = oneMinusH2 * oneMinusH2 * oneMinusH;
-        float3 F          = F0 + (1.0 - F0) * fCurve;
+        float3 fresnel          = F0 + (1.0 - F0) * fCurve;
 
         float brdf = D * G * rcp(max(4.0 * nDotV * nDotL_spec, _BRDFDenominatorFloor)) * (nDotL_spec * dirMask);
 
         float specFalloff = _UdonInvSquare(repDistSq);
         float currentSpecBoost = isBaked ? _StaticSpecBoost : _RealtimeSpecBoost;
 
-        specOut = max(0, currentCol * F * brdf * specFalloff * specFade * camFade * currentSpecBoost);
+        specOut = max(0, currentCol * fresnel * brdf * specFalloff * specFade * camFade * currentSpecBoost);
         specOut = min(specOut, _MaxSpecIntensity);
     }
 
@@ -381,7 +381,8 @@
         int materialMask = (int)round(LightGroupMask);
 
         half3 diffAcc = half3(0,0,0);
-        half3 specAcc = half3(0,0,0);
+        half3 specAccBaked = half3(0,0,0);
+        half3 specAccRealtime = half3(0,0,0);
 
         for (int i = 0; i < loopCount; i++)
         {
@@ -393,23 +394,45 @@
             isDynamicMesh, arrayValid, specularGlobalEnabled, materialMask,
             diffC, specC);
             diffAcc += (half3)diffC;
-            specAcc += (half3)specC;
+
+            // Determine if this light is baked (same logic as inside _UdonAccumulateLight)
+            float4 bakedFlag = _UdonLightData[baseIdx + 5];
+            bool lightIsBaked = (!isDynamicMesh) && (bakedFlag.w < 0.5);
+
+            if (lightIsBaked)
+            specAccBaked += (half3)specC;
+            else
+            specAccRealtime += (half3)specC;
         }
 
         float rawDiffLum = dot((float3)diffAcc, LUM);
 
+        // Compute occlusion factor for reflections
+        // When _DIFFUSE_ON is not defined, rawDiffLum = 0 (diffuse not computed), so we force occlusionFactor to 1.
+        #if defined(_DIFFUSE_ON)
+            float occRaw = saturate(rawDiffLum);
+            float occEased = lerp(1, occRaw, saturate(_ReflectionOcclusionStrength));
+            float occlusionFactor = max(occEased, _ReflectionOcclusionMin);
+        #else
+            float occlusionFactor = 1.0;   // No diffuse data → no occlusion
+        #endif
+
+        // Compute reflection once (we'll use it in both branches)
+        float3 refl = 0;
+        if (Roughness < 0.99)
+        {
+            refl = _UdonComputeReflection(WorldPos, N, vDir, R, nDotV,
+            Metallic, Roughness, F0, isDynamicMesh, occlusionFactor);
+        }
+
         #if defined(_DIFFUSE_ON)
             {
-                // Occlusion factors
-                float occRaw = saturate(rawDiffLum);
-                float occEased = lerp(1, occRaw, saturate(_ReflectionOcclusionStrength));
-                float occlusionFactor = max(occEased, _ReflectionOcclusionMin);
-
+                // specular occlusion (for baked specular only)
                 float occRawSpec = saturate(rawDiffLum);
                 float occEasedSpec = lerp(1, occRawSpec, _SpecularOcclusionStrength);
                 float specOcclusionFactor = max(occEasedSpec, _SpecularOcclusionMin);
 
-                // Diffuse – metallic surfaces get zero diffuse
+                // Diffuse
                 if (Metallic < 0.99)
                 {
                     Diffuse = (float3)diffAcc * Color * (1 - Metallic);
@@ -417,34 +440,26 @@
                     ? max(Diffuse, _FallbackAmbient * Color * (1 - Metallic))
                     : Diffuse;
                 }
-                // else Diffuse stays 0 (initialized above)
 
-                Specular = (float3)specAcc * specOcclusionFactor;
+                // Specular (baked gets occlusion, realtime doesn't)
+                Specular = (float3)specAccBaked * specOcclusionFactor + (float3)specAccRealtime;
+                Reflection = refl;
 
-                // Reflection
-                Reflection = 0;
-                if (Roughness < 0.99)
-                {
-                    Reflection = _UdonComputeReflection(WorldPos, N, vDir, R, nDotV,
-                    Metallic, Roughness, F0, isDynamicMesh, occlusionFactor);
-                }
-
-                // Masked‑light output (blackout bright areas)
                 #if defined(_DIFFUSEMASKEDLIGHTS_ON)
-                    {
-                        float eval = isDynamicMesh ? dot(Diffuse, LUM) : maskLum;
-                        float mask = _UdonDiffuseThresholdMask(eval);
-                        DiffuseMaskedLights = Diffuse * mask;
-                        return DiffuseMaskedLights;
-                    }
+                    float eval = isDynamicMesh ? dot(Diffuse, LUM) : maskLum;
+                    float mask = _UdonDiffuseThresholdMask(eval);
+                    DiffuseMaskedLights = Diffuse * mask;
+                    return DiffuseMaskedLights;
                 #else
                     return Diffuse + Specular + Reflection;
                 #endif
             }
         #else
             {
-                Specular = (float3)specAcc;
-                return Specular;
+                // No diffuse pass – still show specular and reflection
+                Specular = (float3)specAccBaked + (float3)specAccRealtime;
+                Reflection = refl;
+                return Specular + Reflection;   // or return Reflection only for pure debugging
             }
         #endif
     }

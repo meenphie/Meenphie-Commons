@@ -78,7 +78,7 @@ Preset:
     objectReference: {fileID: 2655988077585873504, guid: 7b09999223a43c4d5bba597e879b34d9, type: 2}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[1].m_Filter
-    value: _diffuse
+    value: _basecolor
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[1].m_Disabled
@@ -90,7 +90,7 @@ Preset:
     objectReference: {fileID: 2655988077585873504, guid: 7b09999223a43c4d5bba597e879b34d9, type: 2}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[2].m_Filter
-    value: _albedo
+    value: _diffuse
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[2].m_Disabled
@@ -102,7 +102,7 @@ Preset:
     objectReference: {fileID: 2655988077585873504, guid: 7b09999223a43c4d5bba597e879b34d9, type: 2}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[3].m_Filter
-    value: _basecolor
+    value: _albedo
     objectReference: {fileID: 0}
   - target: {fileID: 0}
     propertyPath: m_DefaultPresets.Array.data[1].second.Array.data[3].m_Disabled

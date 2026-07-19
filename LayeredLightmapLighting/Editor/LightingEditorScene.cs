@@ -1,11 +1,11 @@
-#if UNITY_EDITOR && UDONSHARP
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
+using Meenphie.Commons;
 
 [InitializeOnLoad]
-public static class LayeredLightingEditor
+public static class LightingEditorScene
 {
     public const int MAX_LIGHTS = 32;
     private const int BUFFER_SIZE = MAX_LIGHTS * 8 + 1;
@@ -60,7 +60,7 @@ public static class LayeredLightingEditor
 
     private static Texture2DArray _previewLayerArray;
 
-    static LayeredLightingEditor()
+    static LightingEditorScene()
     {
         EditorApplication.update -= OnEditorUpdate;
         EditorApplication.update += OnEditorUpdate;
@@ -79,6 +79,11 @@ public static class LayeredLightingEditor
 
     private static void OnSceneGui(SceneView sv)
     {
+        if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+        if (BuildPipeline.isBuildingPlayer) return;
+
+        if (_worldRoot == null) _worldRoot = null;   // forces destroyed object to null
+
         _lastSceneGuiTime = EditorApplication.timeSinceStartup;
         if (!_previewEnabled || Application.isPlaying) return;
         UploadToShader();
@@ -140,7 +145,10 @@ public static class LayeredLightingEditor
 
     private static void OnEditorUpdate()
     {
+        if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+        if (BuildPipeline.isBuildingPlayer) return;
         if (Application.isPlaying) return;
+
         if (!_previewEnabled) return;
 
         double now = EditorApplication.timeSinceStartup;
@@ -176,11 +184,11 @@ public static class LayeredLightingEditor
         if (_rescanPending && ShouldRescanNow())
         {
             _rescanPending = false;
-            LayeredLightingManager mgr = _worldRoot.GetComponent<LayeredLightingManager>();
+            LightingManager mgr = _worldRoot.GetComponent<LightingManager>();
             if (mgr != null) Rescan(mgr);
         }
 
-        LayeredLightingManager liveMgr = _worldRoot.GetComponent<LayeredLightingManager>();
+        LightingManager liveMgr = _worldRoot.GetComponent<LightingManager>();
         if (liveMgr != null && ShouldCheckExternalEditsNow() && HasExternalArrayEdits(liveMgr))
             Rescan(liveMgr);
 
@@ -228,7 +236,7 @@ public static class LayeredLightingEditor
         return true;
     }
 
-    private static bool HasExternalArrayEdits(LayeredLightingManager mgr)
+    private static bool HasExternalArrayEdits(LightingManager mgr)
     {
         if (ArrayDiffers(mgr.childLightLayerSlices, _layerSlices)) return true;
         if (ArrayDiffers(mgr.childLightGroupIndex, _groupMasks)) return true;
@@ -246,11 +254,11 @@ public static class LayeredLightingEditor
 
     private static void TryFindAndRescan()
     {
-        LayeredLightingManager mgr = Object.FindObjectOfType<LayeredLightingManager>();
+        LightingManager mgr = Object.FindObjectOfType<LightingManager>();
         if (mgr != null) Rescan(mgr);
     }
 
-    private static void Rescan(LayeredLightingManager mgr)
+    private static void Rescan(LightingManager mgr)
     {
         _worldRoot = mgr.gameObject;
         _rangeScale = mgr.rangeScale;
@@ -376,7 +384,7 @@ public static class LayeredLightingEditor
         Tick(0f, mgr);
     }
 
-    private static void Tick(float dt, LayeredLightingManager mgr)
+    private static void Tick(float dt, LightingManager mgr)
     {
         if (_lights == null || _lights.Length == 0) return;
 
@@ -575,11 +583,14 @@ public static class LayeredLightingEditor
 
     private static void UploadToShader()
     {
+        if (_worldRoot == null)
+            return;
+
         Shader.SetGlobalVectorArray("_UdonLightData", _shaderBuffer);
         Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
         Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
 
-        LayeredLightingManager mgr = _worldRoot?.GetComponent<LayeredLightingManager>();
+        LightingManager mgr = _worldRoot.GetComponent<LightingManager>();
         if (mgr != null)
         {
             Shader.SetGlobalFloat("_UdonLODDistanceNear", mgr.lodDistanceNear);
@@ -683,4 +694,3 @@ public static class LayeredLightingEditor
         RepaintSceneViews();
     }
 }
-#endif

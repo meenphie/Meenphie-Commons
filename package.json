@@ -1,8 +1,9 @@
 {
-  "name": "com.meenphie.commons",
+  "name": "com.meenphie.lighting",
   "displayName": "Meenphie",
-  "version": "1.0.0-beta.2",
-  "description": "My common stuff",
+  "version": "1.0.0-beta.1",
+  "description": "Layered lightmap lighting system for VRChat worlds",
+  "license": "MIT",
   "dependencies": {},
   "gitDependencies": {},
   "author": {
