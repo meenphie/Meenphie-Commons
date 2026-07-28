@@ -10,10 +10,7 @@ public static class LightingEditorScene
     public const int MAX_LIGHTS = 32;
     private const int BUFFER_SIZE = MAX_LIGHTS * 8 + 1;
 
-    private const float MOTION_EPSILON_SQ = 0.0001f;
-    private const float COLOR_EPSILON = 0.004f;
-    private const float INTENSITY_EPSILON = 0.001f;
-    private const float DEFAULT_RANGE_SCALE = 10f;
+    private const float DEFAULT_RANGE_SCALE = 100f;
     private const double RESCAN_DEBOUNCE_SECONDS = 0.25;
 
     private static GameObject _worldRoot;
@@ -26,11 +23,11 @@ public static class LightingEditorScene
     private static Vector3[] _bakedColors;
     private static int[] _layerSlices;
     private static int[] _groupMasks;
+    private static int[] _cookieSlices;
     private static float _rangeScale = DEFAULT_RANGE_SCALE;
 
     private static int _activeSpecularCount = MAX_LIGHTS;
     private static bool _previewEnabled = true;
-    private static double _lastTick;
     private static double _lastPrevTime;
     private static double _lastHierarchyChangeRequest = double.NegativeInfinity;
     private static bool _rescanPending;
@@ -57,8 +54,10 @@ public static class LightingEditorScene
     private static int[] _indices = new int[MAX_LIGHTS];
     private static float[] _distances = new float[MAX_LIGHTS];
     private static int[] _lightToShader = new int[0];
+    private static float _specCullDistanceSq;
 
     private static Texture2DArray _previewLayerArray;
+    private static Texture2DArray _previewCookieArray;
 
     static LightingEditorScene()
     {
@@ -68,6 +67,25 @@ public static class LightingEditorScene
         SceneView.duringSceneGui += OnSceneGui;
         EditorApplication.hierarchyChanged -= OnHierarchyChanged;
         EditorApplication.hierarchyChanged += OnHierarchyChanged;
+
+        EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+    }
+
+    private static void OnPlayModeStateChanged(PlayModeStateChange change)
+    {
+        if (change != PlayModeStateChange.EnteredEditMode) return;
+
+        Shader.SetGlobalFloat("_UdonDiffuseStaticEnabled", 1f);
+        Shader.SetGlobalFloat("_UdonDiffuseRealtimeEnabled", 1f);
+        Shader.SetGlobalFloat("_UdonRNMEnabled", 1f);
+
+        _worldRoot = null;
+        _lastFinalCount = -1;
+        _rescanPending = false;
+
+        TryFindAndRescan();
+        UploadToShader();
     }
 
     private static void OnHierarchyChanged()
@@ -161,7 +179,6 @@ public static class LightingEditorScene
         if (!editorActive || !sceneVisible || !refreshAllowed)
         {
             _lastPrevTime = now;
-            _lastTick = now;
             return;
         }
 
@@ -196,17 +213,7 @@ public static class LightingEditorScene
         _lastPrevTime = now;
         dt = Mathf.Clamp(dt, 0f, 0.1f);
 
-        bool tickThisFrame = now - _lastTick >= (liveMgr != null ? liveMgr.updateInterval : 0.02f);
-
-        if (tickThisFrame)
-        {
-            _lastTick = now;
-            Tick(dt, liveMgr);
-        }
-        else
-        {
-            UpdateLiveData();
-        }
+        Tick(dt, liveMgr);
     }
 
     private static bool ShouldRescanNow()
@@ -240,6 +247,7 @@ public static class LightingEditorScene
     {
         if (ArrayDiffers(mgr.childLightLayerSlices, _layerSlices)) return true;
         if (ArrayDiffers(mgr.childLightGroupIndex, _groupMasks)) return true;
+        if (ArrayDiffers(mgr.childLightCookieSlice, _cookieSlices)) return true;
         return false;
     }
 
@@ -263,6 +271,7 @@ public static class LightingEditorScene
         _worldRoot = mgr.gameObject;
         _rangeScale = mgr.rangeScale;
         _activeSpecularCount = Mathf.Clamp(mgr.activeSpecularCount, 1, MAX_LIGHTS);
+        _specCullDistanceSq = Sq(mgr.specCameraFadeEnd + mgr.specCullMargin);
 
         Light[] previousLights = mgr.childLights;
         Light[] freshLights = Object.FindObjectsOfType<Light>(includeInactive: true);
@@ -291,17 +300,30 @@ public static class LightingEditorScene
             _layerSlices = mgr.childLightLayerSlices;
             _groupMasks = mgr.childLightGroupIndex;
             _bakedColors = mgr.childLightBakedColors;
+            _cookieSlices = mgr.childLightCookieSlice;
         }
         else
         {
-            // Reallocation needed – preserve old values by Light reference
+            // Reallocation needed – preserve old values by Light reference for EVERY tracked field
             var oldRealtimeByLight = new Dictionary<Light, bool>();
             var oldDiffuseByLight = new Dictionary<Light, bool>();
             var oldSpecularByLight = new Dictionary<Light, bool>();
             var oldFaultStateByLight = new Dictionary<Light, LightFaultState>();
             var oldSliceByLight = new Dictionary<Light, int>();
             var oldGroupMaskByLight = new Dictionary<Light, int>();
+            var oldCookieSliceByLight = new Dictionary<Light, int>();
             var oldBakedColByLight = new Dictionary<Light, Vector3>();
+
+            var oldCookieTexByLight = new Dictionary<Light, Texture2D>();
+            var oldAudioOverrideByLight = new Dictionary<Light, AudioClip>();
+            var oldBrokenOnMinByLight = new Dictionary<Light, float>();
+            var oldBrokenOnMaxByLight = new Dictionary<Light, float>();
+            var oldBrokenOffMinByLight = new Dictionary<Light, float>();
+            var oldBrokenOffMaxByLight = new Dictionary<Light, float>();
+            var oldBrokenOnIntensityByLight = new Dictionary<Light, float>();
+            var oldPanicSpeedByLight = new Dictionary<Light, float>();
+            var oldPanicIntensityMinByLight = new Dictionary<Light, float>();
+            var oldPanicIntensityMaxByLight = new Dictionary<Light, float>();
 
             if (previousLights != null)
             {
@@ -309,6 +331,7 @@ public static class LightingEditorScene
                 {
                     Light l = previousLights[i];
                     if (l == null) continue;
+
                     if (mgr.childLightIsRealtime != null && i < mgr.childLightIsRealtime.Length)
                         oldRealtimeByLight[l] = mgr.childLightIsRealtime[i];
                     if (mgr.childLightDiffuseEnabled != null && i < mgr.childLightDiffuseEnabled.Length)
@@ -321,8 +344,31 @@ public static class LightingEditorScene
                         oldSliceByLight[l] = mgr.childLightLayerSlices[i];
                     if (mgr.childLightGroupIndex != null && i < mgr.childLightGroupIndex.Length)
                         oldGroupMaskByLight[l] = mgr.childLightGroupIndex[i];
+                    if (mgr.childLightCookieSlice != null && i < mgr.childLightCookieSlice.Length)
+                        oldCookieSliceByLight[l] = mgr.childLightCookieSlice[i];
                     if (mgr.childLightBakedColors != null && i < mgr.childLightBakedColors.Length)
                         oldBakedColByLight[l] = mgr.childLightBakedColors[i];
+
+                    if (mgr.childLightCookieTexture != null && i < mgr.childLightCookieTexture.Length)
+                        oldCookieTexByLight[l] = mgr.childLightCookieTexture[i];
+                    if (mgr.childLightAudioClipOverride != null && i < mgr.childLightAudioClipOverride.Length)
+                        oldAudioOverrideByLight[l] = mgr.childLightAudioClipOverride[i];
+                    if (mgr.childLightBrokenOnMin != null && i < mgr.childLightBrokenOnMin.Length)
+                        oldBrokenOnMinByLight[l] = mgr.childLightBrokenOnMin[i];
+                    if (mgr.childLightBrokenOnMax != null && i < mgr.childLightBrokenOnMax.Length)
+                        oldBrokenOnMaxByLight[l] = mgr.childLightBrokenOnMax[i];
+                    if (mgr.childLightBrokenOffMin != null && i < mgr.childLightBrokenOffMin.Length)
+                        oldBrokenOffMinByLight[l] = mgr.childLightBrokenOffMin[i];
+                    if (mgr.childLightBrokenOffMax != null && i < mgr.childLightBrokenOffMax.Length)
+                        oldBrokenOffMaxByLight[l] = mgr.childLightBrokenOffMax[i];
+                    if (mgr.childLightBrokenOnIntensity != null && i < mgr.childLightBrokenOnIntensity.Length)
+                        oldBrokenOnIntensityByLight[l] = mgr.childLightBrokenOnIntensity[i];
+                    if (mgr.childLightPanicSpeed != null && i < mgr.childLightPanicSpeed.Length)
+                        oldPanicSpeedByLight[l] = mgr.childLightPanicSpeed[i];
+                    if (mgr.childLightPanicIntensityMin != null && i < mgr.childLightPanicIntensityMin.Length)
+                        oldPanicIntensityMinByLight[l] = mgr.childLightPanicIntensityMin[i];
+                    if (mgr.childLightPanicIntensityMax != null && i < mgr.childLightPanicIntensityMax.Length)
+                        oldPanicIntensityMaxByLight[l] = mgr.childLightPanicIntensityMax[i];
                 }
             }
 
@@ -334,6 +380,18 @@ public static class LightingEditorScene
             _bakedColors = new Vector3[count];
             _layerSlices = new int[count];
             _groupMasks = new int[count];
+            _cookieSlices = new int[count];
+
+            var cookieTextures = new Texture2D[count];
+            var audioOverrides = new AudioClip[count];
+            var brokenOnMin = new float[count];
+            var brokenOnMax = new float[count];
+            var brokenOffMin = new float[count];
+            var brokenOffMax = new float[count];
+            var brokenOnIntensity = new float[count];
+            var panicSpeed = new float[count];
+            var panicIntensityMin = new float[count];
+            var panicIntensityMax = new float[count];
 
             for (int i = 0; i < count; i++)
             {
@@ -348,7 +406,24 @@ public static class LightingEditorScene
                 _faultStates[i] = oldFaultStateByLight.TryGetValue(l, out LightFaultState prevFault) ? prevFault : LightFaultState.Normal;
                 _layerSlices[i] = oldSliceByLight.TryGetValue(l, out int prevSlice) ? prevSlice : -1;
                 _groupMasks[i] = oldGroupMaskByLight.TryGetValue(l, out int prevMask) ? prevMask : ~0;
+                _cookieSlices[i] = oldCookieSliceByLight.TryGetValue(l, out int prevCookie) ? prevCookie : -1;
                 _bakedColors[i] = oldBakedColByLight.TryGetValue(l, out Vector3 prevCol) ? prevCol : new Vector3(l.color.r, l.color.g, l.color.b);
+
+                cookieTextures[i] = oldCookieTexByLight.TryGetValue(l, out Texture2D prevCookieTex) ? prevCookieTex : null;
+                audioOverrides[i] = oldAudioOverrideByLight.TryGetValue(l, out AudioClip prevClip) ? prevClip : null;
+                brokenOnMin[i] = oldBrokenOnMinByLight.TryGetValue(l, out float prevOnMin) ? prevOnMin : 0.01f;
+                brokenOnMax[i] = oldBrokenOnMaxByLight.TryGetValue(l, out float prevOnMax) ? prevOnMax : 1.5f;
+                brokenOffMin[i] = oldBrokenOffMinByLight.TryGetValue(l, out float prevOffMin) ? prevOffMin : 0.5f;
+                brokenOffMax[i] = oldBrokenOffMaxByLight.TryGetValue(l, out float prevOffMax) ? prevOffMax : 2.0f;
+                brokenOnIntensity[i] = oldBrokenOnIntensityByLight.TryGetValue(l, out float prevOnInt) ? prevOnInt : 0.8f;
+                panicSpeed[i] = oldPanicSpeedByLight.TryGetValue(l, out float prevSpeed) ? prevSpeed : 0.5f;
+                panicIntensityMin[i] = oldPanicIntensityMinByLight.TryGetValue(l, out float prevPMin) ? prevPMin : 0.1f;
+                panicIntensityMax[i] = oldPanicIntensityMaxByLight.TryGetValue(l, out float prevPMax) ? prevPMax : 1.2f;
+
+                bool existedBefore = previousLights != null && System.Array.IndexOf(previousLights, l) >= 0;
+                if (existedBefore && !oldRealtimeByLight.ContainsKey(l))
+                    Debug.LogWarning("[LightingEditorScene] Rescan lost tracked data for '" + l.name +
+                                      "' — it existed before but its old values weren't found by reference.");
             }
 
             mgr.childLights = freshLights;
@@ -359,7 +434,19 @@ public static class LightingEditorScene
             mgr.childLightHalfExtents = _halfExtents;
             mgr.childLightLayerSlices = _layerSlices;
             mgr.childLightGroupIndex = _groupMasks;
+            mgr.childLightCookieSlice = _cookieSlices;
             mgr.childLightBakedColors = _bakedColors;
+
+            mgr.childLightCookieTexture = cookieTextures;
+            mgr.childLightAudioClipOverride = audioOverrides;
+            mgr.childLightBrokenOnMin = brokenOnMin;
+            mgr.childLightBrokenOnMax = brokenOnMax;
+            mgr.childLightBrokenOffMin = brokenOffMin;
+            mgr.childLightBrokenOffMax = brokenOffMax;
+            mgr.childLightBrokenOnIntensity = brokenOnIntensity;
+            mgr.childLightPanicSpeed = panicSpeed;
+            mgr.childLightPanicIntensityMin = panicIntensityMin;
+            mgr.childLightPanicIntensityMax = panicIntensityMax;
 
             EditorUtility.SetDirty(mgr); // only dirty when structural change
             _lights = freshLights;
@@ -373,13 +460,16 @@ public static class LightingEditorScene
         Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
         Shader.SetGlobalFloat("_UdonLightmapSliceOffset", (float)mgr.lightmapGroupCount);
 
+        _previewCookieArray = mgr.cookieArray;
+        Shader.SetGlobalTexture("_UdonCookieArray", _previewCookieArray);
+        Shader.SetGlobalFloat("_UdonCookieArrayValid", _previewCookieArray != null ? 1f : 0f);
+
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
         _lastUploadedSlotCount = 0;
         _lastFinalCount = -1;
         _lastViewerTick = 0;
 
         CacheLightStates();
-        _lastTick = 0;
         _lastPrevTime = EditorApplication.timeSinceStartup;
         Tick(0f, mgr);
     }
@@ -389,7 +479,7 @@ public static class LightingEditorScene
         if (_lights == null || _lights.Length == 0) return;
 
         double now = EditorApplication.timeSinceStartup;
-        float viewerInterval = (mgr != null) ? mgr.viewerUpdateInterval : 1.0f;
+        float viewerInterval = LightingManager.VIEWER_UPDATE_INTERVAL;
 
         bool viewerDue = (now - _lastViewerTick) >= viewerInterval || _lastFinalCount < 0;
 
@@ -419,79 +509,11 @@ public static class LightingEditorScene
         _lastFinalCount = finalCount;
     }
 
-    private static bool UpdateLiveData()
-    {
-        if (_lightToShader == null || _lightToShader.Length != _lights.Length) return false;
-        bool changed = false;
-
-        for (int li = 0; li < _lights.Length; li++)
-        {
-            Light l = _lights[li];
-            if (l == null || !l.enabled || !l.gameObject.activeInHierarchy) continue;
-
-            Transform t = l.transform;
-            Vector3 pos = t.position;
-            Quaternion rot = t.rotation;
-            float intensity = l.intensity;
-            Vector3 col = new Vector3(l.color.r, l.color.g, l.color.b);
-
-            bool posChanged = (pos - _lastLightPositions[li]).sqrMagnitude > MOTION_EPSILON_SQ;
-            bool rotChanged = Quaternion.Dot(rot, _lastLightRotations[li]) < 0.9999f;
-            bool intChanged = Mathf.Abs(intensity - _lastLightIntensities[li]) > INTENSITY_EPSILON;
-            bool colChanged = Mathf.Abs(col.x - _lastLightColors[li].x) > COLOR_EPSILON ||
-                              Mathf.Abs(col.y - _lastLightColors[li].y) > COLOR_EPSILON ||
-                              Mathf.Abs(col.z - _lastLightColors[li].z) > COLOR_EPSILON;
-
-            if (!posChanged && !rotChanged && !intChanged && !colChanged) continue;
-
-            changed = true;
-            _lastLightPositions[li] = pos;
-            _lastLightRotations[li] = rot;
-            _lastLightIntensities[li] = intensity;
-            _lastLightColors[li] = col;
-
-            int si = _lightToShader[li];
-            if (si < 0) continue;
-
-            int baseIdx = si * 8 + 1;
-
-            Vector3 bakedCol = (_bakedColors != null && li < _bakedColors.Length)
-                ? _bakedColors[li] : col;
-            float realtimeFlag = _isRealtime[li] ? 1.0f : 0.0f;
-
-            if (posChanged || intChanged)
-                _shaderBuffer[baseIdx + 0] = new Vector4(pos.x, pos.y, pos.z, intensity);
-
-            if (intChanged || colChanged)
-            {
-                _shaderBuffer[baseIdx + 1] = new Vector4(col.x, col.y, col.z, intensity);
-                _shaderBuffer[baseIdx + 5] = new Vector4(bakedCol.x, bakedCol.y, bakedCol.z, realtimeFlag);
-            }
-
-            if (rotChanged)
-            {
-                Vector3 f = rot * Vector3.forward;
-                Vector3 r = rot * Vector3.right;
-                Vector3 u = rot * Vector3.up;
-
-                float cosOuter = ComputeCosOuter(l.type, l.spotAngle);
-                float halfX = (_halfExtents != null && li < _halfExtents.Length) ? _halfExtents[li].x : 0.01f;
-                float halfY = (_halfExtents != null && li < _halfExtents.Length) ? _halfExtents[li].y : 0.01f;
-
-                _shaderBuffer[baseIdx + 2] = new Vector4(f.x, f.y, f.z, cosOuter);
-                _shaderBuffer[baseIdx + 3] = new Vector4(r.x, r.y, r.z, halfX);
-                _shaderBuffer[baseIdx + 4] = new Vector4(u.x, u.y, u.z, halfY);
-            }
-        }
-
-        return changed;
-    }
-
     private static int SortNearest(Vector3 viewerPos)
     {
         int count = 0;
         int cap = Mathf.Clamp(_activeSpecularCount, 1, MAX_LIGHTS);
-        float maxDistSq = _rangeScale * _rangeScale;   // global culling distance
+        float maxDistSq = _rangeScale * _rangeScale;
 
         for (int i = 0; i < _lights.Length; i++)
         {
@@ -501,7 +523,13 @@ public static class LightingEditorScene
                 continue;
 
             float distSq = Vector3.SqrMagnitude(viewerPos - l.transform.position);
-            if (distSq > maxDistSq) continue;   // skip beyond global range
+
+            bool diffuseOn = (_diffuseEnabled != null && i < _diffuseEnabled.Length) ? _diffuseEnabled[i] : true;
+            bool specularOn = (_specularEnabled != null && i < _specularEnabled.Length) ? _specularEnabled[i] : true;
+            bool withinSpecFade = distSq <= _specCullDistanceSq;
+
+            if (!diffuseOn && !(specularOn && withinSpecFade)) continue;
+            if (distSq > maxDistSq) continue;
 
             int ins = count;
             while (ins > 0 && _distances[ins - 1] > distSq) ins--;
@@ -521,10 +549,11 @@ public static class LightingEditorScene
         return count;
     }
 
+    private static float Sq(float x) => x * x;
+
     private static void FillUploadBuffers(int finalCount)
     {
-        // Header: count, 0 (no more rangeScale needed), 0, specularEnabled = 1 for preview
-        _shaderBuffer[0] = new Vector4((float)finalCount, 0f, 0f, 1f);
+        _shaderBuffer[0] = new Vector4((float)finalCount, 0f, 1f, 1f);
         for (int i = 0; i < finalCount; i++)
         {
             int li = _indices[i];
@@ -554,6 +583,7 @@ public static class LightingEditorScene
             bool diffuseOn = (_diffuseEnabled != null && li < _diffuseEnabled.Length) ? _diffuseEnabled[li] : true;
             bool specularOn = (_specularEnabled != null && li < _specularEnabled.Length) ? _specularEnabled[li] : true;
             int groupMask = (_groupMasks != null && li < _groupMasks.Length) ? _groupMasks[li] : ~0;
+            int cookieSlice = (_cookieSlices != null && li < _cookieSlices.Length) ? _cookieSlices[li] : -1;   // ← ajout
 
             // Ranges are now zero – shader uses its own global constants
             _shaderBuffer[baseIdx + 0] = new Vector4(pos.x, pos.y, pos.z, intensity);
@@ -563,7 +593,7 @@ public static class LightingEditorScene
             _shaderBuffer[baseIdx + 4] = new Vector4(up.x, up.y, up.z, halfY);
             _shaderBuffer[baseIdx + 5] = new Vector4(bakedCol.x, bakedCol.y, bakedCol.z, realtimeFlag);
             _shaderBuffer[baseIdx + 6] = new Vector4(layerSlice, diffuseOn ? 1f : 0f, specularOn ? 1f : 0f, groupMask);
-            _shaderBuffer[baseIdx + 7] = new Vector4(0f, 0f, (float)lightTypeInt, cosInner);
+            _shaderBuffer[baseIdx + 7] = new Vector4((float)cookieSlice, 0f, (float)lightTypeInt, cosInner);
 
             _lastIndicesSorted[i] = li;
         }
@@ -589,6 +619,9 @@ public static class LightingEditorScene
         Shader.SetGlobalVectorArray("_UdonLightData", _shaderBuffer);
         Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
         Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
+
+        Shader.SetGlobalTexture("_UdonCookieArray", _previewCookieArray);
+        Shader.SetGlobalFloat("_UdonCookieArrayValid", _previewCookieArray != null ? 1f : 0f);
 
         LightingManager mgr = _worldRoot.GetComponent<LightingManager>();
         if (mgr != null)

@@ -128,6 +128,46 @@ public class LightInspector : Editor
                 e => e.manager.childLightSpecularDistance[e.index],
                 (e, v) => e.manager.childLightSpecularDistance[e.index] = v);
 
+            // ── Cookie (realtime only) ──────────────────────────────────
+
+            // Check if any selected light is realtime
+            bool anyRealtime = false;
+            foreach (var e in tracked)
+                if (e.manager.childLightIsRealtime[e.index]) { anyRealtime = true; break; }
+
+            // ── Cookie (shown for all tracked lights; array sizing and tooltip
+            //    both apply beyond just "this light is realtime") ──
+            EditorGUILayout.Space(6);
+            EditorGUILayout.LabelField("Cookie", EditorStyles.boldLabel);
+
+            foreach (var e in tracked)
+            {
+                int cap = e.manager.childLights.Length;
+                EnsureCookieArraysSized(e.manager, cap);
+            }
+
+            DrawSharedObjectField(
+                tracked, "Cookie Texture",
+                "Assign a Texture2D cookie. It will be used on dynamic meshes and for lights marked as realtime.",
+                e => (e.manager.childLightCookieTexture != null && e.index < e.manager.childLightCookieTexture.Length)
+                     ? e.manager.childLightCookieTexture[e.index] : null,
+                (e, v) =>
+                {
+                    if (e.manager.childLightCookieTexture != null && e.index < e.manager.childLightCookieTexture.Length)
+                        e.manager.childLightCookieTexture[e.index] = v;
+                });
+
+            if (anyRealtime && tracked.Count == 1 && tracked[0].manager.childLightIsRealtime[tracked[0].index])
+            {
+                var e = tracked[0];
+                if (e.manager.childLightCookieTexture[e.index] == null)
+                {
+                    EditorGUILayout.HelpBox(
+                        "No cookie texture assigned. Use the Cookie Texture field above to assign a Texture2D.",
+                        MessageType.Info);
+                }
+            }
+
             // ── Animation ─────────────────────────────────────────────────
 
             EditorGUILayout.Space(6);
@@ -380,6 +420,55 @@ public class LightInspector : Editor
             CommitChange(entries, "Change " + label, e => setValue(e, newValue));
     }
 
+    private static void EnsureCookieArraysSized(LightingManager mgr, int cap)
+    {
+        if (mgr.childLightCookieTexture == null || mgr.childLightCookieTexture.Length != cap)
+        {
+            var newTex = new Texture2D[cap];
+            if (mgr.childLightCookieTexture != null)
+            {
+                int copyLen = Mathf.Min(mgr.childLightCookieTexture.Length, cap);
+                System.Array.Copy(mgr.childLightCookieTexture, newTex, copyLen);
+            }
+            mgr.childLightCookieTexture = newTex;
+            EditorUtility.SetDirty(mgr);
+        }
+
+        if (mgr.childLightCookieSlice == null || mgr.childLightCookieSlice.Length != cap)
+        {
+            var newSlice = new int[cap];
+            int oldLen = 0;
+            if (mgr.childLightCookieSlice != null)
+            {
+                oldLen = Mathf.Min(mgr.childLightCookieSlice.Length, cap);
+                System.Array.Copy(mgr.childLightCookieSlice, newSlice, oldLen);
+            }
+            for (int i = oldLen; i < cap; i++) newSlice[i] = -1;
+            mgr.childLightCookieSlice = newSlice;
+            EditorUtility.SetDirty(mgr);
+        }
+    }
+
+    private static void DrawSharedObjectField(
+        List<Entry> entries, string label, string tooltip,
+        System.Func<Entry, Texture2D> getValue,
+        System.Action<Entry, Texture2D> setValue)
+    {
+        Texture2D first = getValue(entries[0]);
+        bool mixed = false;
+        for (int i = 1; i < entries.Count; i++)
+            if (getValue(entries[i]) != first) { mixed = true; break; }
+
+        EditorGUI.showMixedValue = mixed;
+        EditorGUI.BeginChangeCheck();
+        var newValue = (Texture2D)EditorGUILayout.ObjectField(
+            new GUIContent(label, tooltip), first, typeof(Texture2D), false);
+        EditorGUI.showMixedValue = false;
+
+        if (EditorGUI.EndChangeCheck())
+            CommitChange(entries, "Change " + label, e => setValue(e, newValue));
+    }
+
     // ── Generic undo-aware commit ──────────────────────────────────────────
 
     private static void CommitChange(
@@ -391,7 +480,12 @@ public class LightInspector : Editor
 
         foreach (var mgr in managers) Undo.RecordObject(mgr, undoLabel);
         foreach (var e in entries) apply(e);
-        foreach (var mgr in managers) EditorUtility.SetDirty(mgr);
+        foreach (var mgr in managers)
+        {
+            EditorUtility.SetDirty(mgr);
+            mgr.MarkDirty(); // invalidate merged cache — without this, Play Mode edits
+                             // silently don't take effect until something else forces a rebuild
+        }
     }
 
     // ── Manager lookup ─────────────────────────────────────────────────────

@@ -9,45 +9,63 @@ namespace Meenphie.Commons
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class LightingManager : UdonSharpBehaviour
     {
-        [Header("Settings")]
-        public float updateInterval = 0.025f;
-        public float viewerUpdateInterval = 0.25f;
         [Range(1, MAX_LIGHTS)] public int activeSpecularCount = MAX_LIGHTS;
         [Tooltip("Global culling distance – lights beyond this are skipped on the CPU.")]
-        public float rangeScale = 10f;
+        public float rangeScale = 50f;
 
         [Header("Lightmap Layer")]
         public Texture2DArray lightLayerArray;
         public int lightmapGroupCount = 0;
-        [Range(0f, 50f)] public float lodDistanceNear = 0f;
-        [Range(0f, 80f)] public float lodDistanceFar = 70f;
-        [Range(0f, 9f)] public float lodAtFar = 9f;
+        [Range(0f, 50f)] public float lodDistanceNear = 5f;
+        [Range(0f, 80f)] public float lodDistanceFar = 35f;
+        [Range(0f, 9f)] public float lodAtFar = 2f;
+
+        [Header("Cookies")]
+        public Texture2DArray cookieArray;
+        [HideInInspector] public Texture2D[] childLightCookieTexture;
+        [HideInInspector] public int[] childLightCookieSlice;
+        [HideInInspector] public int[] mergedCookieSlice;
 
         [Header("Animation – Audio Clips")]
         public AudioClip faultAudioClip;
-        [Range(0f, 1f)] public float audioMasterVolume = 0.8f;
+        [Range(0f, 1f)] public float audioMasterVolume = 1.0f;
 
-#if UNITY_EDITOR && !UDONSHARP
-    [Header("Debug (read-only)")]
-    public int currentStaticLights;
-    public int currentDynamicLights;
-    public int currentAnimatedLights;
-    public int currentSpecularsCount;
-    public int sampledLightmapsCount;
-    public int currentSlicesCount;
-    public bool shaderWasUpdated;
-    public int shaderUpdatesThisFrame;
-    public string updateReason = "None";
-#endif
+        [Header("Performance")]
+        [Tooltip("Minimum time (seconds) between shader uploads.")]
+        public const float UPDATE_INTERVAL = 1f / 90f;
+        public const float VIEWER_UPDATE_INTERVAL = 1f / 10f;
+        private float _lastUploadTime = -1f;
+        private float _tickAccumDt = 0f;
+        public float specCameraFadeEnd = 20f;
+        public float specCullMargin = 0f;
+        private int _specCameraFadeEndID;
+        public void MarkDirty() => _mergedDirty = true;
 
-        public const int MAX_LIGHTS = 32;
-        public const float MOTION_EPSILON_SQ = 0.000001f;
-        public const float COLOR_EPSILON = 0.004f;
-        public const float INTENSITY_EPSILON = 0.001f;
+        private const int MAX_LIGHTS = 32;
+        private const float MOTION_EPSILON_SQ = 0.000001f;       // 1 mm squared
+        private const float ROTATION_EPSILON_DOT = 0.9998477f;   // 1.0° dead zone
+        private const float COLOR_EPSILON = 0.004f;
+        private const float INTENSITY_EPSILON = 0.001f;
+
+        // ===== Runtime Performance Metrics (work in VRChat) =====
+        [Header("Performance Metrics")]
+        [Tooltip("Smoothed shader uploads per second.")]
+        public float avgShaderUpdatesPerSecond;
+        [Tooltip("Smoothed Udon CPU time (ms) per frame.")]
+        public float avgUdonMsPerFrame;
+
+        private float _emaShaderUpdatesPerSecond;
+        private float _emaUdonMs;
+        private float _lastRateUpdateTime;
+        private int _shaderUpdateCounter;
+        private float _instantRate;
+        private const float SMOOTHING_HALF_LIFE = 0.5f;
 
         [Header("Light Sources (auto-filled)")]
         public Light[] childLights;
-
+#if UNITY_EDITOR
+        public Vector3 debugViewerPos;
+#endif
         [HideInInspector] public Vector2[] childLightHalfExtents;
         [HideInInspector] public bool[] childLightIsRealtime;
         [HideInInspector] public Vector3[] childLightBakedColors;
@@ -55,7 +73,6 @@ namespace Meenphie.Commons
 
         [HideInInspector] public bool[] childLightDiffuseEnabled;
         [HideInInspector] public bool[] childLightSpecularDistance;
-
         [HideInInspector] public LightFaultState[] childLightFaultState;
         [HideInInspector] public int[] childLightGroupIndex;
         [HideInInspector] public AudioClip[] childLightAudioClipOverride;
@@ -81,8 +98,6 @@ namespace Meenphie.Commons
         [HideInInspector] public LightFaultState[] mergedFaultState;
         [HideInInspector] public int[] mergedGroupMask;
         [HideInInspector] public int mergedCount;
-
-        // Precalculated trig to avoid Acos/Cos in loops
         [HideInInspector] public float[] mergedCosInner;
 
         private float[] _faultStateTimer;
@@ -121,8 +136,9 @@ namespace Meenphie.Commons
 
         private Transform[] _childTransforms;
         private Transform _thisTransform;
-
+        private float[] childLightCosOuter, childLightCosInner;
         private int[] _mergedToChild;
+
 
         [HideInInspector] public Vector3[] lastLightPositions;
         [HideInInspector] public Quaternion[] lastLightRotations;
@@ -133,74 +149,52 @@ namespace Meenphie.Commons
         private int[] _lightToMerged = new int[0];
         private bool _isReady;
         private int _animatedMask;
+        private int _cookieArrayID;
 
         private VRCPlayerApi _localPlayer;
-        private float _tickTimer;
         private float _viewerTickTimer;
-        private bool _specularEnabled = true;
         private float[] _lastAnimatedIntensity = new float[MAX_LIGHTS];
 
-        private const float FAULT_FADE_SPEED = 15.0f;
+        // ===== Lighting toggles (Diffuse Static / Diffuse Realtime / Specular / Reflection / RNM) =====
+        private bool _diffuseStaticEnabled = true;
+        private bool _diffuseRealtimeEnabled = true;
+        private bool _specularEnabled = true;
+        private bool _reflectionEnabled = true;
+        private bool _rnmEnabled = true;
 
+        private int _diffuseStaticEnabledID;
+        private int _diffuseRealtimeEnabledID;
+        private int _rnmEnabledID;
+
+        private bool _mergedDirty = true;
+
+        private const float FAULT_FADE_SPEED = 15.0f;
         private const float PANIC_ON_MEAN_SLOW = 0.30f;
         private const float PANIC_ON_MEAN_FAST = 0.01f;
         private const float PANIC_OFF_MEAN_SLOW = 0.80f;
         private const float PANIC_OFF_MEAN_FAST = 0.02f;
 
+#if UNITY_EDITOR
+        [Header("Debug (Editor only)")]
+        public int currentStaticLights;
+        public int currentDynamicLights;
+        public int currentAnimatedLights;
+        public int currentSpecularsCount;
+        public int sampledLightmapsCount;
+        public int currentSlicesCount;
+        public bool shaderWasUpdated;
+        public int shaderUpdatesThisFrame;
+        public int totalShaderUpdates;
+        public float shaderUpdatesPerSecond;   // Editor only
+        private float _debugTimer;
+        private int _debugUpdateCount;
+#endif
+
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
         private void OnValidate()
         {
             if (childLights == null) return;
-            int cap = childLights.Length;
-
-            ResizeBoolArray(ref childLightIsRealtime, cap, true);
-            ResizeBoolArray(ref childLightDiffuseEnabled, cap, true);
-            ResizeBoolArray(ref childLightSpecularDistance, cap, true);
-
-            if (childLightFaultState == null || childLightFaultState.Length != cap)
-                System.Array.Resize(ref childLightFaultState, cap);
-
-            if (childLightGroupIndex == null)
-            {
-                childLightGroupIndex = new int[cap];
-                for (int i = 0; i < cap; i++) childLightGroupIndex[i] = ~0;
-            }
-            else if (childLightGroupIndex.Length != cap)
-            {
-                int oldLen = childLightGroupIndex.Length;
-                System.Array.Resize(ref childLightGroupIndex, cap);
-                for (int i = oldLen; i < cap; i++) childLightGroupIndex[i] = ~0;
-            }
-
-            if (childLightAudioClipOverride == null || childLightAudioClipOverride.Length != cap)
-                System.Array.Resize(ref childLightAudioClipOverride, cap);
-
-            EnsureFloatArray(ref childLightBrokenOnMin, cap, 0.01f);
-            EnsureFloatArray(ref childLightBrokenOnMax, cap, 1.5f);
-            EnsureFloatArray(ref childLightBrokenOffMin, cap, 0.5f);
-            EnsureFloatArray(ref childLightBrokenOffMax, cap, 2.0f);
-            EnsureFloatArray(ref childLightBrokenOnIntensity, cap, 0.8f);
-            EnsureFloatArray(ref childLightPanicSpeed, cap, 0.5f);
-            EnsureFloatArray(ref childLightPanicIntensityMin, cap, 0.1f);
-            EnsureFloatArray(ref childLightPanicIntensityMax, cap, 1.2f);
-        }
-
-        private static void ResizeBoolArray(ref bool[] arr, int cap, bool def)
-        {
-            if (arr != null && arr.Length == cap) return;
-            bool[] r = new bool[cap];
-            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-            if (c > 0) System.Array.Copy(arr, r, c);
-            for (int i = c; i < cap; i++) r[i] = def;
-            arr = r;
-        }
-
-        private static void EnsureFloatArray(ref float[] arr, int cap, float def)
-        {
-            if (arr != null && arr.Length == cap) return;
-            int oldLen = (arr != null) ? arr.Length : 0;
-            System.Array.Resize(ref arr, cap);
-            for (int i = oldLen; i < cap; i++) arr[i] = def;
+            ValidateChildArrays();
         }
 #endif
 
@@ -210,6 +204,11 @@ namespace Meenphie.Commons
             _thisTransform = transform;
             _lightDataID = VRCShader.PropertyToID("_UdonLightData");
             _layerArrayID = VRCShader.PropertyToID("_UdonLightLayerArray");
+            _cookieArrayID = VRCShader.PropertyToID("_UdonCookieArray");
+            _rnmEnabledID = VRCShader.PropertyToID("_UdonRNMEnabled");
+            _diffuseStaticEnabledID = VRCShader.PropertyToID("_UdonDiffuseStaticEnabled");
+            _diffuseRealtimeEnabledID = VRCShader.PropertyToID("_UdonDiffuseRealtimeEnabled");
+            _specCameraFadeEndID = VRCShader.PropertyToID("_UdonSpecCameraFadeEnd");
 
             for (int i = 0; i < MAX_LIGHTS; i++)
             {
@@ -217,16 +216,34 @@ namespace Meenphie.Commons
                 _lastAnimatedIntensity[i] = -1f;
             }
 
-            if (lightLayerArray != null)
-                VRCShader.SetGlobalTexture(_layerArrayID, lightLayerArray);
+            if (lightLayerArray != null) VRCShader.SetGlobalTexture(_layerArrayID, lightLayerArray);
+            if (cookieArray != null) VRCShader.SetGlobalTexture(_cookieArrayID, cookieArray);
 
+            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonCookieArrayValid"), cookieArray != null ? 1f : 0f);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightLayerArrayValid"), lightLayerArray != null ? 1f : 0f);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightmapSliceOffset"), (float)lightmapGroupCount);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceNear"), lodDistanceNear);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceFar"), lodDistanceFar);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODMaxMip"), lodAtFar);
+            VRCShader.SetGlobalFloat(_diffuseStaticEnabledID, _diffuseStaticEnabled ? 1f : 0f);
+            VRCShader.SetGlobalFloat(_diffuseRealtimeEnabledID, _diffuseRealtimeEnabled ? 1f : 0f);
+            VRCShader.SetGlobalFloat(_rnmEnabledID, _rnmEnabled ? 1f : 0f);
+            VRCShader.SetGlobalFloat(_specCameraFadeEndID, specCameraFadeEnd);
 
             ValidateChildArrays();
+
+            int cap = (childLights != null) ? childLights.Length : 0;
+            childLightCosOuter = new float[cap];
+            childLightCosInner = new float[cap];
+            for (int i = 0; i < cap; i++)
+            {
+                Light l = childLights[i];
+                if (l == null) continue;
+                float c = ComputeCosOuter(l.type, l.spotAngle);
+                childLightCosOuter[i] = c;
+                childLightCosInner[i] = ComputeCosInner(c);
+            }
+
             AllocateMergeBuffers();
             AllocatePhysicalAnimState();
             CacheChildAudioSources();
@@ -254,12 +271,13 @@ namespace Meenphie.Commons
                 Color c = l.color;
                 lastLightColors[i] = new Vector3(c.r, c.g, c.b);
             }
+
+            _lastRateUpdateTime = Time.realtimeSinceStartup;
         }
 
         private void AllocatePhysicalAnimState()
         {
             int cap = (childLights != null) ? childLights.Length : MAX_LIGHTS;
-
             _faultStateTimer = new float[cap];
             _faultIsOn = new bool[cap];
             _faultIntensity = new float[cap];
@@ -289,6 +307,71 @@ namespace Meenphie.Commons
             }
         }
 
+        // ResizeOrDefault helpers (unchanged)
+        private Texture2D[] ResizeOrDefault(Texture2D[] arr, int cap, Texture2D def)
+        {
+            if (arr != null && arr.Length == cap) return arr;
+            Texture2D[] r = new Texture2D[cap];
+            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+            if (c > 0) System.Array.Copy(arr, r, c);
+            for (int i = c; i < cap; i++) r[i] = def;
+            return r;
+        }
+        private bool[] ResizeOrDefault(bool[] arr, int cap, bool def)
+        {
+            if (arr != null && arr.Length == cap) return arr;
+            bool[] r = new bool[cap];
+            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+            if (c > 0) System.Array.Copy(arr, r, c);
+            for (int i = c; i < cap; i++) r[i] = def;
+            return r;
+        }
+        private Vector3[] ResizeOrDefault(Vector3[] arr, int cap, Vector3 def)
+        {
+            if (arr != null && arr.Length == cap) return arr;
+            Vector3[] r = new Vector3[cap];
+            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+            if (c > 0) System.Array.Copy(arr, r, c);
+            for (int i = c; i < cap; i++) r[i] = def;
+            return r;
+        }
+        private int[] ResizeOrDefault(int[] arr, int cap, int def)
+        {
+            if (arr != null && arr.Length == cap) return arr;
+            int[] r = new int[cap];
+            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+            if (c > 0) System.Array.Copy(arr, r, c);
+            for (int i = c; i < cap; i++) r[i] = def;
+            return r;
+        }
+        private float[] ResizeOrDefault(float[] arr, int cap, float def)
+        {
+            if (arr != null && arr.Length == cap) return arr;
+            float[] r = new float[cap];
+            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+            if (c > 0) System.Array.Copy(arr, r, c);
+            for (int i = c; i < cap; i++) r[i] = def;
+            return r;
+        }
+        private LightFaultState[] ResizeOrDefault(LightFaultState[] arr, int cap, LightFaultState def)
+        {
+            if (arr != null && arr.Length == cap) return arr;
+            LightFaultState[] r = new LightFaultState[cap];
+            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+            if (c > 0) System.Array.Copy(arr, r, c);
+            for (int i = c; i < cap; i++) r[i] = def;
+            return r;
+        }
+        private Vector2[] ResizeOrDefault(Vector2[] arr, int cap, Vector2 def)
+        {
+            if (arr != null && arr.Length == cap) return arr;
+            Vector2[] r = new Vector2[cap];
+            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
+            if (c > 0) System.Array.Copy(arr, r, c);
+            for (int i = c; i < cap; i++) r[i] = def;
+            return r;
+        }
+
         private void ValidateChildArrays()
         {
             int cap = (childLights != null) ? childLights.Length : 0;
@@ -309,6 +392,9 @@ namespace Meenphie.Commons
             childLightPanicSpeed = ResizeOrDefault(childLightPanicSpeed, cap, 0.5f);
             childLightPanicIntensityMin = ResizeOrDefault(childLightPanicIntensityMin, cap, 0.1f);
             childLightPanicIntensityMax = ResizeOrDefault(childLightPanicIntensityMax, cap, 1.2f);
+
+            childLightCookieTexture = ResizeOrDefault(childLightCookieTexture, cap, null);
+            childLightCookieSlice = ResizeOrDefault(childLightCookieSlice, cap, -1);
 
             if (childLightAudioClipOverride == null || childLightAudioClipOverride.Length != cap)
             {
@@ -352,6 +438,8 @@ namespace Meenphie.Commons
             _mergedPanicIntensityMin = new float[cap];
             _mergedPanicIntensityMax = new float[cap];
 
+            mergedCookieSlice = new int[cap];
+
             for (int i = 0; i < cap; i++)
             {
                 mergedLayerSlice[i] = -1;
@@ -373,6 +461,8 @@ namespace Meenphie.Commons
                 _mergedPanicSpeed[i] = 0.5f;
                 _mergedPanicIntensityMin[i] = 0.1f;
                 _mergedPanicIntensityMax[i] = 1.2f;
+
+                mergedCookieSlice[i] = -1;
             }
 
             _childTransforms = new Transform[cap];
@@ -383,68 +473,9 @@ namespace Meenphie.Commons
             ValidateChildArrays();
         }
 
-        // ── ResizeOrDefault helpers ────────────────────────────────────────────
-        private Vector2[] ResizeOrDefault(Vector2[] arr, int cap, Vector2 def)
-        {
-            if (arr != null && arr.Length == cap) return arr;
-            Vector2[] r = new Vector2[cap];
-            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-            if (c > 0) System.Array.Copy(arr, r, c);
-            for (int i = c; i < cap; i++) r[i] = def;
-            return r;
-        }
-
-        private bool[] ResizeOrDefault(bool[] arr, int cap, bool def)
-        {
-            if (arr != null && arr.Length == cap) return arr;
-            bool[] r = new bool[cap];
-            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-            if (c > 0) System.Array.Copy(arr, r, c);
-            for (int i = c; i < cap; i++) r[i] = def;
-            return r;
-        }
-
-        private Vector3[] ResizeOrDefault(Vector3[] arr, int cap, Vector3 def)
-        {
-            if (arr != null && arr.Length == cap) return arr;
-            Vector3[] r = new Vector3[cap];
-            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-            if (c > 0) System.Array.Copy(arr, r, c);
-            for (int i = c; i < cap; i++) r[i] = def;
-            return r;
-        }
-
-        private int[] ResizeOrDefault(int[] arr, int cap, int def)
-        {
-            if (arr != null && arr.Length == cap) return arr;
-            int[] r = new int[cap];
-            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-            if (c > 0) System.Array.Copy(arr, r, c);
-            for (int i = c; i < cap; i++) r[i] = def;
-            return r;
-        }
-
-        private float[] ResizeOrDefault(float[] arr, int cap, float def)
-        {
-            if (arr != null && arr.Length == cap) return arr;
-            float[] r = new float[cap];
-            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-            if (c > 0) System.Array.Copy(arr, r, c);
-            for (int i = c; i < cap; i++) r[i] = def;
-            return r;
-        }
-
-        private LightFaultState[] ResizeOrDefault(LightFaultState[] arr, int cap, LightFaultState def)
-        {
-            if (arr != null && arr.Length == cap) return arr;
-            LightFaultState[] r = new LightFaultState[cap];
-            int c = (arr != null) ? Mathf.Min(arr.Length, cap) : 0;
-            if (c > 0) System.Array.Copy(arr, r, c);
-            for (int i = c; i < cap; i++) r[i] = def;
-            return r;
-        }
-
-        // ── Lifecycle ──────────────────────────────────────────────────────────
+        // =================================================================
+        //  LIFECYCLE
+        // =================================================================
         void OnEnable()
         {
             if (_localPlayer == null) return;
@@ -466,34 +497,41 @@ namespace Meenphie.Commons
 
         void OnDisable()
         {
-            _shaderData[0] = Vector4.zero;
+            _shaderData[0] = new Vector4(0f, 0f, _reflectionEnabled ? 1f : 0f, _specularEnabled ? 1f : 0f);
             for (int i = 1; i < _shaderData.Length; i++) _shaderData[i] = Vector4.zero;
             VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
             _lastFinalCount = 0;
-#if UNITY_EDITOR && !UDONSHARP
-        currentStaticLights = 0;
-        currentDynamicLights = 0;
-        currentAnimatedLights = 0;
-        currentSpecularsCount = 0;
-        sampledLightmapsCount = 0;
-        currentSlicesCount = 0;
-#endif
             for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
             if (_childAudioSources != null)
                 for (int i = 0; i < _childAudioSources.Length; i++)
                     if (_childAudioSources[i] != null) _childAudioSources[i].Stop();
         }
 
-        // ── Update ─────────────────────────────────────────────────────────────
+        public void ForceRefresh()
+        {
+            _lastFinalCount = -1;
+            _viewerTickTimer = VIEWER_UPDATE_INTERVAL;
+            Tick(UPDATE_INTERVAL);
+            _tickAccumDt = 0f;
+        }
+
+        // =================================================================
+        //  UPDATES
+        // =================================================================
         public override void PostLateUpdate()
         {
-#if UNITY_EDITOR && !UDONSHARP
-        shaderWasUpdated = false;
-        shaderUpdatesThisFrame = 0;
+            float startTime = Time.realtimeSinceStartup;
+
+#if UNITY_EDITOR
+            shaderWasUpdated = false;
+            shaderUpdatesThisFrame = 0;
 #endif
+
             if (!_isReady || childLights == null || childLights.Length == 0) return;
 
             float dt = Time.deltaTime;
+            _tickAccumDt += dt;
+            _viewerTickTimer += dt;
 
             bool lightsChanged = false;
             int childCount = childLights.Length;
@@ -503,58 +541,78 @@ namespace Meenphie.Commons
                 bool cur = l != null && l.enabled && l.gameObject.activeInHierarchy;
                 if (cur != _lastEnabledState[i]) { lightsChanged = true; _lastEnabledState[i] = cur; }
             }
-            if (lightsChanged) { ForceRefresh(); return; }
-
-            _tickTimer += dt;
-            if (_tickTimer >= updateInterval)
+            if (lightsChanged)
             {
-                _tickTimer = 0f;
+                ForceRefresh();
+                _mergedDirty = true;
+                return;
+            }
 
-                bool hasAnimatedLights = _animatedMask != 0;
-                bool needsResort = _viewerTickTimer + dt >= viewerUpdateInterval || _lastFinalCount < 0;
+            bool hasAnimatedLights = _animatedMask != 0;
+            bool needsResort = _viewerTickTimer >= VIEWER_UPDATE_INTERVAL || _lastFinalCount < 0;
+            bool intervalElapsed = _tickAccumDt >= UPDATE_INTERVAL;
 
-                if (!hasAnimatedLights && !needsResort)
+            if (!_mergedDirty && !hasAnimatedLights && !needsResort)
+            {
+                if (intervalElapsed)
                 {
+                    // Fast path — only spend CPU/GPU work once the interval has actually elapsed
                     TickAudio();
-                    bool liveChanged = UpdateLiveData(dt);
+                    bool liveChanged = UpdateLiveData(_tickAccumDt);
                     if (liveChanged)
                     {
                         VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
-#if UNITY_EDITOR && !UDONSHARP
-                    shaderWasUpdated = true;
-                    shaderUpdatesThisFrame++;
+                        _lastUploadTime = Time.time;
+                        _shaderUpdateCounter++;
+#if UNITY_EDITOR
+                        shaderWasUpdated = true;
+                        shaderUpdatesThisFrame++;
+                        totalShaderUpdates++;
 #endif
                     }
-                    return;
+                    _tickAccumDt = 0f;
                 }
-
-                Tick();
+                // else: nothing due yet this sub-frame, skip entirely — no work at all.
             }
-            else
+            else if (intervalElapsed || needsResort)
             {
-                bool liveChanged = UpdateLiveData(dt);
-                bool animated = TickPhysicalAnimation(dt);
-                if (liveChanged || animated)
-                {
-                    VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
-#if UNITY_EDITOR && !UDONSHARP
-                shaderWasUpdated = true;
-                shaderUpdatesThisFrame++;
-#endif
-                }
+                Tick(_tickAccumDt);
+                _tickAccumDt = 0f;
             }
-        }
 
-        public void ForceRefresh()
-        {
-            _lastFinalCount = -1;
-            _viewerTickTimer = viewerUpdateInterval;
-            Tick();
+            // ---- Per-frame performance metrics ----
+            float elapsedMs = (Time.realtimeSinceStartup - startTime) * 1000f;
+            float decay = 1f - Mathf.Exp(-Time.deltaTime / SMOOTHING_HALF_LIFE);
+            _emaUdonMs += (elapsedMs - _emaUdonMs) * decay;
+            avgUdonMsPerFrame = _emaUdonMs;
+
+            // Update smoothed upload rate every ~0.5s
+            float now = Time.realtimeSinceStartup;
+            float rateInterval = now - _lastRateUpdateTime;
+            if (rateInterval > 0.5f)
+            {
+                _instantRate = _shaderUpdateCounter / rateInterval;
+                _shaderUpdateCounter = 0;
+                _lastRateUpdateTime = now;
+
+                _emaShaderUpdatesPerSecond += (_instantRate - _emaShaderUpdatesPerSecond) * decay;
+                avgShaderUpdatesPerSecond = _emaShaderUpdatesPerSecond;
+            }
+
+#if UNITY_EDITOR
+            _debugTimer += dt;
+            if (_debugTimer >= 1.0f)
+            {
+                shaderUpdatesPerSecond = _debugUpdateCount / _debugTimer;
+                _debugTimer = 0f;
+                _debugUpdateCount = 0;
+            }
+#endif
         }
 
         public void OnLightsChanged() => ForceRefresh();
 
-        // ── Physical animation ─────────────────────────────────────────────────
+        // Physical animation (unchanged)
         private bool TickPhysicalAnimation(float dt)
         {
             if (mergedCount == 0) return false;
@@ -577,7 +635,6 @@ namespace Meenphie.Commons
                     : SettleFault(li, dt);
 
                 float animated = _mergedBaseIntensity[mi] * newIntensity;
-
                 int si = _mergedToShader[mi];
                 if (si < 0) continue;
 
@@ -649,7 +706,6 @@ namespace Meenphie.Commons
             }
         }
 
-        // ── Audio ──────────────────────────────────────────────────────────────
         private void TickAudio()
         {
             if (_childAudioSources == null) return;
@@ -686,14 +742,13 @@ namespace Meenphie.Commons
                     src.Play();
                 }
 
-                float vol = (mergedFaultState[mi] == LightFaultState.Panic)
-                    ? 1f
-                    : Mathf.Clamp01(_faultIntensity[li]);
+                float vol = (mergedFaultState[mi] == LightFaultState.Panic) ? 1f : Mathf.Clamp01(_faultIntensity[li]);
                 src.volume = vol * audioMasterVolume;
             }
         }
 
-        // ── Live data (realtime lights only) ───────────────────────────────────
+        // Live data update (unchanged except it now respects epsilons correctly)
+        // Live data update
         private bool UpdateLiveData(float dt)
         {
             if (!_isReady || _lightToMerged == null || _lightToMerged.Length != childLights.Length)
@@ -717,71 +772,73 @@ namespace Meenphie.Commons
                 float intensity = l.intensity;
                 Color lColor = l.color;
 
+                // Check changes using the defined constants
                 bool posChanged = (pos - lastLightPositions[li]).sqrMagnitude > MOTION_EPSILON_SQ;
-                bool rotChanged = Quaternion.Dot(rot, lastLightRotations[li]) < 0.9999f;
+                bool rotChanged = Quaternion.Dot(rot, lastLightRotations[li]) < ROTATION_EPSILON_DOT;
                 bool intChanged = Mathf.Abs(intensity - lastLightIntensities[li]) > INTENSITY_EPSILON;
                 bool colChanged = Mathf.Abs(lColor.r - lastLightColors[li].x) > COLOR_EPSILON ||
                                   Mathf.Abs(lColor.g - lastLightColors[li].y) > COLOR_EPSILON ||
                                   Mathf.Abs(lColor.b - lastLightColors[li].z) > COLOR_EPSILON;
+
+                // If nothing changed at all, skip to the next light
                 if (!posChanged && !rotChanged && !intChanged && !colChanged) continue;
 
                 changed = true;
                 int baseIdx = si * 8 + 1;
 
-                if (posChanged)
+                // Update Position and Rotation if they changed
+                if (posChanged || rotChanged)
                 {
                     Vector4 p = mergedPos[mi];
-                    mergedPos[mi] = new Vector4(pos.x, pos.y, pos.z, p.w);
-                    _shaderData[baseIdx + 0] = mergedPos[mi];
+                    mergedPos[mi] = new Vector4(pos.x, pos.y, pos.z, intensity);
                     lastLightPositions[li] = pos;
-                }
-                if (rotChanged)
-                {
+                    _shaderData[baseIdx + 0] = mergedPos[mi];
+
                     Vector3 fwd = rot * Vector3.forward;
                     Vector3 right = rot * Vector3.right;
                     Vector3 up = rot * Vector3.up;
-
-                    float cosOuter = ComputeCosOuter(l.type, l.spotAngle);
+                    float cosOuter = childLightCosOuter[li];
+                    mergedCosInner[mi] = childLightCosInner[li];
                     mergedDir[mi] = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
-                    mergedCosInner[mi] = ComputeCosInner(cosOuter);
-
                     mergedRight[mi] = new Vector4(right.x, right.y, right.z, mergedRight[mi].w);
                     mergedUp[mi] = new Vector4(up.x, up.y, up.z, mergedUp[mi].w);
+                    lastLightRotations[li] = rot;
+
                     _shaderData[baseIdx + 2] = mergedDir[mi];
                     _shaderData[baseIdx + 3] = mergedRight[mi];
                     _shaderData[baseIdx + 4] = mergedUp[mi];
-                    lastLightRotations[li] = rot;
                 }
+
+                // Update Color and Intensity if they changed
                 if (intChanged || colChanged)
                 {
                     Vector3 col = new Vector3(lColor.r, lColor.g, lColor.b);
                     mergedCol[mi] = new Vector4(col.x, col.y, col.z, intensity);
                     _mergedBaseIntensity[mi] = intensity;
-                    Vector4 mp = mergedPos[mi];
-                    mergedPos[mi] = new Vector4(mp.x, mp.y, mp.z, intensity);
-                    _shaderData[baseIdx + 0] = mergedPos[mi];
-                    _shaderData[baseIdx + 1] = mergedCol[mi];
                     lastLightIntensities[li] = intensity;
                     lastLightColors[li] = col;
+
+                    _shaderData[baseIdx + 1] = mergedCol[mi];
                 }
             }
             return changed;
         }
 
-        // ── Tick (full rebuild) ────────────────────────────────────────────────
-        public void Tick()
+        public void Tick(float dt)
         {
+            if (_mergedDirty) { BuildMergedGroups(); _mergedDirty = false; }
             if (!_isReady || childLights == null || childLights.Length == 0) return;
-            float dt = Time.deltaTime;
 
             Vector3 viewerPos = _localPlayer != null
                 ? _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position
                 : _thisTransform.position;
 
-            BuildMergedGroups();
+#if UNITY_EDITOR
+            debugViewerPos = viewerPos;
+#endif
 
-            _viewerTickTimer += dt;
-            bool viewerDue = _viewerTickTimer >= viewerUpdateInterval || _lastFinalCount < 0;
+            // _viewerTickTimer is now advanced in PostLateUpdate; here we only consume/reset it.
+            bool viewerDue = _viewerTickTimer >= VIEWER_UPDATE_INTERVAL || _lastFinalCount < 0;
             int finalCount;
             if (viewerDue)
             {
@@ -789,31 +846,29 @@ namespace Meenphie.Commons
                 finalCount = SortNearest(viewerPos);
                 lastViewerPos = viewerPos;
             }
-            else
-            {
-                finalCount = _lastFinalCount;
-            }
+            else finalCount = _lastFinalCount;
 
             for (int i = 0; i < mergedCount; i++) _mergedToShader[i] = -1;
             for (int i = 0; i < finalCount; i++) _mergedToShader[_indices[i]] = i;
 
+#if UNITY_EDITOR
             int dynCount = 0, statCount = 0, animCount = 0, specCount = 0, sliceCount = 0, sliceMask = 0;
+            float specCullDistSq = Sq(specCameraFadeEnd + specCullMargin);
             for (int i = 0; i < finalCount; i++)
             {
                 int mi = _indices[i];
                 if (mergedBakedCol[mi].w > 0.5f) dynCount++; else statCount++;
                 if (mergedFaultState[mi] == LightFaultState.Broken || mergedFaultState[mi] == LightFaultState.Panic) animCount++;
-                if (mergedSpecularEnabled[mi]) specCount++;
+                if (IsSpecularActive(mi, viewerPos, specCullDistSq)) specCount++;
                 int sl = mergedLayerSlice[mi];
                 if (sl >= 0 && sl < 32) { sliceCount++; sliceMask |= (1 << sl); }
             }
-#if UNITY_EDITOR && !UDONSHARP
-        currentStaticLights = statCount;
-        currentDynamicLights = dynCount;
-        currentAnimatedLights = animCount;
-        currentSpecularsCount = specCount;
-        currentSlicesCount = sliceCount;
-        sampledLightmapsCount = CountBits(sliceMask);
+            currentStaticLights = statCount;
+            currentDynamicLights = dynCount;
+            currentAnimatedLights = animCount;
+            currentSpecularsCount = specCount;
+            currentSlicesCount = sliceCount;
+            sampledLightmapsCount = CountBits(sliceMask);
 #endif
 
             bool isDirty = finalCount != _lastFinalCount;
@@ -821,7 +876,7 @@ namespace Meenphie.Commons
                 for (int i = 0; i < finalCount; i++)
                     if (_indices[i] != _lastIndicesSorted[i]) { isDirty = true; break; }
 
-            FillUploadBuffers(finalCount);
+            FillUploadBuffers(finalCount, isDirty);
             bool liveChanged = UpdateLiveData(dt);
             bool animated = TickPhysicalAnimation(dt);
             TickAudio();
@@ -829,12 +884,13 @@ namespace Meenphie.Commons
             if (isDirty || animated || liveChanged)
             {
                 VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
-#if UNITY_EDITOR && !UDONSHARP
-            shaderWasUpdated = true;
-            shaderUpdatesThisFrame++;
-            updateReason = BuildTickReason(isDirty, animated, finalCount, animCount, viewerDue);
-            if (liveChanged) updateReason += " +LiveData";
-            Debug.Log("[LLM] " + updateReason);
+                _lastUploadTime = Time.time;
+                _shaderUpdateCounter++;
+#if UNITY_EDITOR
+                shaderWasUpdated = true;
+                shaderUpdatesThisFrame++;
+                totalShaderUpdates++;
+                _debugUpdateCount++;
 #endif
             }
 
@@ -842,21 +898,9 @@ namespace Meenphie.Commons
             _lastFinalCount = finalCount;
         }
 
-#if UNITY_EDITOR && !UDONSHARP
-    private string BuildTickReason(bool resort, bool animated, int total, int animCount, bool moved)
-    {
-        string s = "Tick[" + total.ToString() + " lights";
-        if (resort && moved) s += ", resort(viewer moved)";
-        else if (resort) s += ", resort(count changed)";
-        if (animated) s += ", anim(" + animCount.ToString() + " lights)";
-        s += "]";
-        return s;
-    }
-#else
-        private string BuildTickReason(bool a, bool b, int c, int d, bool e) => "";
-#endif
-
-        // ── BuildMergedGroups ──────────────────────────────────────────────────
+        // =================================================================
+        //  DATA BUILDING & SORTING
+        // =================================================================
         public void BuildMergedGroups()
         {
             if (!_isReady) return;
@@ -898,7 +942,6 @@ namespace Meenphie.Commons
 
                 LightFaultState faultState = childLightFaultState[li];
 
-                // Force zero intensity for OFF lights
                 if (faultState == LightFaultState.Off)
                 {
                     intensity = 0f;
@@ -912,9 +955,9 @@ namespace Meenphie.Commons
                 mergedRight[mi] = new Vector4(t.right.x, t.right.y, t.right.z, childLightHalfExtents[li].x);
                 mergedUp[mi] = new Vector4(t.up.x, t.up.y, t.up.z, childLightHalfExtents[li].y);
 
-                float cosOuter = ComputeCosOuter(l.type, l.spotAngle);
+                float cosOuter = childLightCosOuter[li];
+                mergedCosInner[mi] = childLightCosInner[li];
                 mergedDir[mi] = new Vector4(t.forward.x, t.forward.y, t.forward.z, cosOuter);
-                mergedCosInner[mi] = ComputeCosInner(cosOuter);
 
                 mergedBakedCol[mi] = new Vector4(
                     childLightBakedColors[li].x, childLightBakedColors[li].y, childLightBakedColors[li].z,
@@ -938,11 +981,12 @@ namespace Meenphie.Commons
                 _mergedPanicIntensityMin[mi] = childLightPanicIntensityMin[li];
                 _mergedPanicIntensityMax[mi] = childLightPanicIntensityMax[li];
 
+                mergedCookieSlice[mi] = childLightCookieSlice[li];
+
                 _mergedAudioSources[mi] = (li < _childAudioSources.Length) ? _childAudioSources[li] : null;
                 _lightToMerged[li] = mi;
 
                 bool settling = Mathf.Abs(_faultIntensity[li] - 1f) > INTENSITY_EPSILON;
-                // Off state is never animated
                 if (faultState == LightFaultState.Broken || faultState == LightFaultState.Panic || settling)
                     _animatedMask |= 1 << mi;
 
@@ -950,19 +994,35 @@ namespace Meenphie.Commons
             }
         }
 
-        // ── SortNearest (global distance culling) ──────────────────────────────
+        // Single source of truth for specular eligibility: disabled flag, global toggle,
+        // or beyond the camera fade distance all disqualify a light from specular.
+        private bool IsSpecularActive(int mi, Vector3 viewerPos, float specCullDistSq)
+        {
+            if (!mergedSpecularEnabled[mi] || !_specularEnabled) return false;
+            Vector4 mp = mergedPos[mi];
+            float dx = viewerPos.x - mp.x, dy = viewerPos.y - mp.y, dz = viewerPos.z - mp.z;
+            float distSq = dx * dx + dy * dy + dz * dz;
+            return distSq <= specCullDistSq;
+        }
+
+        private static float Sq(float x) => x * x;
+
         public int SortNearest(Vector3 viewerPos)
         {
             int count = 0;
             float maxDistSq = rangeScale * rangeScale;
-            float vx = viewerPos.x, vy = viewerPos.y, vz = viewerPos.z;
+            float specCullDistSq = Sq(specCameraFadeEnd + specCullMargin);
+            bool diffuseGloballyOn = _diffuseStaticEnabled || _diffuseRealtimeEnabled;
 
             for (int i = 0; i < mergedCount; i++)
             {
-                Vector4 mp = mergedPos[i];
-                float dx = vx - mp.x, dy = vy - mp.y, dz = vz - mp.z;
-                float distSq = dx * dx + dy * dy + dz * dz;
+                bool couldContributeDiffuse = mergedDiffuseEnabled[i] && diffuseGloballyOn;
+                bool couldContributeSpecular = IsSpecularActive(i, viewerPos, specCullDistSq);
+                if (!couldContributeDiffuse && !couldContributeSpecular) continue;
 
+                Vector4 mp = mergedPos[i];
+                float dx = viewerPos.x - mp.x, dy = viewerPos.y - mp.y, dz = viewerPos.z - mp.z;
+                float distSq = dx * dx + dy * dy + dz * dz;
                 if (distSq > maxDistSq) continue;
 
                 int ins = count;
@@ -982,19 +1042,31 @@ namespace Meenphie.Commons
             return count;
         }
 
-        // ── FillUploadBuffers ──────────────────────────────────────────────────
-        private void FillUploadBuffers(int finalCount)
+        private void FillUploadBuffers(int finalCount, bool isDirty)
         {
-            _shaderData[0] = new Vector4((float)finalCount, 0f, 0f, _specularEnabled ? 1f : 0f);
+            _shaderData[0] = new Vector4((float)finalCount, 0f, _reflectionEnabled ? 1f : 0f, _specularEnabled ? 1f : 0f);
+
+            if (!isDirty)
+            {
+                // Slot assignment unchanged since last frame — live-data/animation ticks
+                // already keep _shaderData current for these slots. Nothing to do.
+                return;
+            }
 
             for (int i = 0; i < finalCount; i++)
             {
                 int idx = _indices[i];
+
+                // This slot still holds the same light it held last frame —
+                // its cached shader data and animation baseline are still valid.
+                if (_lastIndicesSorted[i] == idx) continue;
+
                 int baseIdx = i * 8 + 1;
 
                 float cosInner = mergedCosInner[idx];
                 float cosOuter = mergedDir[idx].w;
                 int lightTypeInt = GetLightTypeInt(cosOuter);
+                int cookieSlice = mergedCookieSlice[idx];
 
                 _shaderData[baseIdx + 0] = mergedPos[idx];
                 _shaderData[baseIdx + 1] = mergedCol[idx];
@@ -1003,10 +1075,10 @@ namespace Meenphie.Commons
                 _shaderData[baseIdx + 4] = mergedUp[idx];
                 _shaderData[baseIdx + 5] = mergedBakedCol[idx];
                 _shaderData[baseIdx + 6] = PackLayerIndex(idx);
-                _shaderData[baseIdx + 7] = new Vector4(0f, 0f, (float)lightTypeInt, cosInner);
+                _shaderData[baseIdx + 7] = new Vector4((float)cookieSlice, 0f, (float)lightTypeInt, cosInner);
 
                 _lastIndicesSorted[i] = idx;
-                _mergedLastAnimated[idx] = -1f;
+                _mergedLastAnimated[idx] = -1f;  // only reset baseline for genuinely new occupants
             }
 
             int clearUpTo = Mathf.Max(finalCount, _lastUploadedSlotCount);
@@ -1031,6 +1103,9 @@ namespace Meenphie.Commons
                 (float)mergedGroupMask[mi]);
         }
 
+        // =================================================================
+        //  UTILITIES
+        // =================================================================
         private static float ComputeCosOuter(LightType type, float spotAngleDegrees)
         {
             if (type == LightType.Spot) return Mathf.Cos(spotAngleDegrees * 0.5f * Mathf.Deg2Rad);
@@ -1073,23 +1148,6 @@ namespace Meenphie.Commons
             }
         }
 
-        // ── Specular toggle ────────────────────────────────────────────────────
-        public void ToggleSpecular() => SetSpecular(!_specularEnabled);
-
-        public void SetSpecular(bool enabled)
-        {
-            _specularEnabled = enabled;
-            _shaderData[0] = new Vector4(_shaderData[0].x, _shaderData[0].y, _shaderData[0].z, enabled ? 1f : 0f);
-            VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
-#if UNITY_EDITOR && !UDONSHARP
-        shaderWasUpdated = true;
-        shaderUpdatesThisFrame++;
-        updateReason = enabled ? "Manual[Specular:ON]" : "Manual[Specular:OFF]";
-        Debug.Log("[LLM] " + updateReason);
-#endif
-            if (enabled) { _lastFinalCount = -1; Tick(); }
-        }
-
         public void FlushRestoredLight(int li)
         {
             if (_lightToMerged == null || li >= _lightToMerged.Length) return;
@@ -1111,6 +1169,73 @@ namespace Meenphie.Commons
             return 1;
         }
 
+        // =================================================================
+        //  LIGHTING TOGGLES (Diffuse Static / Diffuse Realtime / Specular / Reflection / RNM)
+        // =================================================================
+        public void ToggleDiffuseStatic() => SetDiffuseStatic(!_diffuseStaticEnabled);
+
+        public void SetDiffuseStatic(bool enabled)
+        {
+            _diffuseStaticEnabled = enabled;
+            VRCShader.SetGlobalFloat(_diffuseStaticEnabledID, enabled ? 1f : 0f);
+            // This changes SortNearest's eligibility test — re-sort now instead of waiting
+            // up to VIEWER_UPDATE_INTERVAL for the effect to show up.
+            ForceRefresh();
+        }
+
+        public void ToggleDiffuseRealtime() => SetDiffuseRealtime(!_diffuseRealtimeEnabled);
+
+        public void SetDiffuseRealtime(bool enabled)
+        {
+            _diffuseRealtimeEnabled = enabled;
+            VRCShader.SetGlobalFloat(_diffuseRealtimeEnabledID, enabled ? 1f : 0f);
+            // Same reasoning as SetDiffuseStatic: re-sort immediately.
+            ForceRefresh();
+        }
+
+        public void ToggleSpecular() => SetSpecular(!_specularEnabled);
+
+        public void SetSpecular(bool enabled)
+        {
+            _specularEnabled = enabled;
+            _shaderData[0] = new Vector4(_shaderData[0].x, _shaderData[0].y, _shaderData[0].z, enabled ? 1f : 0f);
+            VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
+#if UNITY_EDITOR
+            shaderWasUpdated = true;
+            shaderUpdatesThisFrame++;
+            totalShaderUpdates++;
+#endif
+            // Re-sort in BOTH directions now (previously only on enable): disabling specular
+            // frees the slots held by lights whose only contribution was specular.
+            ForceRefresh();
+        }
+
+        public void ToggleReflection() => SetReflection(!_reflectionEnabled);
+
+        public void SetReflection(bool enabled)
+        {
+            _reflectionEnabled = enabled;
+            _shaderData[0] = new Vector4(_shaderData[0].x, _shaderData[0].y, enabled ? 1f : 0f, _shaderData[0].w);
+            VRCShader.SetGlobalVectorArray(_lightDataID, _shaderData);
+#if UNITY_EDITOR
+            shaderWasUpdated = true;
+            shaderUpdatesThisFrame++;
+            totalShaderUpdates++;
+#endif
+        }
+
+        public void ToggleRNM() => SetRNM(!_rnmEnabled);
+
+        public void SetRNM(bool enabled)
+        {
+            _rnmEnabled = enabled;
+            VRCShader.SetGlobalFloat(_rnmEnabledID, enabled ? 1f : 0f);
+        }
+
+        public bool IsDiffuseStaticEnabled() => _diffuseStaticEnabled;
+        public bool IsDiffuseRealtimeEnabled() => _diffuseRealtimeEnabled;
         public bool IsSpecularEnabled() => _specularEnabled;
+        public bool IsReflectionEnabled() => _reflectionEnabled;
+        public bool IsRNMEnabled() => _rnmEnabled;
     }
 }

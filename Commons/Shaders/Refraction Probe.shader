@@ -1,4 +1,4 @@
-// Made with Amplify Shader Editor v1.9.9.10
+// Made with Amplify Shader Editor v1.9.9.12
 // Available at the Unity Asset Store - http://u3d.as/y3X 
 Shader "Meenphie/FX/Refraction Probe"
 {
@@ -69,14 +69,14 @@ Shader "Meenphie/FX/Refraction Probe"
 
 			CGPROGRAM
 				#define ASE_SURFACE_TRANSPARENT
-				#define ASE_VERSION 19910
+				#define ASE_VERSION 19912
 
 				#pragma vertex vert
 				#pragma fragment frag
 				#pragma multi_compile_instancing
 				#include "UnityCG.cginc"
 
-				#include "Packages/com.meenphie.commons/Commons/Shaders/Custom Expressions/BlackHole.cginc"
+				#include "Packages/com.meenphie.lighting/Commons/Shaders/Custom Expressions/BlackHole.cginc"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_VERT_TANGENT
 				#define ASE_NEEDS_VERT_NORMAL
@@ -246,7 +246,7 @@ Shader "Meenphie/FX/Refraction Probe"
 
 			CGPROGRAM
 				#define ASE_SURFACE_TRANSPARENT
-				#define ASE_VERSION 19910
+				#define ASE_VERSION 19912
 
 				#pragma vertex vert
 				#pragma fragment frag
@@ -256,7 +256,7 @@ Shader "Meenphie/FX/Refraction Probe"
 				#endif
 				#include "UnityCG.cginc"
 
-				#include "Packages/com.meenphie.commons/Commons/Shaders/Custom Expressions/BlackHole.cginc"
+				#include "Packages/com.meenphie.lighting/Commons/Shaders/Custom Expressions/BlackHole.cginc"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_VERT_TANGENT
 				#define ASE_NEEDS_VERT_NORMAL
@@ -428,7 +428,7 @@ Shader "Meenphie/FX/Refraction Probe"
 	Fallback Off
 }
 /*ASEBEGIN
-Version=19910
+Version=19912
 {"type":"AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor","id":45,"pos":[-2432,256],"params":["Inherit","True","Property","_BumpMap","Normal","0","2","[NoScaleOffset]","[SingleLineTexture]","Create","False","0","0","0","False","0","False","","-1","None","None","True","0","True","bump","Auto","True","Object","-1","Auto","Texture2D","True","8","0","SAMPLER2D","","False","1","FLOAT2","0,0","False","2","FLOAT","0","False","3","FLOAT2","0,0","False","4","FLOAT2","0,0","False","5","FLOAT","1","False","6","FLOAT","0","False","7","SAMPLERSTATE","","False","6","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4","FLOAT3","5"]}
 {"type":"AmplifyShaderEditor.Vector3Node, AmplifyShaderEditor","id":44,"pos":[-2336,96],"params":["Inherit","False","Constant","_Vector0","Vector 0","35","0","Create","True","0","0","0","False","0","False","Object","-1","","0,0,1","0,0,0","0","4","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3"]}
 {"type":"AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor","id":43,"pos":[-2048,240],"params":["Inherit","False","Property","_BUMPMAP","_BUMPMAP","35","0","Create","True","0","0","0","False","0","False","","0","0","0","False","_BUMPMAP","Toggle","2","Key0","Key1","Create","True","True","Fragment","9","1","FLOAT3","0,0,0","False","0","FLOAT3","0,0,0","False","2","FLOAT3","0,0,0","False","3","FLOAT3","0,0,0","False","4","FLOAT3","0,0,0","False","5","FLOAT3","0,0,0","False","6","FLOAT3","0,0,0","False","7","FLOAT3","0,0,0","False","8","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
@@ -441,7 +441,7 @@ Version=19910
 {"type":"AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor","id":161,"pos":[-1104,400],"params":["Inherit","False","Property","_HorizonSoftness","Horizon Softness","3","0","Create","True","0","0","0","False","0","False","Object","-1","","0","0.062","0","1","0","1","FLOAT","0"]}
 {"type":"AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor","id":162,"pos":[-1104,320],"params":["Inherit","False","Property","_LensStrength","Lens Strength","4","0","Create","True","0","0","0","False","0","False","Object","-1","","0.03","0.035","0","1","0","1","FLOAT","0"]}
 {"type":"AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor","id":280,"pos":[-288,256],"params":["Inherit","False","Constant","_Float1","Float 0","10","0","Create","True","0","0","0","False","0","False","Object","-1","","1.5","0","0","0","0","1","FLOAT","0"]}
-{"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":263,"pos":[-560,128],"params":["Inherit","False","// 1. Setup Vectors\nfloat3 N = normalize(WorldNormal);\nfloat3 V = normalize(_WorldSpaceCameraPos - WorldPos);\nfloat dotNV = dot(N, V); // Not saturated yet so we can see the full range\nfloat edgeDist = 1.0 - saturate(dotNV);\n\n// 2. The Event Horizon (Singularity)\nif (edgeDist < SingularityRadius)\n    return float3(0, 0, 0);\n\n// 3. Spaghettified Lens Bending\n// We use an exponential curve to pull the direction toward the Normal.\n// As 'r' gets smaller (closer to center), the pull becomes extreme.\nfloat r = edgeDist;\nfloat stretch = pow(1.0 - r, LensStrength * 5.0); \nfloat3 bentDir = normalize(lerp(-V, -N, stretch));\n\n// 4. Vortex Swirl\n// Stronger at the center, tapering off quickly\nfloat swirlAmount = RotationSpeed / (r + 0.05);\nfloat cosA = cos(swirlAmount);\nfloat sinA = sin(swirlAmount);\nfloat3 finalDir = bentDir * cosA + cross(N, bentDir) * sinA + N * dot(N, bentDir) * (1.0 - cosA);\nfinalDir = normalize(finalDir);\n\n// 5. Box Projection (Same as before, it's correct)\n#if defined(UNITY_SPECCUBE_BOX_PROJECTION)\nif (unity_SpecCube0_ProbePosition.w > 0.0)\n{\n    float3 rbMax = unity_SpecCube0_BoxMax.xyz - WorldPos;\n    float3 rbMin = unity_SpecCube0_BoxMin.xyz - WorldPos;\n    float3 invDir = 1.0 / (finalDir + 1e-6);\n    float3 t1 = rbMax * invDir;\n    float3 t2 = rbMin * invDir;\n    float3 tmax = max(t1, t2);\n    float d = min(min(tmax.x, tmax.y), tmax.z);\n    finalDir = (finalDir * d) + (WorldPos - unity_SpecCube0_ProbePosition.xyz);\n}\n#endif\n\n// 6. Clean Mip Mapping (Removing the 'muddy' look)\nfloat perceptualRoughness = 1.0 - Smoothness;\n// Only blur slightly at the very center to simulate light diffraction\nfloat mip = (perceptualRoughness * 7.0) + (stretch * 1.5);\nmip = clamp(mip, 0.0, 7.0);\n\nfloat4 encodedEnv = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, finalDir, mip);\nfloat3 env = DecodeHDR(encodedEnv, unity_SpecCube0_HDR);\n\n// 7. Accretion Ring & Final Composition\n// Accretion disk is usually closer to the hole\nfloat ringPos = saturate(1.0 - abs(r - (SingularityRadius + 0.1)) * 10.0);\nfloat ring = AccretionStrength * pow(ringPos, 4.0);\n\nfloat horizonFade = saturate((edgeDist - SingularityRadius) / max(0.001, HorizonSoftness));\n\nreturn (env * horizonFade) + (ring * float3(1.4, 0.8, 0.4));","4","File","6","True","WorldPos","FLOAT3","0,0,0","In","","Inherit","False","True","WorldNormal","FLOAT3","0,0,0","In","","Inherit","False","True","SingularityRadius","FLOAT","0","In","","Inherit","False","True","LensStrength","FLOAT","0","In","","Inherit","False","True","HorizonSoftness","FLOAT","0","In","","Inherit","False","True","Roughness","FLOAT","0","In","","Inherit","False","Blackhole","False","False","0","f2ffa106d6fd32b61807cb07ee4e2998","False","6","0","FLOAT3","0,0,0","False","1","FLOAT3","0,0,0","False","2","FLOAT","0","False","3","FLOAT","0","False","4","FLOAT","0","False","5","FLOAT","0","False","1","FLOAT4","0"]}
+{"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":263,"pos":[-560,128],"params":["Inherit","False","// 1. Setup Vectors\nfloat3 N = normalize(WorldNormal);\nfloat3 V = normalize(_WorldSpaceCameraPos - WorldPos);\nfloat dotNV = dot(N, V); // Not saturated yet so we can see the full range\nfloat edgeDist = 1.0 - saturate(dotNV);\n\n// 2. The Event Horizon (Singularity)\nif (edgeDist < SingularityRadius)\n    return float3(0, 0, 0);\n\n// 3. Spaghettified Lens Bending\n// We use an exponential curve to pull the direction toward the Normal.\n// As 'r' gets smaller (closer to center), the pull becomes extreme.\nfloat r = edgeDist;\nfloat stretch = pow(1.0 - r, LensStrength * 5.0); \nfloat3 bentDir = normalize(lerp(-V, -N, stretch));\n\n// 4. Vortex Swirl\n// Stronger at the center, tapering off quickly\nfloat swirlAmount = RotationSpeed / (r + 0.05);\nfloat cosA = cos(swirlAmount);\nfloat sinA = sin(swirlAmount);\nfloat3 finalDir = bentDir * cosA + cross(N, bentDir) * sinA + N * dot(N, bentDir) * (1.0 - cosA);\nfinalDir = normalize(finalDir);\n\n// 5. Box Projection (Same as before, it's correct)\n#if defined(UNITY_SPECCUBE_BOX_PROJECTION)\nif (unity_SpecCube0_ProbePosition.w > 0.0)\n{\n    float3 rbMax = unity_SpecCube0_BoxMax.xyz - WorldPos;\n    float3 rbMin = unity_SpecCube0_BoxMin.xyz - WorldPos;\n    float3 invDir = 1.0 / (finalDir + 1e-6);\n    float3 t1 = rbMax * invDir;\n    float3 t2 = rbMin * invDir;\n    float3 tmax = max(t1, t2);\n    float d = min(min(tmax.x, tmax.y), tmax.z);\n    finalDir = (finalDir * d) + (WorldPos - unity_SpecCube0_ProbePosition.xyz);\n}\n#endif\n\n// 6. Clean Mip Mapping (Removing the 'muddy' look)\nfloat perceptualRoughness = 1.0 - Smoothness;\n// Only blur slightly at the very center to simulate light diffraction\nfloat mip = (perceptualRoughness * 7.0) + (stretch * 1.5);\nmip = clamp(mip, 0.0, 7.0);\n\nfloat4 encodedEnv = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, finalDir, mip);\nfloat3 env = DecodeHDR(encodedEnv, unity_SpecCube0_HDR);\n\n// 7. Accretion Ring & Final Composition\n// Accretion disk is usually closer to the hole\nfloat ringPos = saturate(1.0 - abs(r - (SingularityRadius + 0.1)) * 10.0);\nfloat ring = AccretionStrength * pow(ringPos, 4.0);\n\nfloat horizonFade = saturate((edgeDist - SingularityRadius) / max(0.001, HorizonSoftness));\n\nreturn (env * horizonFade) + (ring * float3(1.4, 0.8, 0.4));","4","File","6","True","WorldPos","FLOAT3","0,0,0","In","","Inherit","False","True","WorldNormal","FLOAT3","0,0,0","In","","Inherit","False","True","SingularityRadius","FLOAT","0","In","","Inherit","False","True","LensStrength","FLOAT","0","In","","Inherit","False","True","HorizonSoftness","FLOAT","0","In","","Inherit","False","True","Roughness","FLOAT","0","In","","Inherit","False","Blackhole","False","False","0","bec283f513fd6d2caa62f2c2082f13a5","False","6","0","FLOAT3","0,0,0","False","1","FLOAT3","0,0,0","False","2","FLOAT","0","False","3","FLOAT","0","False","4","FLOAT","0","False","5","FLOAT","0","False","1","FLOAT4","0"]}
 {"type":"AmplifyShaderEditor.PowerNode, AmplifyShaderEditor","id":273,"pos":[-96,128],"params":["Inherit","False","True","2","0","FLOAT4","0,0,0,0","False","1","FLOAT","3","False","1","FLOAT4","0"]}
 {"type":"AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor","id":281,"pos":[0,256],"params":["Inherit","False","Constant","_Float5","Float 0","10","0","Create","True","0","0","0","False","0","False","Object","-1","","3","0","0","0","0","1","FLOAT","0"]}
 {"type":"AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor","id":279,"pos":[192,128],"params":["Inherit","False","2","2","0","FLOAT4","0,0,0,0","False","1","FLOAT","0","False","1","FLOAT4","0"]}
@@ -471,4 +471,4 @@ Version=19910
 {"wire":[288,0,283,0]}
 {"wire":[288,7,285,0]}
 ASEEND*/
-//CHKSM=BA14AC88331C30C6363F9A27ED6975F0EEF57121
+//CHKSM=57DEFEBFB920471BE8955745D7F46A26A3489C43
