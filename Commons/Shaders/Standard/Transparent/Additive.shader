@@ -67,7 +67,7 @@ Shader "Meenphie/Standard/Transparent/Additive"
 		
 
 		CGINCLUDE
-			#pragma target 3.5
+			#pragma target 4.5
 			#pragma only_renderers d3d11 glcore gles3 metal vulkan // ensure rendering platforms toggle list is visible
 
 			float4 ComputeClipSpacePosition( float2 screenPosNorm, float deviceDepth )
@@ -250,150 +250,151 @@ Shader "Meenphie/Standard/Transparent/Additive"
 					float4 ScreenPos = ComputeScreenPos( ClipPos );
 
 					float3 _Vector0 = float3(0,0,0);
-					float localLayeredLightmapLighting97_g60069 = ( 0.0 );
-					float2 texCoord2357_g60061 = IN.ase_texcoord.xy * float2( 1,1 ) + float2( 0,0 );
-					float2 MainUV2420_g60061 = texCoord2357_g60061;
-					float2 texCoord2594_g60061 = IN.ase_texcoord1.xy * float2( 1,1 ) + float2( 0,0 );
-					float2 UV_Decal2595_g60061 = texCoord2594_g60061;
+					float localLayeredLightmapLighting97_g60082 = ( 0.0 );
+					float2 texCoord2357_g60077 = IN.ase_texcoord.xy * float2( 1,1 ) + float2( 0,0 );
+					float2 MainUV2420_g60077 = texCoord2357_g60077;
+					float2 texCoord2594_g60077 = IN.ase_texcoord1.xy * float2( 1,1 ) + float2( 0,0 );
+					float2 UV_Decal2595_g60077 = texCoord2594_g60077;
 					#if defined( _UV_UV0 )
-					float2 staticSwitch3313_g60061 = MainUV2420_g60061;
+					float2 staticSwitch3313_g60077 = MainUV2420_g60077;
 					#elif defined( _UV_UV2 )
-					float2 staticSwitch3313_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch3313_g60077 = UV_Decal2595_g60077;
 					#else
-					float2 staticSwitch3313_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch3313_g60077 = UV_Decal2595_g60077;
 					#endif
-					float4 temp_output_3155_0_g60061 = ( _Color * tex2D( _MainTex, staticSwitch3313_g60061 ) );
-					float3 oAlbedo6_g60061 = (temp_output_3155_0_g60061).rgb;
-					float3 Color97_g60069 = oAlbedo6_g60061;
+					float4 temp_output_3155_0_g60077 = ( _Color * tex2D( _MainTex, staticSwitch3313_g60077 ) );
+					float3 oAlbedo6_g60077 = (temp_output_3155_0_g60077).rgb;
+					float3 Color97_g60082 = oAlbedo6_g60077;
 					#if defined( _UV_UV0 )
-					float2 staticSwitch2671_g60061 = MainUV2420_g60061;
+					float2 staticSwitch2671_g60077 = MainUV2420_g60077;
 					#elif defined( _UV_UV2 )
-					float2 staticSwitch2671_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch2671_g60077 = UV_Decal2595_g60077;
 					#else
-					float2 staticSwitch2671_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch2671_g60077 = UV_Decal2595_g60077;
 					#endif
 					#ifdef _METALLICMAP
-					float staticSwitch846_g60061 = tex2D( _MetallicMap, staticSwitch2671_g60061 ).r;
+					float staticSwitch846_g60077 = tex2D( _MetallicMap, staticSwitch2671_g60077 ).r;
 					#else
-					float staticSwitch846_g60061 = _Metallic;
+					float staticSwitch846_g60077 = _Metallic;
 					#endif
-					float Metallic1239_g60061 = staticSwitch846_g60061;
-					float Metallic97_g60069 = Metallic1239_g60061;
+					float Metallic1239_g60077 = staticSwitch846_g60077;
+					float Metallic97_g60082 = Metallic1239_g60077;
 					#if defined( _UV_UV0 )
-					float2 staticSwitch2644_g60061 = MainUV2420_g60061;
+					float2 staticSwitch2644_g60077 = MainUV2420_g60077;
 					#elif defined( _UV_UV2 )
-					float2 staticSwitch2644_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch2644_g60077 = UV_Decal2595_g60077;
 					#else
-					float2 staticSwitch2644_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch2644_g60077 = UV_Decal2595_g60077;
 					#endif
 					#ifdef _GLOSSINESSMAP
-					float staticSwitch845_g60061 = tex2D( _GlossinessMap, staticSwitch2644_g60061 ).r;
+					float staticSwitch845_g60077 = tex2D( _GlossinessMap, staticSwitch2644_g60077 ).r;
 					#else
-					float staticSwitch845_g60061 = _Glossiness;
+					float staticSwitch845_g60077 = _Glossiness;
 					#endif
-					float temp_output_19_0_g60066 = staticSwitch845_g60061;
-					float Roughness21_g60066 = temp_output_19_0_g60066;
-					float Metallic21_g60066 = Metallic1239_g60061;
+					float temp_output_19_0_g60081 = staticSwitch845_g60077;
+					float Roughness21_g60081 = temp_output_19_0_g60081;
+					float Metallic21_g60081 = Metallic1239_g60077;
 					#if defined( _UV_UV0 )
-					float2 staticSwitch3312_g60061 = MainUV2420_g60061;
+					float2 staticSwitch3312_g60077 = MainUV2420_g60077;
 					#elif defined( _UV_UV2 )
-					float2 staticSwitch3312_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch3312_g60077 = UV_Decal2595_g60077;
 					#else
-					float2 staticSwitch3312_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch3312_g60077 = UV_Decal2595_g60077;
 					#endif
 					#ifdef _BUMPMAP
-					float3 staticSwitch980_g60061 = UnpackScaleNormal( tex2D( _BumpMap, staticSwitch3312_g60061 ), 1.5 );
+					float3 staticSwitch980_g60077 = UnpackScaleNormal( tex2D( _BumpMap, staticSwitch3312_g60077 ), 1.5 );
 					#else
-					float3 staticSwitch980_g60061 = float3( 0, 0, 1 );
+					float3 staticSwitch980_g60077 = float3( 0, 0, 1 );
 					#endif
-					float3 normalizeResult2878_g60061 = normalize( staticSwitch980_g60061 );
-					float3 Normal700_g60061 = normalizeResult2878_g60061;
+					float3 normalizeResult2878_g60077 = normalize( staticSwitch980_g60077 );
+					float3 Normal700_g60077 = normalizeResult2878_g60077;
 					float3 ase_tangentWS = IN.ase_texcoord2.xyz;
 					float3 ase_normalWS = IN.ase_texcoord3.xyz;
 					float3 ase_bitangentWS = IN.ase_texcoord4.xyz;
 					float3 tanToWorld0 = float3( ase_tangentWS.x, ase_bitangentWS.x, ase_normalWS.x );
 					float3 tanToWorld1 = float3( ase_tangentWS.y, ase_bitangentWS.y, ase_normalWS.y );
 					float3 tanToWorld2 = float3( ase_tangentWS.z, ase_bitangentWS.z, ase_normalWS.z );
-					float3 tanNormal2504_g60061 = Normal700_g60061;
-					float3 worldNormal2504_g60061 = normalize( float3( dot( tanToWorld0, tanNormal2504_g60061 ), dot( tanToWorld1, tanNormal2504_g60061 ), dot( tanToWorld2, tanNormal2504_g60061 ) ) );
-					float3 World_Normal2508_g60061 = worldNormal2504_g60061;
-					float3 WorldNormal21_g60066 = World_Normal2508_g60061;
-					float localGeometricAA21_g60066 = GeometricAA( Roughness21_g60066 , Metallic21_g60066 , WorldNormal21_g60066 );
+					float3 tanNormal2504_g60077 = Normal700_g60077;
+					float3 worldNormal2504_g60077 = normalize( float3( dot( tanToWorld0, tanNormal2504_g60077 ), dot( tanToWorld1, tanNormal2504_g60077 ), dot( tanToWorld2, tanNormal2504_g60077 ) ) );
+					float3 World_Normal2508_g60077 = worldNormal2504_g60077;
+					float3 WorldNormal21_g60081 = World_Normal2508_g60077;
+					float localGeometricAA21_g60081 = GeometricAA( Roughness21_g60081 , Metallic21_g60081 , WorldNormal21_g60081 );
 					#ifdef _USEGEOMETRICAA_ON
-					float staticSwitch15_g60066 = localGeometricAA21_g60066;
+					float staticSwitch15_g60081 = localGeometricAA21_g60081;
 					#else
-					float staticSwitch15_g60066 = temp_output_19_0_g60066;
+					float staticSwitch15_g60081 = temp_output_19_0_g60081;
 					#endif
-					float Roughness1399_g60061 = staticSwitch15_g60066;
-					float Roughness97_g60069 = Roughness1399_g60061;
+					float Roughness1399_g60077 = staticSwitch15_g60081;
+					float Roughness97_g60082 = Roughness1399_g60077;
 					float3 ase_positionWS = IN.ase_texcoord5.xyz;
 					float3 ase_viewVectorWS = ( ( unity_OrthoParams.w == 0 ) ? _WorldSpaceCameraPos - ase_positionWS : UNITY_MATRIX_V[ 2 ].xyz );
 					float3 ase_viewDirWS = normalize( ase_viewVectorWS );
-					float3 View_Direction2511_g60061 = ase_viewDirWS;
-					float3 ViewDir97_g60069 = View_Direction2511_g60061;
-					float3 World_Position2505_g60061 = ase_positionWS;
-					float3 WorldPos97_g60069 = World_Position2505_g60061;
-					float3 Normal97_g60069 = Normal700_g60061;
-					float3 WorldNormal97_g60069 = World_Normal2508_g60061;
-					float2 MainUV97_g60069 = MainUV2420_g60061;
-					float4 texCoord2426_g60061 = IN.ase_texcoord;
-					texCoord2426_g60061.xy = IN.ase_texcoord.xy * float2( 1,1 ) + float2( 0,0 );
-					float2 LightmapUV2361_g60061 = (texCoord2426_g60061).zw;
-					float2 LightmapUV97_g60069 = LightmapUV2361_g60061;
-					float LightGroupMask97_g60069 = _LightGroupMask;
-					float IsDynamicMesh97_g60069 = _IsDynamicMesh;
-					float3 DiffuseMaskedLights97_g60069 = float3( 0,0,0 );
-					float3 Diffuse97_g60069 = float3( 0,0,0 );
-					float3 Specular97_g60069 = float3( 0,0,0 );
-					float3 Reflection97_g60069 = float3( 0,0,0 );
-					LayeredLightmapLighting( Color97_g60069 , Metallic97_g60069 , Roughness97_g60069 , ViewDir97_g60069 , WorldPos97_g60069 , Normal97_g60069 , WorldNormal97_g60069 , MainUV97_g60069 , LightmapUV97_g60069 , LightGroupMask97_g60069 , IsDynamicMesh97_g60069 , DiffuseMaskedLights97_g60069 , Diffuse97_g60069 , Specular97_g60069 , Reflection97_g60069 );
+					float3 View_Direction2511_g60077 = ase_viewDirWS;
+					float3 ViewDir97_g60082 = View_Direction2511_g60077;
+					float3 World_Position2505_g60077 = ase_positionWS;
+					float3 WorldPos97_g60082 = World_Position2505_g60077;
+					float3 Normal97_g60082 = Normal700_g60077;
+					float3 WorldNormal97_g60082 = World_Normal2508_g60077;
+					float2 MainUV97_g60082 = MainUV2420_g60077;
+					float4 texCoord2426_g60077 = IN.ase_texcoord;
+					texCoord2426_g60077.xy = IN.ase_texcoord.xy * float2( 1,1 ) + float2( 0,0 );
+					float2 LightmapUV2361_g60077 = (texCoord2426_g60077).zw;
+					float2 LightmapUV97_g60082 = LightmapUV2361_g60077;
+					float LightGroupMask97_g60082 = _LightGroupMask;
+					float IsDynamicMesh97_g60082 = _IsDynamicMesh;
+					float ProbeIndex97_g60082 = 0.0;
+					float3 DiffuseMaskedLights97_g60082 = float3( 0,0,0 );
+					float3 Diffuse97_g60082 = float3( 0,0,0 );
+					float3 Specular97_g60082 = float3( 0,0,0 );
+					float3 Reflection97_g60082 = float3( 0,0,0 );
+					LayeredLightmapLighting( Color97_g60082 , Metallic97_g60082 , Roughness97_g60082 , ViewDir97_g60082 , WorldPos97_g60082 , Normal97_g60082 , WorldNormal97_g60082 , MainUV97_g60082 , LightmapUV97_g60082 , LightGroupMask97_g60082 , IsDynamicMesh97_g60082 , ProbeIndex97_g60082 , DiffuseMaskedLights97_g60082 , Diffuse97_g60082 , Specular97_g60082 , Reflection97_g60082 );
 					#ifdef _DIFFUSEMASKEDLIGHTS_ON
-					float3 staticSwitch3306_g60061 = DiffuseMaskedLights97_g60069;
+					float3 staticSwitch3306_g60077 = DiffuseMaskedLights97_g60082;
 					#else
-					float3 staticSwitch3306_g60061 = Diffuse97_g60069;
+					float3 staticSwitch3306_g60077 = Diffuse97_g60082;
 					#endif
 					#ifdef _DIFFUSE_ON
-					float3 staticSwitch3319_g60061 = staticSwitch3306_g60061;
+					float3 staticSwitch3319_g60077 = staticSwitch3306_g60077;
 					#else
-					float3 staticSwitch3319_g60061 = _Vector0;
+					float3 staticSwitch3319_g60077 = _Vector0;
 					#endif
-					float3 Diffuse2560_g60061 = staticSwitch3319_g60061;
+					float3 Diffuse2560_g60077 = staticSwitch3319_g60077;
 					#ifdef _SPECULARS_ON
-					float3 staticSwitch3317_g60061 = Specular97_g60069;
+					float3 staticSwitch3317_g60077 = Specular97_g60082;
 					#else
-					float3 staticSwitch3317_g60061 = _Vector0;
+					float3 staticSwitch3317_g60077 = _Vector0;
 					#endif
-					float3 Speculars3240_g60061 = staticSwitch3317_g60061;
+					float3 Speculars3240_g60077 = staticSwitch3317_g60077;
 					#ifdef _REFLECTIONS_ON
-					float3 staticSwitch3318_g60061 = Reflection97_g60069;
+					float3 staticSwitch3318_g60077 = Reflection97_g60082;
 					#else
-					float3 staticSwitch3318_g60061 = _Vector0;
+					float3 staticSwitch3318_g60077 = _Vector0;
 					#endif
-					float3 Reflections1419_g60061 = staticSwitch3318_g60061;
+					float3 Reflections1419_g60077 = staticSwitch3318_g60077;
 					#if defined( _EMISSIONUV_UV0 )
-					float2 staticSwitch2642_g60061 = MainUV2420_g60061;
+					float2 staticSwitch2642_g60077 = MainUV2420_g60077;
 					#elif defined( _EMISSIONUV_UV2 )
-					float2 staticSwitch2642_g60061 = UV_Decal2595_g60061;
+					float2 staticSwitch2642_g60077 = UV_Decal2595_g60077;
 					#else
-					float2 staticSwitch2642_g60061 = MainUV2420_g60061;
+					float2 staticSwitch2642_g60077 = MainUV2420_g60077;
 					#endif
-					float3 Emission86_g60061 = ( _EmissionColor * tex2D( _EmissionMap, staticSwitch2642_g60061 ).rgb * _EmissionIntensity );
+					float3 Emission86_g60077 = ( _EmissionColor * tex2D( _EmissionMap, staticSwitch2642_g60077 ).rgb * _EmissionIntensity );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch1_g60062 = float4( ( Diffuse2560_g60061 + Reflections1419_g60061 + Emission86_g60061 ) , 0.0 );
+					float4 staticSwitch1_g60078 = float4( ( Diffuse2560_g60077 + Reflections1419_g60077 + Emission86_g60077 ) , 0.0 );
 					#else
-					float4 staticSwitch1_g60062 = float4( ( Diffuse2560_g60061 + Speculars3240_g60061 + Reflections1419_g60061 + Emission86_g60061 ) , 0.0 );
+					float4 staticSwitch1_g60078 = float4( ( Diffuse2560_g60077 + Speculars3240_g60077 + Reflections1419_g60077 + Emission86_g60077 ) , 0.0 );
 					#endif
-					float4 Color357_g60063 = staticSwitch1_g60062;
-					float4 LUT51_g60063 = tex3D( _LUT, ( ( log10( ( ( (Color357_g60063).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
+					float4 Color357_g60079 = staticSwitch1_g60078;
+					float4 LUT51_g60079 = tex3D( _LUT, ( ( log10( ( ( (Color357_g60079).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch359_g60063 = LUT51_g60063;
+					float4 staticSwitch359_g60079 = LUT51_g60079;
 					#else
-					float4 staticSwitch359_g60063 = Color357_g60063;
+					float4 staticSwitch359_g60079 = Color357_g60079;
 					#endif
 					
 
-					float3 Color = staticSwitch359_g60063.xyz;
-					float Alpha = temp_output_3155_0_g60061.a;
+					float3 Color = staticSwitch359_g60079.xyz;
+					float Alpha = temp_output_3155_0_g60077.a;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
 
@@ -423,11 +424,11 @@ Shader "Meenphie/Standard/Transparent/Additive"
 /*ASEBEGIN
 Version=19912
 {"type":"AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor","id":3054,"pos":[256,-1040],"params":["Inherit","False","Property","_Offset","Offset","36","0","Create","True","0","0","0","True","0","False","Object","-1","","0","0","0","0","0","1","FLOAT","0"]}
-{"type":"AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor","id":3088,"pos":[192,-1200],"params":["Inherit","False","Meenphie","0","","60061","5cc94f8f8e02d10598af4792603e1e57","6,1008,0,2619,1,3311,1,2632,1,2670,1,2635,1","0","3","FLOAT4","624","FLOAT","156","FLOAT","427"]}
+{"type":"AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor","id":3090,"pos":[192,-1200],"params":["Inherit","False","Meenphie","0","","60077","5cc94f8f8e02d10598af4792603e1e57","6,1008,0,2619,1,3311,1,2632,1,2670,1,2635,1","0","3","FLOAT4","624","FLOAT","156","FLOAT","427"]}
 {"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3082,"pos":[512,-1200],"params":["Float","False","False","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","New Amplify Shader","0770190933193b94aaa3065e307002fa","True","ExtraPrePass","0","0","ExtraPrePass","6","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","False","False","True","1","RenderType=Opaque=RenderType","True","3","True","12","all","0","False","True","1","1","False","","0","False","","0","1","False","","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","True","3","False","","True","True","0","False","","0","False","","False","True","1","LightMode=ForwardBase","False","False","0","","0","0","Standard","0","False","0"]}
-{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3083,"pos":[512,-1200],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","Meenphie/Standard/Transparent/Additive","0770190933193b94aaa3065e307002fa","True","Unlit","0","1","Unlit","8","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","True","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","False","False","True","2","RenderType=Transparent=RenderType","Queue=Transparent=Queue=0","True","3","True","5","d3d11","glcore","gles3","metal","vulkan","0","False","True","1","1","False","","1","False","","1","1","False","","10","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","False","True","True","2","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","True","True","2","False","","True","3","False","","True","True","0","True","_Offset","0","True","_Offset","False","True","1","LightMode=ForwardBase","False","False","0","","0","0","Standard","10","Surface","1","639175542747890460","  Keep Alpha","0","0","  Blend","2","639175542775987960","Alpha Clipping","0","0","  Use Shadow Threshold","0","0","Cast Shadows","0","639175542789685200","Write Depth","0","0","  Conservative","0","0","Extra Pre Pass","0","0","Vertex Position","1","0","0","3","False","True","False","False","","False","0"]}
+{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3083,"pos":[512,-1200],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","Meenphie/Standard/Transparent/Additive","0770190933193b94aaa3065e307002fa","True","Unlit","0","1","Unlit","8","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","True","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","False","False","True","2","RenderType=Transparent=RenderType","Queue=Transparent=Queue=0","True","5","True","5","d3d11","glcore","gles3","metal","vulkan","0","False","True","1","1","False","","1","False","","1","1","False","","10","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","False","True","True","2","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","True","True","2","False","","True","3","False","","True","True","0","True","_Offset","0","True","_Offset","False","True","1","LightMode=ForwardBase","False","False","0","","0","0","Standard","10","Surface","1","639175542747890460","  Keep Alpha","0","0","  Blend","2","639175542775987960","Alpha Clipping","0","0","  Use Shadow Threshold","0","0","Cast Shadows","0","639175542789685200","Write Depth","0","0","  Conservative","0","0","Extra Pre Pass","0","0","Vertex Position","1","0","0","3","False","True","False","False","","False","0"]}
 {"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3084,"pos":[512,-1200],"params":["Float","False","False","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","New Amplify Shader","0770190933193b94aaa3065e307002fa","True","ShadowCaster","0","2","ShadowCaster","0","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","False","False","True","1","RenderType=Opaque=RenderType","True","3","True","12","all","0","False","False","False","False","False","False","False","False","False","False","False","False","True","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","False","True","1","False","","True","3","False","","False","False","True","1","LightMode=ShadowCaster","False","False","0","","0","0","Standard","0","False","0"]}
-{"wire":[3083,0,3088,624]}
-{"wire":[3083,7,3088,156]}
+{"wire":[3083,0,3090,624]}
+{"wire":[3083,7,3090,156]}
 ASEEND*/
-//CHKSM=74A4FED8175CB137E35294A710CDE8BA0BC88668
+//CHKSM=1C4402144906B046325F59732501F29C4E2B08D9

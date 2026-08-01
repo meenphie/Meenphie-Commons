@@ -26,6 +26,17 @@ namespace Meenphie.Commons
         [HideInInspector] public int[] childLightCookieSlice;
         [HideInInspector] public int[] mergedCookieSlice;
 
+        [Header("Reflection Probes")]
+        public Texture2DArray reflectionProbeArray;
+        [HideInInspector] public Vector4[] reflectionProbeData;
+        [HideInInspector] public Vector4[] reflectionProbeHDR;
+        public int reflectionProbeCount;
+
+        [Header("Screen-Space Shadows")]
+        [Range(2, 64)] public int shadowRaySteps = 24;
+        [Tooltip("World-space distance from the camera excluded from self-shadowing checks. Should be a bit longer than your longest handheld prop (e.g. the flashlight) as held at arm's length. Increase this if a held light still shows a self-shadow blob.")]
+        public float shadowCasterNearExclude = 0.6f;
+
         [Header("Animation – Audio Clips")]
         public AudioClip faultAudioClip;
         [Range(0f, 1f)] public float audioMasterVolume = 1.0f;
@@ -42,16 +53,13 @@ namespace Meenphie.Commons
         public void MarkDirty() => _mergedDirty = true;
 
         private const int MAX_LIGHTS = 32;
-        private const float MOTION_EPSILON_SQ = 0.000001f;       // 1 mm squared
-        private const float ROTATION_EPSILON_DOT = 0.9998477f;   // 1.0° dead zone
+        private const float MOTION_EPSILON_SQ = 0.000001f;
+        private const float ROTATION_EPSILON_DOT = 0.9998477f;
         private const float COLOR_EPSILON = 0.004f;
         private const float INTENSITY_EPSILON = 0.001f;
 
-        // ===== Runtime Performance Metrics (work in VRChat) =====
         [Header("Performance Metrics")]
-        [Tooltip("Smoothed shader uploads per second.")]
         public float avgShaderUpdatesPerSecond;
-        [Tooltip("Smoothed Udon CPU time (ms) per frame.")]
         public float avgUdonMsPerFrame;
 
         private float _emaShaderUpdatesPerSecond;
@@ -100,6 +108,9 @@ namespace Meenphie.Commons
         [HideInInspector] public int mergedCount;
         [HideInInspector] public float[] mergedCosInner;
 
+        // ----- per‑merged‑light shadow casting flag -----
+        [HideInInspector] public bool[] mergedCastShadow;
+
         private float[] _faultStateTimer;
         private bool[] _faultIsOn;
         [HideInInspector] public float[] _faultIntensity;
@@ -124,6 +135,10 @@ namespace Meenphie.Commons
         private Vector4[] _shaderData = new Vector4[MAX_LIGHTS * 8 + 1];
         private int _lightDataID;
         private int _layerArrayID;
+        private int _reflectionProbeArrayID;
+        private int _reflectionProbeDataID;
+        private int _reflectionProbeHDRID;
+        private int _reflectionProbeCountID;
 
         private int[] _indices = new int[MAX_LIGHTS];
         private float[] _distances = new float[MAX_LIGHTS];
@@ -138,7 +153,6 @@ namespace Meenphie.Commons
         private Transform _thisTransform;
         private float[] childLightCosOuter, childLightCosInner;
         private int[] _mergedToChild;
-
 
         [HideInInspector] public Vector3[] lastLightPositions;
         [HideInInspector] public Quaternion[] lastLightRotations;
@@ -155,7 +169,6 @@ namespace Meenphie.Commons
         private float _viewerTickTimer;
         private float[] _lastAnimatedIntensity = new float[MAX_LIGHTS];
 
-        // ===== Lighting toggles (Diffuse Static / Diffuse Realtime / Specular / Reflection / RNM) =====
         private bool _diffuseStaticEnabled = true;
         private bool _diffuseRealtimeEnabled = true;
         private bool _specularEnabled = true;
@@ -165,6 +178,10 @@ namespace Meenphie.Commons
         private int _diffuseStaticEnabledID;
         private int _diffuseRealtimeEnabledID;
         private int _rnmEnabledID;
+
+        // ----- Shadow property IDs -----
+        private int _shadowRayStepsID;
+        private int _shadowNearExcludeID;
 
         private bool _mergedDirty = true;
 
@@ -185,7 +202,7 @@ namespace Meenphie.Commons
         public bool shaderWasUpdated;
         public int shaderUpdatesThisFrame;
         public int totalShaderUpdates;
-        public float shaderUpdatesPerSecond;   // Editor only
+        public float shaderUpdatesPerSecond;
         private float _debugTimer;
         private int _debugUpdateCount;
 #endif
@@ -209,6 +226,14 @@ namespace Meenphie.Commons
             _diffuseStaticEnabledID = VRCShader.PropertyToID("_UdonDiffuseStaticEnabled");
             _diffuseRealtimeEnabledID = VRCShader.PropertyToID("_UdonDiffuseRealtimeEnabled");
             _specCameraFadeEndID = VRCShader.PropertyToID("_UdonSpecCameraFadeEnd");
+            _reflectionProbeArrayID = VRCShader.PropertyToID("_UdonReflectionProbeArray");
+            _reflectionProbeDataID = VRCShader.PropertyToID("_UdonReflectionProbeData");
+            _reflectionProbeHDRID = VRCShader.PropertyToID("_UdonReflectionProbeHDR");
+            _reflectionProbeCountID = VRCShader.PropertyToID("_UdonReflectionProbeCount");
+
+            // Shadow uniforms
+            _shadowRayStepsID = VRCShader.PropertyToID("_UdonShadowRaySteps");
+            _shadowNearExcludeID = VRCShader.PropertyToID("_UdonShadowNearCasterExclude");
 
             for (int i = 0; i < MAX_LIGHTS; i++)
             {
@@ -219,12 +244,24 @@ namespace Meenphie.Commons
             if (lightLayerArray != null) VRCShader.SetGlobalTexture(_layerArrayID, lightLayerArray);
             if (cookieArray != null) VRCShader.SetGlobalTexture(_cookieArrayID, cookieArray);
 
+            if (reflectionProbeArray != null) VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArray);
+            if (reflectionProbeData != null && reflectionProbeData.Length > 0)
+                VRCShader.SetGlobalVectorArray(_reflectionProbeDataID, reflectionProbeData);
+            if (reflectionProbeHDR != null && reflectionProbeHDR.Length > 0)
+                VRCShader.SetGlobalVectorArray(_reflectionProbeHDRID, reflectionProbeHDR);
+            VRCShader.SetGlobalFloat(_reflectionProbeCountID, (float)reflectionProbeCount);
+
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonCookieArrayValid"), cookieArray != null ? 1f : 0f);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightLayerArrayValid"), lightLayerArray != null ? 1f : 0f);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightmapSliceOffset"), (float)lightmapGroupCount);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceNear"), lodDistanceNear);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceFar"), lodDistanceFar);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODMaxMip"), lodAtFar);
+
+            // ----- Screen‑space shadow settings -----
+            VRCShader.SetGlobalFloat(_shadowRayStepsID, (float)shadowRaySteps);
+            VRCShader.SetGlobalFloat(_shadowNearExcludeID, shadowCasterNearExclude);
+
             VRCShader.SetGlobalFloat(_diffuseStaticEnabledID, _diffuseStaticEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_diffuseRealtimeEnabledID, _diffuseRealtimeEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_rnmEnabledID, _rnmEnabled ? 1f : 0f);
@@ -422,6 +459,8 @@ namespace Meenphie.Commons
             mergedSpecularEnabled = new bool[cap];
             mergedFaultState = new LightFaultState[cap];
             mergedGroupMask = new int[cap];
+            mergedCastShadow = new bool[cap];
+
             _mergedAudioSources = new AudioSource[cap];
             _mergedBaseIntensity = new float[cap];
             _mergedLastAnimated = new float[cap];
@@ -447,6 +486,7 @@ namespace Meenphie.Commons
                 mergedSpecularEnabled[i] = true;
                 mergedFaultState[i] = LightFaultState.Normal;
                 mergedGroupMask[i] = ~0;
+                mergedCastShadow[i] = false;
                 _mergedBaseIntensity[i] = 1f;
                 _mergedLastAnimated[i] = -1f;
                 _mergedToChild[i] = -1;
@@ -969,6 +1009,12 @@ namespace Meenphie.Commons
                 mergedFaultState[mi] = faultState;
                 mergedGroupMask[mi] = childLightGroupIndex[li];
 
+                // Any light with shadows enabled gets the flag — the shader decides
+                // where it actually applies (realtime: everywhere, baked: dynamic
+                // meshes only) via isBaked, so this is no longer gated on isRealtime.
+                bool castsShadows = (l.shadows != LightShadows.None);
+                mergedCastShadow[mi] = castsShadows;
+
                 _mergedBaseIntensity[mi] = intensity;
                 _mergedToChild[mi] = li;
 
@@ -1046,19 +1092,11 @@ namespace Meenphie.Commons
         {
             _shaderData[0] = new Vector4((float)finalCount, 0f, _reflectionEnabled ? 1f : 0f, _specularEnabled ? 1f : 0f);
 
-            if (!isDirty)
-            {
-                // Slot assignment unchanged since last frame — live-data/animation ticks
-                // already keep _shaderData current for these slots. Nothing to do.
-                return;
-            }
+            if (!isDirty) return;
 
             for (int i = 0; i < finalCount; i++)
             {
                 int idx = _indices[i];
-
-                // This slot still holds the same light it held last frame —
-                // its cached shader data and animation baseline are still valid.
                 if (_lastIndicesSorted[i] == idx) continue;
 
                 int baseIdx = i * 8 + 1;
@@ -1075,10 +1113,13 @@ namespace Meenphie.Commons
                 _shaderData[baseIdx + 4] = mergedUp[idx];
                 _shaderData[baseIdx + 5] = mergedBakedCol[idx];
                 _shaderData[baseIdx + 6] = PackLayerIndex(idx);
-                _shaderData[baseIdx + 7] = new Vector4((float)cookieSlice, 0f, (float)lightTypeInt, cosInner);
+
+                // ----- Encode shadow flag into rangesAndType.y -----
+                float shadowFlag = mergedCastShadow[idx] ? 1f : 0f;
+                _shaderData[baseIdx + 7] = new Vector4((float)cookieSlice, shadowFlag, (float)lightTypeInt, cosInner);
 
                 _lastIndicesSorted[i] = idx;
-                _mergedLastAnimated[idx] = -1f;  // only reset baseline for genuinely new occupants
+                _mergedLastAnimated[idx] = -1f;
             }
 
             int clearUpTo = Mathf.Max(finalCount, _lastUploadedSlotCount);

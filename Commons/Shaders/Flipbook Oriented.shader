@@ -39,7 +39,7 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 			#pragma multi_compile _ PIXELSNAP_ON
 			#pragma multi_compile _ ETC1_EXTERNAL_ALPHA
 			#include "UnityCG.cginc"
-			#include "../../../../Assets/UdonRealtimeDiffuse.cginc"
+			#include "Packages/com.meenphie.lighting/Commons/Shaders/Custom Expressions/UdonRealtimeDiffuse.cginc"
 			#define ASE_NEEDS_VERT_POSITION
 			#define ASE_NEEDS_TEXTURE_COORDINATES0
 			#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
@@ -196,7 +196,7 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 		ENDCG
 		}
 	}
-	CustomEditor "LWGUI.LWGUI"
+	CustomEditor "AmplifyShaderEditor.MaterialInspector"
 	
 	Fallback Off
 }
@@ -216,7 +216,7 @@ Version=19912
 {"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":31,"pos":[736,176],"params":["Inherit","False","// 1. Caméra en espace local\nfloat3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz;\n\n// 2. Axe de rotation (Y local du tuyau)\nfloat3 up = float3(0, 1, 0);\n\n// 3. Direction vers la caméra (projetée sur le plan XZ local)\n// On ajoute un epsilon pour éviter le normalize(0) si la caméra est pile au-dessus\nfloat3 forward = normalize(float3(localCamPos.x, 0, localCamPos.z) + 0.0001);\n\n// 4. Vecteur Right perpendiculaire\nfloat3 right = cross(up, forward);\n\n// 5. Reconstruction du vertex\n// Si ton quad est un \"Plane\" Unity ou un Quad Blender standard :\n// InPos.x est la largeur, InPos.y la hauteur.\nfloat3 rotatedPos = InPos.x * right + InPos.y * up + InPos.z * forward;\n\nreturn rotatedPos - InPos;","3","Create","1","True","InPos","FLOAT3","0,0,0","In","","Inherit","False","Local Sprite","True","False","0","","False","1","0","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
 {"type":"AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor","id":65,"pos":[1312,-8],"params":["Inherit","False","2","2","0","FLOAT3","0,0,0","False","1","COLOR","0,0,0,0","False","1","COLOR","0"]}
 {"type":"AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor","id":66,"pos":[1318.767,-203.0029],"params":["Inherit","False","2","2","0","FLOAT3","0,0,0","False","1","COLOR","0,0,0,0","False","1","COLOR","0"]}
-{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":30,"pos":[1656,0],"params":["Float","False","True","-1","3","LWGUI.LWGUI","0","1","Meenphie/Sprite/Flipbook Oriented","0f8ba0101102bb14ebf021ddadce9b49","True","SubShader 0 Pass 0","0","0","SubShader 0 Pass 0","2","True","True","2","5","False","","10","False","","0","1","False","","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","True","2","False","","False","False","False","False","False","False","False","False","False","False","False","True","2","False","","False","False","False","True","6","Queue=Transparent=Queue=1","IgnoreProjector=True","RenderType=Transparent=RenderType","PreviewType=Plane","CanUseSpriteAtlas=True","DisableBatching=True=DisableBatching","False","False","0","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","True","3","False","0","","0","0","Standard","0","0","1","True","False","","False","0"]}
+{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":30,"pos":[1656,0],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","1","Meenphie/Sprite/Flipbook Oriented","0f8ba0101102bb14ebf021ddadce9b49","True","SubShader 0 Pass 0","0","0","SubShader 0 Pass 0","2","True","True","2","5","False","","10","False","","0","1","False","","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","True","2","False","","False","False","False","False","False","False","False","False","False","False","False","True","2","False","","False","False","False","True","6","Queue=Transparent=Queue=1","IgnoreProjector=True","RenderType=Transparent=RenderType","PreviewType=Plane","CanUseSpriteAtlas=True","DisableBatching=True=DisableBatching","False","False","0","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","True","3","False","0","","0","0","Standard","0","0","1","True","False","","False","0"]}
 {"wire":[7,0,8,0]}
 {"wire":[1,1,7,0]}
 {"wire":[55,35,57,0]}
@@ -234,4 +234,4 @@ Version=19912
 {"wire":[30,0,66,0]}
 {"wire":[30,1,31,0]}
 ASEEND*/
-//CHKSM=45E6937DD01E89178A69584FFA9B50DB3F185406
+//CHKSM=BBE79E8F444FF23D9FC5DAB3ECA50F23CCF900EC
