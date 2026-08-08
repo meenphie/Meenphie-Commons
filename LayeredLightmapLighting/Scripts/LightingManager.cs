@@ -1,4 +1,6 @@
-﻿using UdonSharp;
+﻿#if UDONSHARP
+using UdonSharp;
+#endif
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -32,11 +34,6 @@ namespace Meenphie.Commons
         [HideInInspector] public Vector4[] reflectionProbeHDR;
         public int reflectionProbeCount;
 
-        [Header("Screen-Space Shadows")]
-        [Range(2, 64)] public int shadowRaySteps = 24;
-        [Tooltip("World-space distance from the camera excluded from self-shadowing checks. Should be a bit longer than your longest handheld prop (e.g. the flashlight) as held at arm's length. Increase this if a held light still shows a self-shadow blob.")]
-        public float shadowCasterNearExclude = 0.6f;
-
         [Header("Animation – Audio Clips")]
         public AudioClip faultAudioClip;
         [Range(0f, 1f)] public float audioMasterVolume = 1.0f;
@@ -50,9 +47,20 @@ namespace Meenphie.Commons
         public float specCameraFadeEnd = 20f;
         public float specCullMargin = 0f;
         private int _specCameraFadeEndID;
-        public void MarkDirty() => _mergedDirty = true;
+
+        public ShadowAtlasCaster shadowAtlasCaster;
+        [Header("Shadow Map Atlas")]
+        [Tooltip("How many lights can hold a real-time shadow-map slot at once. Must not exceed MAX_SHADOW_SLOTS declared in the shader.")]
+        [Range(0, MAX_SHADOW_SLOTS)] public int activeShadowSlots = 1;
+        // slot -> merged-light index currently occupying that slice of the atlas this frame, -1 if empty.
+        [HideInInspector] public int[] shadowSlotToMerged = new int[MAX_SHADOW_SLOTS];
+        // merged-light index -> slot it currently owns, -1 if none. Mirror of the array above for O(1) lookup during upload.
+        [HideInInspector] public int[] mergedToShadowSlot;
+        [HideInInspector] public int activeShadowChildIndex = -1;
+
 
         private const int MAX_LIGHTS = 32;
+        private const int MAX_SHADOW_SLOTS = 1;
         private const float MOTION_EPSILON_SQ = 0.000001f;
         private const float ROTATION_EPSILON_DOT = 0.9998477f;
         private const float COLOR_EPSILON = 0.004f;
@@ -179,10 +187,6 @@ namespace Meenphie.Commons
         private int _diffuseRealtimeEnabledID;
         private int _rnmEnabledID;
 
-        // ----- Shadow property IDs -----
-        private int _shadowRayStepsID;
-        private int _shadowNearExcludeID;
-
         private bool _mergedDirty = true;
 
         private const float FAULT_FADE_SPEED = 15.0f;
@@ -206,6 +210,12 @@ namespace Meenphie.Commons
         private float _debugTimer;
         private int _debugUpdateCount;
 #endif
+
+        public void MarkDirty()
+        {
+            _mergedDirty = true;
+            _lastFinalCount = -1;
+        }
 
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
         private void OnValidate()
@@ -231,15 +241,12 @@ namespace Meenphie.Commons
             _reflectionProbeHDRID = VRCShader.PropertyToID("_UdonReflectionProbeHDR");
             _reflectionProbeCountID = VRCShader.PropertyToID("_UdonReflectionProbeCount");
 
-            // Shadow uniforms
-            _shadowRayStepsID = VRCShader.PropertyToID("_UdonShadowRaySteps");
-            _shadowNearExcludeID = VRCShader.PropertyToID("_UdonShadowNearCasterExclude");
-
             for (int i = 0; i < MAX_LIGHTS; i++)
             {
                 _lastIndicesSorted[i] = -1;
                 _lastAnimatedIntensity[i] = -1f;
             }
+            for (int i = 0; i < MAX_SHADOW_SLOTS; i++) shadowSlotToMerged[i] = -1;
 
             if (lightLayerArray != null) VRCShader.SetGlobalTexture(_layerArrayID, lightLayerArray);
             if (cookieArray != null) VRCShader.SetGlobalTexture(_cookieArrayID, cookieArray);
@@ -257,11 +264,6 @@ namespace Meenphie.Commons
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceNear"), lodDistanceNear);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceFar"), lodDistanceFar);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODMaxMip"), lodAtFar);
-
-            // ----- Screen‑space shadow settings -----
-            VRCShader.SetGlobalFloat(_shadowRayStepsID, (float)shadowRaySteps);
-            VRCShader.SetGlobalFloat(_shadowNearExcludeID, shadowCasterNearExclude);
-
             VRCShader.SetGlobalFloat(_diffuseStaticEnabledID, _diffuseStaticEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_diffuseRealtimeEnabledID, _diffuseRealtimeEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_rnmEnabledID, _rnmEnabled ? 1f : 0f);
@@ -465,6 +467,7 @@ namespace Meenphie.Commons
             _mergedBaseIntensity = new float[cap];
             _mergedLastAnimated = new float[cap];
             _mergedToChild = new int[cap];
+            mergedToShadowSlot = new int[cap];
 
             mergedCosInner = new float[cap];
 
@@ -490,6 +493,7 @@ namespace Meenphie.Commons
                 _mergedBaseIntensity[i] = 1f;
                 _mergedLastAnimated[i] = -1f;
                 _mergedToChild[i] = -1;
+                mergedToShadowSlot[i] = -1;
 
                 mergedCosInner[i] = -1f;
 
@@ -523,6 +527,7 @@ namespace Meenphie.Commons
             _viewerTickTimer = 0f;
             lastViewerPos = new Vector3(float.MaxValue, 0, 0);
             for (int i = 0; i < MAX_LIGHTS; i++) _lastAnimatedIntensity[i] = -1f;
+            for (int i = 0; i < MAX_SHADOW_SLOTS; i++) shadowSlotToMerged[i] = -1;
 
             if (childLights != null && _lastEnabledState != null)
             {
@@ -612,13 +617,15 @@ namespace Meenphie.Commons
                     }
                     _tickAccumDt = 0f;
                 }
-                // else: nothing due yet this sub-frame, skip entirely — no work at all.
             }
             else if (intervalElapsed || needsResort)
             {
                 Tick(_tickAccumDt);
                 _tickAccumDt = 0f;
             }
+
+            if (shadowAtlasCaster != null)
+                shadowAtlasCaster.UpdateShadowCameras();
 
             // ---- Per-frame performance metrics ----
             float elapsedMs = (Time.realtimeSinceStartup - startTime) * 1000f;
@@ -866,19 +873,18 @@ namespace Meenphie.Commons
 
         public void Tick(float dt)
         {
-            if (_mergedDirty) { BuildMergedGroups(); _mergedDirty = false; }
+            bool mergedRebuilt = false;
+            if (_mergedDirty) { BuildMergedGroups(); _mergedDirty = false; mergedRebuilt = true; }
             if (!_isReady || childLights == null || childLights.Length == 0) return;
 
             Vector3 viewerPos = _localPlayer != null
                 ? _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position
                 : _thisTransform.position;
-
 #if UNITY_EDITOR
             debugViewerPos = viewerPos;
 #endif
 
-            // _viewerTickTimer is now advanced in PostLateUpdate; here we only consume/reset it.
-            bool viewerDue = _viewerTickTimer >= VIEWER_UPDATE_INTERVAL || _lastFinalCount < 0;
+            bool viewerDue = mergedRebuilt || _viewerTickTimer >= VIEWER_UPDATE_INTERVAL || _lastFinalCount < 0;
             int finalCount;
             if (viewerDue)
             {
@@ -916,6 +922,7 @@ namespace Meenphie.Commons
                 for (int i = 0; i < finalCount; i++)
                     if (_indices[i] != _lastIndicesSorted[i]) { isDirty = true; break; }
 
+            if (isDirty) AssignShadowSlots(finalCount);
             FillUploadBuffers(finalCount, isDirty);
             bool liveChanged = UpdateLiveData(dt);
             bool animated = TickPhysicalAnimation(dt);
@@ -1088,6 +1095,58 @@ namespace Meenphie.Commons
             return count;
         }
 
+
+
+        public void SetShadowCasterLight(int childLightIndex)
+        {
+            if (childLightIndex == activeShadowChildIndex) return;
+            activeShadowChildIndex = childLightIndex;
+            ForceRefresh(); // resort + AssignShadowSlots + upload immédiat, synchrone
+        }
+
+        // Pratique si ton script de pickup n'a pas envie de connaître son propre index
+        public void SetShadowCasterLightByLight(Light targetLight)
+        {
+            if (childLights == null) return;
+            for (int i = 0; i < childLights.Length; i++)
+            {
+                if (childLights[i] == targetLight)
+                {
+                    SetShadowCasterLight(i);
+                    return;
+                }
+            }
+        }
+        private void AssignShadowSlots(int finalCount)
+        {
+            for (int s = 0; s < MAX_SHADOW_SLOTS; s++) shadowSlotToMerged[s] = -1;
+            for (int i = 0; i < mergedCount; i++) mergedToShadowSlot[i] = -1;
+
+            if (activeShadowChildIndex < 0 || _lightToMerged == null || activeShadowChildIndex >= _lightToMerged.Length)
+                return;
+
+            int mi = _lightToMerged[activeShadowChildIndex];
+            if (mi < 0) return;                                   // torche désactivée / hors merge
+            if (!mergedCastShadow[mi]) return;                     // Shadow Type = None sur ce Light
+            if (mergedFaultState[mi] == LightFaultState.Off) return;
+
+            shadowSlotToMerged[0] = mi;
+            mergedToShadowSlot[mi] = 0;
+        }
+
+        // Convenience lookup for the component that actually renders the shadow
+        // cameras: which transform should shadow-atlas slot `slot` look from
+        // this frame? Returns null if the slot is currently unused.
+        public Transform GetShadowSlotTransform(int slot)
+        {
+            if (slot < 0 || slot >= MAX_SHADOW_SLOTS) return null;
+            int mi = shadowSlotToMerged[slot];
+            if (mi < 0) return null;
+            int li = _mergedToChild[mi];
+            if (li < 0 || childLights == null || li >= childLights.Length) return null;
+            return _childTransforms[li];
+        }
+
         private void FillUploadBuffers(int finalCount, bool isDirty)
         {
             _shaderData[0] = new Vector4((float)finalCount, 0f, _reflectionEnabled ? 1f : 0f, _specularEnabled ? 1f : 0f);
@@ -1114,9 +1173,9 @@ namespace Meenphie.Commons
                 _shaderData[baseIdx + 5] = mergedBakedCol[idx];
                 _shaderData[baseIdx + 6] = PackLayerIndex(idx);
 
-                // ----- Encode shadow flag into rangesAndType.y -----
-                float shadowFlag = mergedCastShadow[idx] ? 1f : 0f;
-                _shaderData[baseIdx + 7] = new Vector4((float)cookieSlice, shadowFlag, (float)lightTypeInt, cosInner);
+                // ----- Encode shadow atlas slot into rangesAndType.y (-1 = no shadow) -----
+                float shadowSlot = (float)mergedToShadowSlot[idx];
+                _shaderData[baseIdx + 7] = new Vector4((float)cookieSlice, shadowSlot, (float)lightTypeInt, cosInner);
 
                 _lastIndicesSorted[i] = idx;
                 _mergedLastAnimated[idx] = -1f;
@@ -1129,7 +1188,7 @@ namespace Meenphie.Commons
                 _shaderData[baseIdx] = _shaderData[baseIdx + 1] = _shaderData[baseIdx + 2] =
                 _shaderData[baseIdx + 3] = _shaderData[baseIdx + 4] = _shaderData[baseIdx + 5] = Vector4.zero;
                 _shaderData[baseIdx + 6] = new Vector4(-1f, 0f, 0f, 0f);
-                _shaderData[baseIdx + 7] = Vector4.zero;
+                _shaderData[baseIdx + 7] = new Vector4(0f, -1f, 0f, 0f); // shadow slot -1 = none
                 _lastIndicesSorted[i] = -1;
             }
             _lastUploadedSlotCount = finalCount;
@@ -1271,6 +1330,18 @@ namespace Meenphie.Commons
         {
             _rnmEnabled = enabled;
             VRCShader.SetGlobalFloat(_rnmEnabledID, enabled ? 1f : 0f);
+        }
+
+        // Runtime control over the shadow-atlas budget (e.g. a quality setting).
+        // Clamped to MAX_SHADOW_SLOTS since that's the array size the shader
+        // and the external shadow-camera pool were both built against.
+        public void SetActiveShadowSlots(int count)
+        {
+            activeShadowSlots = Mathf.Clamp(count, 0, MAX_SHADOW_SLOTS);
+            // Same reasoning as SetDiffuseStatic/SetSpecular: the budget change
+            // affects AssignShadowSlots' eligibility, re-sort now rather than
+            // waiting up to VIEWER_UPDATE_INTERVAL for it to show up.
+            ForceRefresh();
         }
 
         public bool IsDiffuseStaticEnabled() => _diffuseStaticEnabled;
