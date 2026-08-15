@@ -23,12 +23,12 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 		[Meenphie_DrawerEmissionFlags] _EmissionFlags( "Global Illumination", Float ) = 2
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACEEMISSION( "CATEGORY SPACE EMISSION", Float ) = 0
 		[Meenphie_DrawerCategory(LIGHTMAPPING,true,0,0)] _CATEGORYLIGHTING( "CATEGORY LIGHTING", Float ) = 0
-		[Toggle( _DIFFUSEMASKEDLIGHTS_ON )] _DiffuseMaskedLights( "Diffuse Masked Lights", Float ) = 0
 		[Toggle( _DIFFUSE_ON )] _Diffuse( "Diffuse", Float ) = 1
 		[Toggle( _SPECULARS_ON )] _Speculars( "Speculars", Float ) = 1
 		[Toggle( _REFLECTIONS_ON )] _Reflections( "Reflections", Float ) = 1
-		[Toggle] _IsDynamicMesh( "Is Dynamic Mesh", Float ) = 0
 		[HideInInspector] _LightGroupMask( "Light Group Mask", Float ) = 0
+		[Toggle] _IsDynamicMesh( "Is Dynamic Mesh", Float ) = 0
+		_ProbeIndex( "ProbeIndex", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACELIGHTING( "CATEGORY SPACE LIGHTING", Float ) = 0
 		[Meenphie_DrawerCategory(COLOR GRADING,true,0,0)] _CATEGORYCOLORGRADING( "CATEGORY COLOR GRADING", Float ) = 0
 		[NoScaleOffset][SingleLineTexture] _LUT( "LUT", 3D ) = "black" {}
@@ -115,7 +115,6 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 				#define ASE_NEEDS_VERT_NORMAL
 				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
 				#pragma shader_feature_local _DIFFUSE_ON
-				#pragma shader_feature_local _DIFFUSEMASKEDLIGHTS_ON
 				#pragma shader_feature_local _UV_UV0 _UV_UV2
 				#pragma shader_feature_local _METALLICMAP
 				#pragma shader_feature_local _USEGEOMETRICAA_ON
@@ -179,6 +178,7 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 				uniform sampler2D _BumpMap;
 				uniform float _LightGroupMask;
 				uniform float _IsDynamicMesh;
+				uniform float _ProbeIndex;
 				uniform float3 _EmissionColor;
 				uniform sampler2D _EmissionMap;
 				uniform float _EmissionIntensity;
@@ -291,9 +291,9 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					#else
 					float staticSwitch845_g60084 = _Glossiness;
 					#endif
-					float temp_output_19_0_g60088 = staticSwitch845_g60084;
-					float Roughness21_g60088 = temp_output_19_0_g60088;
-					float Metallic21_g60088 = Metallic1239_g60084;
+					float temp_output_19_0_g60086 = staticSwitch845_g60084;
+					float Roughness21_g60086 = temp_output_19_0_g60086;
+					float Metallic21_g60086 = Metallic1239_g60084;
 					#if defined( _UV_UV0 )
 					float2 staticSwitch3312_g60084 = MainUV2420_g60084;
 					#elif defined( _UV_UV2 )
@@ -302,7 +302,7 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					float2 staticSwitch3312_g60084 = UV_Decal2595_g60084;
 					#endif
 					#ifdef _BUMPMAP
-					float3 staticSwitch980_g60084 = UnpackScaleNormal( tex2D( _BumpMap, staticSwitch3312_g60084 ), 1.5 );
+					float3 staticSwitch980_g60084 = UnpackScaleNormal( tex2D( _BumpMap, staticSwitch3312_g60084 ), 1.0 );
 					#else
 					float3 staticSwitch980_g60084 = float3( 0, 0, 1 );
 					#endif
@@ -317,14 +317,14 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					float3 tanNormal2504_g60084 = Normal700_g60084;
 					float3 worldNormal2504_g60084 = normalize( float3( dot( tanToWorld0, tanNormal2504_g60084 ), dot( tanToWorld1, tanNormal2504_g60084 ), dot( tanToWorld2, tanNormal2504_g60084 ) ) );
 					float3 World_Normal2508_g60084 = worldNormal2504_g60084;
-					float3 WorldNormal21_g60088 = World_Normal2508_g60084;
-					float localGeometricAA21_g60088 = GeometricAA( Roughness21_g60088 , Metallic21_g60088 , WorldNormal21_g60088 );
+					float3 WorldNormal21_g60086 = World_Normal2508_g60084;
+					float localGeometricAA21_g60086 = GeometricAA( Roughness21_g60086 , Metallic21_g60086 , WorldNormal21_g60086 );
 					#ifdef _USEGEOMETRICAA_ON
-					float staticSwitch15_g60088 = localGeometricAA21_g60088;
+					float staticSwitch15_g60086 = localGeometricAA21_g60086;
 					#else
-					float staticSwitch15_g60088 = temp_output_19_0_g60088;
+					float staticSwitch15_g60086 = temp_output_19_0_g60086;
 					#endif
-					float Roughness1399_g60084 = staticSwitch15_g60088;
+					float Roughness1399_g60084 = staticSwitch15_g60086;
 					float Roughness97_g60089 = Roughness1399_g60084;
 					float3 ase_positionWS = IN.ase_texcoord5.xyz;
 					float3 ase_viewVectorWS = ( ( unity_OrthoParams.w == 0 ) ? _WorldSpaceCameraPos - ase_positionWS : UNITY_MATRIX_V[ 2 ].xyz );
@@ -333,7 +333,8 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					float3 ViewDir97_g60089 = View_Direction2511_g60084;
 					float3 World_Position2505_g60084 = ase_positionWS;
 					float3 WorldPos97_g60089 = World_Position2505_g60084;
-					float3 Normal97_g60089 = Normal700_g60084;
+					float3 Default_Normal3336_g60084 = ase_normalWS;
+					float3 DefaultNormal97_g60089 = Default_Normal3336_g60084;
 					float3 WorldNormal97_g60089 = World_Normal2508_g60084;
 					float2 MainUV97_g60089 = MainUV2420_g60084;
 					float4 texCoord2426_g60084 = IN.ase_texcoord;
@@ -342,19 +343,13 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					float2 LightmapUV97_g60089 = LightmapUV2361_g60084;
 					float LightGroupMask97_g60089 = _LightGroupMask;
 					float IsDynamicMesh97_g60089 = _IsDynamicMesh;
-					float ProbeIndex97_g60089 = 0.0;
-					float3 DiffuseMaskedLights97_g60089 = float3( 0,0,0 );
+					float ProbeIndex97_g60089 = _ProbeIndex;
 					float3 Diffuse97_g60089 = float3( 0,0,0 );
 					float3 Specular97_g60089 = float3( 0,0,0 );
 					float3 Reflection97_g60089 = float3( 0,0,0 );
-					LayeredLightmapLighting( Color97_g60089 , Metallic97_g60089 , Roughness97_g60089 , ViewDir97_g60089 , WorldPos97_g60089 , Normal97_g60089 , WorldNormal97_g60089 , MainUV97_g60089 , LightmapUV97_g60089 , LightGroupMask97_g60089 , IsDynamicMesh97_g60089 , ProbeIndex97_g60089 , DiffuseMaskedLights97_g60089 , Diffuse97_g60089 , Specular97_g60089 , Reflection97_g60089 );
-					#ifdef _DIFFUSEMASKEDLIGHTS_ON
-					float3 staticSwitch3306_g60084 = DiffuseMaskedLights97_g60089;
-					#else
-					float3 staticSwitch3306_g60084 = Diffuse97_g60089;
-					#endif
+					LayeredLightmapLighting( Color97_g60089 , Metallic97_g60089 , Roughness97_g60089 , ViewDir97_g60089 , WorldPos97_g60089 , DefaultNormal97_g60089 , WorldNormal97_g60089 , MainUV97_g60089 , LightmapUV97_g60089 , LightGroupMask97_g60089 , IsDynamicMesh97_g60089 , ProbeIndex97_g60089 , Diffuse97_g60089 , Specular97_g60089 , Reflection97_g60089 );
 					#ifdef _DIFFUSE_ON
-					float3 staticSwitch3319_g60084 = staticSwitch3306_g60084;
+					float3 staticSwitch3319_g60084 = Diffuse97_g60089;
 					#else
 					float3 staticSwitch3319_g60084 = _Vector0;
 					#endif
@@ -384,16 +379,16 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					#else
 					float4 staticSwitch1_g60085 = float4( ( Diffuse2560_g60084 + Speculars3240_g60084 + Reflections1419_g60084 + Emission86_g60084 ) , 0.0 );
 					#endif
-					float4 Color357_g60086 = staticSwitch1_g60085;
-					float4 LUT51_g60086 = tex3D( _LUT, ( ( log10( ( ( (Color357_g60086).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
+					float4 Color357_g60087 = staticSwitch1_g60085;
+					float4 LUT51_g60087 = tex3D( _LUT, ( ( log10( ( ( (Color357_g60087).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 					#ifdef SHADER_API_MOBILE
-					float4 staticSwitch359_g60086 = LUT51_g60086;
+					float4 staticSwitch359_g60087 = LUT51_g60087;
 					#else
-					float4 staticSwitch359_g60086 = Color357_g60086;
+					float4 staticSwitch359_g60087 = Color357_g60087;
 					#endif
 					
 
-					float3 Color = staticSwitch359_g60086.xyz;
+					float3 Color = staticSwitch359_g60087.xyz;
 					float Alpha = temp_output_3155_0_g60084.a;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
@@ -431,4 +426,4 @@ Version=19912
 {"wire":[3077,0,3088,624]}
 {"wire":[3077,7,3088,156]}
 ASEEND*/
-//CHKSM=B726BA5793EB66961EC2A33F10CEAB8A34287575
+//CHKSM=B5C571A519E805BDB93F3823E0911C5840BE7118

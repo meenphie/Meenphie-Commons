@@ -54,7 +54,7 @@ public static class LightingEditorScene
     private static int[] _indices = new int[MAX_LIGHTS];
     private static float[] _distances = new float[MAX_LIGHTS];
     private static int[] _lightToShader = new int[0];
-    private static float _specCullDistanceSq;
+    private static float _specCullDistanceSq = 400f * 400f; // valeur par défaut élevée
 
     private static Texture2DArray _previewLayerArray;
     private static Texture2DArray _previewCookieArray;
@@ -76,6 +76,8 @@ public static class LightingEditorScene
     {
         if (change != PlayModeStateChange.EnteredEditMode) return;
 
+        // Réactive le preview après le mode Play
+        _previewEnabled = true;
         Shader.SetGlobalFloat("_UdonDiffuseStaticEnabled", 1f);
         Shader.SetGlobalFloat("_UdonDiffuseRealtimeEnabled", 1f);
         Shader.SetGlobalFloat("_UdonRNMEnabled", 1f);
@@ -452,9 +454,10 @@ public static class LightingEditorScene
             _lights = freshLights;
         }
 
-        if (mgr.lightLayerArray != null)
+        // ⬇️ Utilise maintenant le tableau PC (compatible éditeur)
+        if (mgr.lightLayerArrayPC != null)
         {
-            _previewLayerArray = mgr.lightLayerArray;
+            _previewLayerArray = mgr.lightLayerArrayPC;
             Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
         }
         Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
@@ -463,6 +466,11 @@ public static class LightingEditorScene
         _previewCookieArray = mgr.cookieArray;
         Shader.SetGlobalTexture("_UdonCookieArray", _previewCookieArray);
         Shader.SetGlobalFloat("_UdonCookieArrayValid", _previewCookieArray != null ? 1f : 0f);
+
+        // Active le rendu diffus statique et temps réel par défaut en éditeur
+        Shader.SetGlobalFloat("_UdonDiffuseStaticEnabled", 1f);
+        Shader.SetGlobalFloat("_UdonDiffuseRealtimeEnabled", 1f);
+        Shader.SetGlobalFloat("_UdonRNMEnabled", 1f);
 
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
         _lastUploadedSlotCount = 0;
@@ -583,9 +591,8 @@ public static class LightingEditorScene
             bool diffuseOn = (_diffuseEnabled != null && li < _diffuseEnabled.Length) ? _diffuseEnabled[li] : true;
             bool specularOn = (_specularEnabled != null && li < _specularEnabled.Length) ? _specularEnabled[li] : true;
             int groupMask = (_groupMasks != null && li < _groupMasks.Length) ? _groupMasks[li] : ~0;
-            int cookieSlice = (_cookieSlices != null && li < _cookieSlices.Length) ? _cookieSlices[li] : -1;   // ← ajout
+            int cookieSlice = (_cookieSlices != null && li < _cookieSlices.Length) ? _cookieSlices[li] : -1;
 
-            // Ranges are now zero – shader uses its own global constants
             _shaderBuffer[baseIdx + 0] = new Vector4(pos.x, pos.y, pos.z, intensity);
             _shaderBuffer[baseIdx + 1] = new Vector4(rawColor.x, rawColor.y, rawColor.z, intensity);
             _shaderBuffer[baseIdx + 2] = new Vector4(fwd.x, fwd.y, fwd.z, cosOuter);
@@ -613,8 +620,7 @@ public static class LightingEditorScene
 
     private static void UploadToShader()
     {
-        if (_worldRoot == null)
-            return;
+        if (_worldRoot == null) return;
 
         Shader.SetGlobalVectorArray("_UdonLightData", _shaderBuffer);
         Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
@@ -659,13 +665,6 @@ public static class LightingEditorScene
         if (cosOuter < -0.9f) return 0;
         if (cosOuter <= 0.0f) return 2;
         return 1;
-    }
-
-    private static int CountBits(int v)
-    {
-        int c = 0;
-        while (v != 0) { v &= (v - 1); c++; }
-        return c;
     }
 
     private static void RepaintSceneViews() => SceneView.RepaintAll();

@@ -15,8 +15,16 @@ namespace Meenphie.Commons
         [Tooltip("Global culling distance – lights beyond this are skipped on the CPU.")]
         public float rangeScale = 50f;
 
-        [Header("Lightmap Layer")]
-        public Texture2DArray lightLayerArray;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        public Texture2DArray lightLayerArrayQuest;
+#elif !UNITY_ANDROID && !UNITY_EDITOR
+        public Texture2DArray lightLayerArrayPC;
+#else
+        public Texture2DArray lightLayerArrayPC;
+        public Texture2DArray lightLayerArrayQuest;
+#endif
+
+        private Texture2DArray _lightLayerArray;
         public int lightmapGroupCount = 0;
         [Range(0f, 50f)] public float lodDistanceNear = 5f;
         [Range(0f, 80f)] public float lodDistanceFar = 35f;
@@ -28,11 +36,23 @@ namespace Meenphie.Commons
         [HideInInspector] public int[] childLightCookieSlice;
         [HideInInspector] public int[] mergedCookieSlice;
 
-        [Header("Reflection Probes")]
-        public Texture2DArray reflectionProbeArray;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        public Texture2DArray reflectionProbeArrayQuest;
+#elif !UNITY_ANDROID && !UNITY_EDITOR
+        public CubemapArray reflectionProbeArrayPC;
+#else
+        public CubemapArray reflectionProbeArrayPC;
+        public Texture2DArray reflectionProbeArrayQuest;
+#endif
+
         [HideInInspector] public Vector4[] reflectionProbeData;
         [HideInInspector] public Vector4[] reflectionProbeHDR;
         public int reflectionProbeCount;
+        // Highest valid mip index in reflectionProbeArrayPC (pcMipCount - 1), set by
+        // ReflectionProbeArrayBuilder at bake time. Drives roughness->mip selection
+        // in _UdonComputeReflectionArray; must be uploaded at runtime or the shader
+        // falls back to a hardcoded default (see Start()).
+        [HideInInspector] public float reflectionProbeMaxMip;
 
         [Header("Animation – Audio Clips")]
         public AudioClip faultAudioClip;
@@ -143,10 +163,12 @@ namespace Meenphie.Commons
         private Vector4[] _shaderData = new Vector4[MAX_LIGHTS * 8 + 1];
         private int _lightDataID;
         private int _layerArrayID;
+        private int _reflectionArrayValidID;
         private int _reflectionProbeArrayID;
         private int _reflectionProbeDataID;
         private int _reflectionProbeHDRID;
         private int _reflectionProbeCountID;
+        private int _reflectionProbeMaxMipID;
 
         private int[] _indices = new int[MAX_LIGHTS];
         private float[] _distances = new float[MAX_LIGHTS];
@@ -181,11 +203,21 @@ namespace Meenphie.Commons
         private bool _diffuseRealtimeEnabled = true;
         private bool _specularEnabled = true;
         private bool _reflectionEnabled = true;
-        private bool _rnmEnabled = true;
+        // Toggles the analytical N·L multiply applied to the baked per-light
+        // lightmap transfer texture at runtime (see LayeredLightmapLighting.cginc).
+        // Was previously "_rnmEnabled" back when the light layer array stored 3
+        // RNM basis textures per light instead of 1.
+        private bool _directionalEnabled = true;
+        // Coupe le rendu + le sample de la shadow map temps réel (optimisation).
+        // Contrairement aux toggles ci-dessus, ça n'affecte pas l'éligibilité
+        // dans SortNearest : ce n'est qu'un uniform shader + un flag côté
+        // ShadowAtlasCaster pour arrêter de re-render la shadow cam.
+        private bool _realtimeShadowsEnabled = true;
 
         private int _diffuseStaticEnabledID;
         private int _diffuseRealtimeEnabledID;
-        private int _rnmEnabledID;
+        private int _directionalEnabledID;
+        private int _realtimeShadowsEnabledID;
 
         private bool _mergedDirty = true;
 
@@ -194,6 +226,10 @@ namespace Meenphie.Commons
         private const float PANIC_ON_MEAN_FAST = 0.01f;
         private const float PANIC_OFF_MEAN_SLOW = 0.80f;
         private const float PANIC_OFF_MEAN_FAST = 0.02f;
+
+        // Nouveaux tableaux persistants pour le tri (alloués une seule fois)
+        private int[] _sortBakedCandidates;
+        private int[] _sortRealtimeCandidates;
 
 #if UNITY_EDITOR
         [Header("Debug (Editor only)")]
@@ -232,14 +268,17 @@ namespace Meenphie.Commons
             _lightDataID = VRCShader.PropertyToID("_UdonLightData");
             _layerArrayID = VRCShader.PropertyToID("_UdonLightLayerArray");
             _cookieArrayID = VRCShader.PropertyToID("_UdonCookieArray");
-            _rnmEnabledID = VRCShader.PropertyToID("_UdonRNMEnabled");
+            _directionalEnabledID = VRCShader.PropertyToID("_UdonDirectionalEnabled");
             _diffuseStaticEnabledID = VRCShader.PropertyToID("_UdonDiffuseStaticEnabled");
             _diffuseRealtimeEnabledID = VRCShader.PropertyToID("_UdonDiffuseRealtimeEnabled");
+            _realtimeShadowsEnabledID = VRCShader.PropertyToID("_UdonRealtimeShadowsEnabled");
             _specCameraFadeEndID = VRCShader.PropertyToID("_UdonSpecCameraFadeEnd");
+            _reflectionArrayValidID = VRCShader.PropertyToID("_UdonReflectionArrayValid");
             _reflectionProbeArrayID = VRCShader.PropertyToID("_UdonReflectionProbeArray");
             _reflectionProbeDataID = VRCShader.PropertyToID("_UdonReflectionProbeData");
             _reflectionProbeHDRID = VRCShader.PropertyToID("_UdonReflectionProbeHDR");
             _reflectionProbeCountID = VRCShader.PropertyToID("_UdonReflectionProbeCount");
+            _reflectionProbeMaxMipID = VRCShader.PropertyToID("_UdonReflectionProbeMaxMip");
 
             for (int i = 0; i < MAX_LIGHTS; i++)
             {
@@ -248,25 +287,46 @@ namespace Meenphie.Commons
             }
             for (int i = 0; i < MAX_SHADOW_SLOTS; i++) shadowSlotToMerged[i] = -1;
 
-            if (lightLayerArray != null) VRCShader.SetGlobalTexture(_layerArrayID, lightLayerArray);
+#if UNITY_ANDROID
+            _lightLayerArray = lightLayerArrayQuest;
+#else
+            _lightLayerArray = lightLayerArrayPC;
+#endif
+
+            if (_lightLayerArray != null)
+                VRCShader.SetGlobalTexture(_layerArrayID, _lightLayerArray);
+
+            // Validation de la validité
+            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightLayerArrayValid"), _lightLayerArray != null ? 1f : 0f);
+
             if (cookieArray != null) VRCShader.SetGlobalTexture(_cookieArrayID, cookieArray);
 
-            if (reflectionProbeArray != null) VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArray);
+#if UNITY_ANDROID
+            if (reflectionProbeArrayQuest != null)
+                VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArrayQuest);
+            VRCShader.SetGlobalFloat(_reflectionArrayValidID, reflectionProbeArrayQuest != null ? 1f : 0f);
+#else
+            if (reflectionProbeArrayPC != null)
+                VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArrayPC);
+            VRCShader.SetGlobalFloat(_reflectionArrayValidID, reflectionProbeArrayPC != null ? 1f : 0f);
+#endif
+
             if (reflectionProbeData != null && reflectionProbeData.Length > 0)
                 VRCShader.SetGlobalVectorArray(_reflectionProbeDataID, reflectionProbeData);
             if (reflectionProbeHDR != null && reflectionProbeHDR.Length > 0)
                 VRCShader.SetGlobalVectorArray(_reflectionProbeHDRID, reflectionProbeHDR);
             VRCShader.SetGlobalFloat(_reflectionProbeCountID, (float)reflectionProbeCount);
+            VRCShader.SetGlobalFloat(_reflectionProbeMaxMipID, reflectionProbeMaxMip);
 
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonCookieArrayValid"), cookieArray != null ? 1f : 0f);
-            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightLayerArrayValid"), lightLayerArray != null ? 1f : 0f);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightmapSliceOffset"), (float)lightmapGroupCount);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceNear"), lodDistanceNear);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceFar"), lodDistanceFar);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODMaxMip"), lodAtFar);
             VRCShader.SetGlobalFloat(_diffuseStaticEnabledID, _diffuseStaticEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_diffuseRealtimeEnabledID, _diffuseRealtimeEnabled ? 1f : 0f);
-            VRCShader.SetGlobalFloat(_rnmEnabledID, _rnmEnabled ? 1f : 0f);
+            VRCShader.SetGlobalFloat(_directionalEnabledID, _directionalEnabled ? 1f : 0f);
+            VRCShader.SetGlobalFloat(_realtimeShadowsEnabledID, _realtimeShadowsEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_specCameraFadeEndID, specCameraFadeEnd);
 
             ValidateChildArrays();
@@ -310,6 +370,10 @@ namespace Meenphie.Commons
                 Color c = l.color;
                 lastLightColors[i] = new Vector3(c.r, c.g, c.b);
             }
+
+            // Allocation des tableaux persistants pour le tri
+            _sortBakedCandidates = new int[MAX_LIGHTS];
+            _sortRealtimeCandidates = new int[MAX_LIGHTS];
 
             _lastRateUpdateTime = Time.realtimeSinceStartup;
         }
@@ -624,7 +688,7 @@ namespace Meenphie.Commons
                 _tickAccumDt = 0f;
             }
 
-            if (shadowAtlasCaster != null)
+            if (shadowAtlasCaster != null && shadowAtlasCaster.enabled)
                 shadowAtlasCaster.UpdateShadowCameras();
 
             // ---- Per-frame performance metrics ----
@@ -1062,40 +1126,99 @@ namespace Meenphie.Commons
 
         public int SortNearest(Vector3 viewerPos)
         {
-            int count = 0;
             float maxDistSq = rangeScale * rangeScale;
             float specCullDistSq = Sq(specCameraFadeEnd + specCullMargin);
             bool diffuseGloballyOn = _diffuseStaticEnabled || _diffuseRealtimeEnabled;
 
+            // Réinitialise les compteurs
+            int bakedCount = 0, realtimeCount = 0;
+
+            // Passe 1 : précalcul des distances, séparation baked/realtime
             for (int i = 0; i < mergedCount; i++)
             {
-                bool couldContributeDiffuse = mergedDiffuseEnabled[i] && diffuseGloballyOn;
-                bool couldContributeSpecular = IsSpecularActive(i, viewerPos, specCullDistSq);
-                if (!couldContributeDiffuse && !couldContributeSpecular) continue;
+                int li = _mergedToChild[i];
+                if (li < 0) continue;
+
+                bool isRealtime = childLightIsRealtime[li];
+                bool canDiffuse = mergedDiffuseEnabled[i] && diffuseGloballyOn;
+                bool canSpecular = IsSpecularActive(i, viewerPos, specCullDistSq);
+                if (!canDiffuse && !canSpecular) continue;
 
                 Vector4 mp = mergedPos[i];
                 float dx = viewerPos.x - mp.x, dy = viewerPos.y - mp.y, dz = viewerPos.z - mp.z;
                 float distSq = dx * dx + dy * dy + dz * dz;
                 if (distSq > maxDistSq) continue;
 
-                int ins = count;
-                while (ins > 0 && _distances[ins - 1] > distSq) ins--;
-                if (ins >= activeSpecularCount) continue;
-
-                int maxShift = Mathf.Min(count, activeSpecularCount - 1);
-                for (int j = maxShift; j > ins; j--)
+                if (!isRealtime)
                 {
-                    _indices[j] = _indices[j - 1];
-                    _distances[j] = _distances[j - 1];
+                    _sortBakedCandidates[bakedCount] = i;
+                    bakedCount++;
                 }
-                _indices[ins] = i;
-                _distances[ins] = distSq;
-                if (count < activeSpecularCount) count++;
+                else
+                {
+                    _sortRealtimeCandidates[realtimeCount] = i;
+                    realtimeCount++;
+                }
             }
+
+            // Tri par insertion pour chaque liste (optimisé pour petits tableaux)
+            for (int i = 1; i < bakedCount; i++)
+            {
+                int key = _sortBakedCandidates[i];
+                float keyDist = Sq(viewerPos.x - mergedPos[key].x) + Sq(viewerPos.y - mergedPos[key].y) + Sq(viewerPos.z - mergedPos[key].z);
+                int j = i - 1;
+                while (j >= 0)
+                {
+                    float dist = Sq(viewerPos.x - mergedPos[_sortBakedCandidates[j]].x) + Sq(viewerPos.y - mergedPos[_sortBakedCandidates[j]].y) + Sq(viewerPos.z - mergedPos[_sortBakedCandidates[j]].z);
+                    if (dist > keyDist)
+                    {
+                        _sortBakedCandidates[j + 1] = _sortBakedCandidates[j];
+                        j--;
+                    }
+                    else break;
+                }
+                _sortBakedCandidates[j + 1] = key;
+            }
+
+            for (int i = 1; i < realtimeCount; i++)
+            {
+                int key = _sortRealtimeCandidates[i];
+                float keyDist = Sq(viewerPos.x - mergedPos[key].x) + Sq(viewerPos.y - mergedPos[key].y) + Sq(viewerPos.z - mergedPos[key].z);
+                int j = i - 1;
+                while (j >= 0)
+                {
+                    float dist = Sq(viewerPos.x - mergedPos[_sortRealtimeCandidates[j]].x) + Sq(viewerPos.y - mergedPos[_sortRealtimeCandidates[j]].y) + Sq(viewerPos.z - mergedPos[_sortRealtimeCandidates[j]].z);
+                    if (dist > keyDist)
+                    {
+                        _sortRealtimeCandidates[j + 1] = _sortRealtimeCandidates[j];
+                        j--;
+                    }
+                    else break;
+                }
+                _sortRealtimeCandidates[j + 1] = key;
+            }
+
+            // Remplissage final : baked en premier (priorité absolue)
+            int count = 0;
+            for (int i = 0; i < bakedCount && count < MAX_LIGHTS; i++)
+            {
+                int idx = _sortBakedCandidates[i];
+                _indices[count] = idx;
+                _distances[count] = Sq(viewerPos.x - mergedPos[idx].x) + Sq(viewerPos.y - mergedPos[idx].y) + Sq(viewerPos.z - mergedPos[idx].z);
+                count++;
+            }
+
+            // Realtime dans les places restantes
+            for (int i = 0; i < realtimeCount && count < MAX_LIGHTS; i++)
+            {
+                int idx = _sortRealtimeCandidates[i];
+                _indices[count] = idx;
+                _distances[count] = Sq(viewerPos.x - mergedPos[idx].x) + Sq(viewerPos.y - mergedPos[idx].y) + Sq(viewerPos.z - mergedPos[idx].z);
+                count++;
+            }
+
             return count;
         }
-
-
 
         public void SetShadowCasterLight(int childLightIndex)
         {
@@ -1270,7 +1393,7 @@ namespace Meenphie.Commons
         }
 
         // =================================================================
-        //  LIGHTING TOGGLES (Diffuse Static / Diffuse Realtime / Specular / Reflection / RNM)
+        //  LIGHTING TOGGLES (Diffuse Static / Diffuse Realtime / Specular / Reflection / Directionals)
         // =================================================================
         public void ToggleDiffuseStatic() => SetDiffuseStatic(!_diffuseStaticEnabled);
 
@@ -1324,12 +1447,26 @@ namespace Meenphie.Commons
 #endif
         }
 
-        public void ToggleRNM() => SetRNM(!_rnmEnabled);
+        // Toggles the analytical N·L multiply applied to baked lightmap
+        // transfer textures at runtime (see LayeredLightmapLighting.cginc).
+        public void ToggleDirectional() => SetDirectional(!_directionalEnabled);
 
-        public void SetRNM(bool enabled)
+        public void SetDirectional(bool enabled)
         {
-            _rnmEnabled = enabled;
-            VRCShader.SetGlobalFloat(_rnmEnabledID, enabled ? 1f : 0f);
+            _directionalEnabled = enabled;
+            VRCShader.SetGlobalFloat(_directionalEnabledID, enabled ? 1f : 0f);
+        }
+
+
+        public void ToggleRealtimeShadows() => SetRealtimeShadows(!_realtimeShadowsEnabled);
+
+        public void SetRealtimeShadows(bool enabled)
+        {
+            _realtimeShadowsEnabled = enabled;
+            VRCShader.SetGlobalFloat(_realtimeShadowsEnabledID, enabled ? 1f : 0f);
+
+            if (shadowAtlasCaster != null)
+                shadowAtlasCaster.enabled = enabled;
         }
 
         // Runtime control over the shadow-atlas budget (e.g. a quality setting).
@@ -1348,6 +1485,7 @@ namespace Meenphie.Commons
         public bool IsDiffuseRealtimeEnabled() => _diffuseRealtimeEnabled;
         public bool IsSpecularEnabled() => _specularEnabled;
         public bool IsReflectionEnabled() => _reflectionEnabled;
-        public bool IsRNMEnabled() => _rnmEnabled;
+        public bool IsDirectionalEnabled() => _directionalEnabled;
+        public bool IsRealtimeShadowsEnabled() => _realtimeShadowsEnabled;
     }
 }

@@ -19,10 +19,10 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 
 		Tags { "Queue"="Transparent+1" "IgnoreProjector"="True" "RenderType"="Transparent" "PreviewType"="Plane" "CanUseSpriteAtlas"="True" "DisableBatching"="True" }
 
-		Cull Off
+		Cull Back
 		Lighting Off
 		ZWrite Off
-		Blend SrcAlpha OneMinusSrcAlpha
+		Blend SrcAlpha One
 
 		
 		Pass
@@ -175,7 +175,7 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 				float2 fbuv7 = texCoord8 * fbtiling7 + fboffset7;
 				// *** END Flipbook UV Animation vars ***
 				int flipbookFrame7 = ( ( int )fbcurrenttileindex7);
-				float4 temp_output_57_0 = ( _Color * tex2D( _BaseColor, fbuv7 ) );
+				float4 temp_output_57_0 = ( _Color * tex2D( _BaseColor, fbuv7 ).r );
 				float4 Color357_g35 = temp_output_57_0;
 				float4 LUT51_g35 = tex3D( _LUT, ( ( log10( ( ( (Color357_g35).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
 				#ifdef SHADER_API_MOBILE
@@ -205,33 +205,33 @@ Version=19912
 {"type":"AmplifyShaderEditor.TextureCoordinatesNode, AmplifyShaderEditor","id":8,"pos":[-992,0],"params":["Inherit","False","0","-1","2","3","2","SAMPLER2D","","False","0","FLOAT2","1,1","False","1","FLOAT2","0,0","False","5","FLOAT2","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4"]}
 {"type":"AmplifyShaderEditor.TFHCFlipBookUVAnimation, AmplifyShaderEditor","id":7,"pos":[-672,0],"params":["Inherit","False","0","0","7","0","FLOAT2","0,0","False","1","FLOAT","16","False","2","FLOAT","21","False","3","FLOAT","30","False","4","FLOAT","0","False","5","FLOAT","0","False","6","FLOAT","330","False","4","FLOAT2","0","FLOAT","1","FLOAT","2","INT","3"]}
 {"type":"AmplifyShaderEditor.TemplateShaderPropertyNode, AmplifyShaderEditor","id":56,"pos":[-256,-208],"params":["Inherit","False","0","0","_Color","Shader","False","0","5","COLOR","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4"]}
-{"type":"AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor","id":1,"pos":[-320,0],"params":["Inherit","True","Property","_BaseColor","Base Color","0","2","[NoScaleOffset]","[SingleLineTexture]","Create","True","0","0","0","False","0","False","","-1","None","ca98fe8f84b89108c9fbdd459d36e9a6","True","0","False","white","Auto","False","Object","-1","Auto","Texture2D","False","8","0","SAMPLER2D","","False","1","FLOAT2","0,0","False","2","FLOAT","0","False","3","FLOAT2","0,0","False","4","FLOAT2","0,0","False","5","FLOAT","1","False","6","FLOAT","0","False","7","SAMPLERSTATE","","False","6","COLOR","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4","FLOAT3","5"]}
+{"type":"AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor","id":1,"pos":[-320,0],"params":["Inherit","True","Property","_BaseColor","Base Color","0","2","[NoScaleOffset]","[SingleLineTexture]","Create","False","0","0","0","False","0","False","","-1","None","ca98fe8f84b89108c9fbdd459d36e9a6","True","0","False","white","Auto","False","Object","-1","Auto","Texture2D","False","8","0","SAMPLER2D","","False","1","FLOAT2","0,0","False","2","FLOAT","0","False","3","FLOAT2","0,0","False","4","FLOAT2","0,0","False","5","FLOAT","1","False","6","FLOAT","0","False","7","SAMPLERSTATE","","False","6","COLOR","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4","FLOAT3","5"]}
 {"type":"AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor","id":55,"pos":[368,80],"params":["Inherit","False","LUT","1","","35","4f182fda2cc1d189990007472f6485a5","0","1","35","FLOAT4","0,0,0,0","False","1","FLOAT4","0"]}
-{"type":"AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor","id":57,"pos":[64,0],"params":["Inherit","False","2","2","0","COLOR","0,0,0,0","False","1","COLOR","0,0,0,0","False","1","COLOR","0"]}
+{"type":"AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor","id":57,"pos":[64,0],"params":["Inherit","False","2","2","0","COLOR","0,0,0,0","False","1","FLOAT","0","False","1","COLOR","0"]}
 {"type":"AmplifyShaderEditor.WorldPosInputsNode, AmplifyShaderEditor","id":60,"pos":[720,-352],"params":["Inherit","False","0","4","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3"]}
 {"type":"AmplifyShaderEditor.WorldNormalVector, AmplifyShaderEditor","id":61,"pos":[720,-200],"params":["Inherit","False","False","1","0","FLOAT3","0,0,1","False","4","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3"]}
-{"type":"AmplifyShaderEditor.PosVertexDataNode, AmplifyShaderEditor","id":34,"pos":[480,192],"params":["Inherit","False","0","0","5","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4"]}
 {"type":"AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor","id":40,"pos":[672,0],"params":["Inherit","False","Property","SHADER_API_MOBILE","SHADER_API_MOBILE","1","0","Create","False","0","0","0","False","0","False","","0","0","0","False","SHADER_API_MOBILE","Toggle","2","Key0","Key1","Fetch","False","False","All","9","1","COLOR","0,0,0,0","False","0","COLOR","0,0,0,0","False","2","COLOR","0,0,0,0","False","3","COLOR","0,0,0,0","False","4","COLOR","0,0,0,0","False","5","COLOR","0,0,0,0","False","6","COLOR","0,0,0,0","False","7","COLOR","0,0,0,0","False","8","COLOR","0,0,0,0","False","1","COLOR","0"]}
 {"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":59,"pos":[960,-312],"params":["Inherit","False"," ","3","File","2","True","WorldPos","FLOAT3","0,0,0","In","","Inherit","False","True","WorldNormal","FLOAT3","0,0,0","In","","Inherit","False","UdonRealtimeDiffuse","False","False","0","54ddc4aed38557dc289bde418c430205","False","2","0","FLOAT3","0,0,0","False","1","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
-{"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":31,"pos":[736,176],"params":["Inherit","False","// 1. Caméra en espace local\nfloat3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz;\n\n// 2. Axe de rotation (Y local du tuyau)\nfloat3 up = float3(0, 1, 0);\n\n// 3. Direction vers la caméra (projetée sur le plan XZ local)\n// On ajoute un epsilon pour éviter le normalize(0) si la caméra est pile au-dessus\nfloat3 forward = normalize(float3(localCamPos.x, 0, localCamPos.z) + 0.0001);\n\n// 4. Vecteur Right perpendiculaire\nfloat3 right = cross(up, forward);\n\n// 5. Reconstruction du vertex\n// Si ton quad est un \"Plane\" Unity ou un Quad Blender standard :\n// InPos.x est la largeur, InPos.y la hauteur.\nfloat3 rotatedPos = InPos.x * right + InPos.y * up + InPos.z * forward;\n\nreturn rotatedPos - InPos;","3","Create","1","True","InPos","FLOAT3","0,0,0","In","","Inherit","False","Local Sprite","True","False","0","","False","1","0","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
-{"type":"AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor","id":65,"pos":[1312,-8],"params":["Inherit","False","2","2","0","FLOAT3","0,0,0","False","1","COLOR","0,0,0,0","False","1","COLOR","0"]}
+{"type":"AmplifyShaderEditor.PosVertexDataNode, AmplifyShaderEditor","id":34,"pos":[1184,128],"params":["Inherit","False","0","0","5","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4"]}
 {"type":"AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor","id":66,"pos":[1318.767,-203.0029],"params":["Inherit","False","2","2","0","FLOAT3","0,0,0","False","1","COLOR","0,0,0,0","False","1","COLOR","0"]}
-{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":30,"pos":[1656,0],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","1","Meenphie/Sprite/Flipbook Oriented","0f8ba0101102bb14ebf021ddadce9b49","True","SubShader 0 Pass 0","0","0","SubShader 0 Pass 0","2","True","True","2","5","False","","10","False","","0","1","False","","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","True","2","False","","False","False","False","False","False","False","False","False","False","False","False","True","2","False","","False","False","False","True","6","Queue=Transparent=Queue=1","IgnoreProjector=True","RenderType=Transparent=RenderType","PreviewType=Plane","CanUseSpriteAtlas=True","DisableBatching=True=DisableBatching","False","False","0","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","True","3","False","0","","0","0","Standard","0","0","1","True","False","","False","0"]}
+{"type":"AmplifyShaderEditor.SimpleMultiplyOpNode, AmplifyShaderEditor","id":65,"pos":[1288,-96],"params":["Inherit","False","2","2","0","FLOAT3","0,0,0","False","1","COLOR","0,0,0,0","False","1","COLOR","0"]}
+{"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":31,"pos":[1408,128],"params":["Inherit","False","// 1. Caméra en espace local\nfloat3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz;\n\n// 2. Axe de rotation (Y local du tuyau)\nfloat3 up = float3(0, 1, 0);\n\n// 3. Direction vers la caméra (projetée sur le plan XZ local)\n// On ajoute un epsilon pour éviter le normalize(0) si la caméra est pile au-dessus\nfloat3 forward = normalize(float3(localCamPos.x, 0, localCamPos.z) + 0.0001);\n\n// 4. Vecteur Right perpendiculaire\nfloat3 right = cross(up, forward);\n\n// 5. Reconstruction du vertex\n// Si ton quad est un \"Plane\" Unity ou un Quad Blender standard :\n// InPos.x est la largeur, InPos.y la hauteur.\nfloat3 rotatedPos = InPos.x * right + InPos.y * up + InPos.z * forward;\n\nreturn rotatedPos - InPos;","3","Create","1","True","InPos","FLOAT3","0,0,0","In","","Inherit","False","Local Sprite","True","False","0","","False","1","0","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
+{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":30,"pos":[1656,0],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","1","Meenphie/Sprite/Flipbook Oriented","0f8ba0101102bb14ebf021ddadce9b49","True","SubShader 0 Pass 0","0","0","SubShader 0 Pass 0","2","True","True","8","5","False","","1","False","","0","1","False","","0","False","","False","False","False","False","False","False","False","False","False","False","False","True","True","0","False","","False","False","False","False","False","False","False","False","False","False","True","True","2","False","","False","False","False","True","6","Queue=Transparent=Queue=1","IgnoreProjector=True","RenderType=Transparent=RenderType","PreviewType=Plane","CanUseSpriteAtlas=True","DisableBatching=True=DisableBatching","False","False","0","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","True","3","False","0","","0","0","Standard","0","0","1","True","False","","False","0"]}
 {"wire":[7,0,8,0]}
 {"wire":[1,1,7,0]}
 {"wire":[55,35,57,0]}
 {"wire":[57,0,56,0]}
-{"wire":[57,1,1,0]}
+{"wire":[57,1,1,1]}
 {"wire":[40,1,57,0]}
 {"wire":[40,0,55,0]}
 {"wire":[59,0,60,0]}
 {"wire":[59,1,61,0]}
-{"wire":[31,0,34,0]}
-{"wire":[65,0,59,0]}
-{"wire":[65,1,40,0]}
 {"wire":[66,0,59,0]}
 {"wire":[66,1,40,0]}
+{"wire":[65,0,59,0]}
+{"wire":[65,1,40,0]}
+{"wire":[31,0,34,0]}
 {"wire":[30,0,66,0]}
 {"wire":[30,1,31,0]}
 ASEEND*/
-//CHKSM=BBE79E8F444FF23D9FC5DAB3ECA50F23CCF900EC
+//CHKSM=0980CB4B62B9CC5886EA7C63C7BAE44695FCFD77

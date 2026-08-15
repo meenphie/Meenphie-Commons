@@ -7,18 +7,20 @@ using System.Linq;
 using Meenphie.Commons;
 using Meenphie.Lighting;
 
-public static class ArrayBuilder
+public static class LightmapArrayBuilder
 {
     // ── Constants (unchanged) ─────────────────────────────────────────────────
     private const string LIGHTMAP_SEARCH_FOLDER = "Assets";
-    private const string RNM_X_SUFFIX = "_RNMX";
-    private const string RNM_Y_SUFFIX = "_RNMY";
-    private const string RNM_Z_SUFFIX = "_RNMZ";
+    // Was 3 suffixes (_RNMX/_RNMY/_RNMZ) — now a single baked-at-NdotL=1
+    // transfer texture per light, reconstructed with the runtime normal in
+    // the shader (see LayeredLightmapLighting.cginc / _UdonAccumulateLight).
+    private const string LIGHTMAP_TEXTURE_SUFFIX = "_Lightmap";
     private const string DENOISED_INFIX = "_denoised";
     private const string MATERIAL_GROUP_DELIMITER = " - ";
 
     private const string OUTPUT_FOLDER = "Assets/Lightmaps/";
-    private const string OUTPUT_NAME = "LightmapLayerArray";
+    private const string OUTPUT_NAME_PC = "LightmapLayerArray_PC";
+    private const string OUTPUT_NAME_QUEST = "LightmapLayerArray_Quest";
 
     private const TextureFormat ARRAY_FORMAT = TextureFormat.BC6H;
     private const bool LINEAR = true;
@@ -47,30 +49,46 @@ public static class ArrayBuilder
         TextureFormat.RGBA32, TextureFormat.RGB24, TextureFormat.Alpha8
     };
 
-    private struct RNMSet
+    // One baked transfer texture per light (was X/Y/Z RNM basis triplet).
+    private struct LightmapEntry
     {
-        public Texture2D X, Y, Z;
-        public bool IsValid => X != null || Y != null || Z != null;
+        public Texture2D Texture;
+        public bool IsValid => Texture != null;
     }
 
-    // ── Incremental single-light update ────────────────────────────────────────
-    //
-    // Entry point called by LightmapImportWatcher when a raw (non-denoised) RNM
-    // exr changes on disk. Decides whether it's safe to patch just this light's
-    // slices in place, or whether the group/light topology changed enough that
-    // a full AutoAssignLightLayers() rebuild is required instead.
-    //
-    // Safe-to-patch means: the set of valid groups (and their count/order) is
-    // unchanged, AND this light already had an assigned slice before this call.
-    // Anything else (brand new light, a group going from 0 -> >0 lights, etc.)
-    // changes how slices are numbered downstream, so it falls back to a full
-    // rebuild rather than risk silently corrupting slice indices.
+    private static Texture2D ResizeTexture(Texture2D source, int newWidth, int newHeight)
+    {
+        RenderTexture rt = RenderTexture.GetTemporary(newWidth, newHeight, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+        RenderTexture.active = rt;
+        Graphics.Blit(source, rt);
+        Texture2D result = new Texture2D(newWidth, newHeight, TextureFormat.RGBAFloat, false, true);
+        result.ReadPixels(new Rect(0, 0, newWidth, newHeight), 0, 0);
+        result.Apply();
+        RenderTexture.active = null;
+        RenderTexture.ReleaseTemporary(rt);
+        return result;
+    }
+
+    private static void SaveOrReplaceArray(ref Texture2DArray newArray, Texture2DArray existing, string path)
+    {
+        if (existing != null)
+        {
+            EditorUtility.CopySerialized(newArray, existing);
+            UnityEngine.Object.DestroyImmediate(newArray);
+            newArray = existing;
+        }
+        else
+        {
+            AssetDatabase.CreateAsset(newArray, path);
+        }
+    }
+
     public static void HandleLightmapChanged(string group, string lightName)
     {
         try
         {
             LightingManager mgr = UnityEngine.Object.FindObjectOfType<LightingManager>();
-            if (mgr == null || mgr.lightLayerArray == null)
+            if (mgr == null || mgr.lightLayerArrayPC == null)
             {
                 Debug.Log("[Layered Lighting] '" + group + "_" + lightName +
                           "' changed, but no existing array to patch — run Build Array once first.");
@@ -94,7 +112,7 @@ public static class ArrayBuilder
                 foreach (Light l in mgr.childLights)
                 {
                     if (l == null) continue;
-                    if (FindRNMSet(g, l.name, texturesByName).IsValid) { anyLight = true; break; }
+                    if (FindLightmapTexture(g, l.name, texturesByName).IsValid) { anyLight = true; break; }
                 }
                 if (anyLight) validGroups.Add(g);
             }
@@ -118,16 +136,13 @@ public static class ArrayBuilder
             }
 
             // ── Safe to patch in place from here on ──
-            string rawXPath = OUTPUT_FOLDER + group + "_" + lightName + RNM_X_SUFFIX + ".exr";
-            string rawYPath = OUTPUT_FOLDER + group + "_" + lightName + RNM_Y_SUFFIX + ".exr";
-            string rawZPath = OUTPUT_FOLDER + group + "_" + lightName + RNM_Z_SUFFIX + ".exr";
+            string rawPath = OUTPUT_FOLDER + group + "_" + lightName + LIGHTMAP_TEXTURE_SUFFIX + ".exr";
             var rawFileNames = new List<string>();
-            foreach (string p in new[] { rawXPath, rawYPath, rawZPath })
-                if (File.Exists(p)) rawFileNames.Add(Path.GetFileName(p));
+            if (File.Exists(rawPath)) rawFileNames.Add(Path.GetFileName(rawPath));
 
             if (rawFileNames.Count == 0)
             {
-                Debug.LogWarning("[Layered Lighting] No raw RNM files on disk for '" + group + "_" + lightName + "'.");
+                Debug.LogWarning("[Layered Lighting] No raw lightmap file on disk for '" + group + "_" + lightName + "'.");
                 return;
             }
 
@@ -142,50 +157,43 @@ public static class ArrayBuilder
                 return;
             }
 
-            foreach (string p in new[] { rawXPath, rawYPath, rawZPath })
-            {
-                string denoisedPath = p.Replace(".exr", DENOISED_INFIX + ".exr");
-                if (File.Exists(denoisedPath))
-                    AssetDatabase.ImportAsset(denoisedPath, ImportAssetOptions.ForceUpdate);
-            }
+            string denoisedPath = rawPath.Replace(".exr", DENOISED_INFIX + ".exr");
+            if (File.Exists(denoisedPath))
+                AssetDatabase.ImportAsset(denoisedPath, ImportAssetOptions.ForceUpdate);
             AssetDatabase.Refresh();
 
             texturesByName = CollectProjectTextures();
-            RNMSet rnm = FindRNMSet(group, lightName, texturesByName);
-            if (!rnm.IsValid)
+            LightmapEntry entry = FindLightmapTexture(group, lightName, texturesByName);
+            if (!entry.IsValid)
             {
-                Debug.LogWarning("[Layered Lighting] Still no valid RNM set for '" + lightName +
+                Debug.LogWarning("[Layered Lighting] Still no valid lightmap texture for '" + lightName +
                                   "' after denoising — aborting.");
                 return;
             }
 
-            Texture2DArray array = mgr.lightLayerArray;
+            Texture2DArray array = mgr.lightLayerArrayPC;
             int sizeX = array.width, sizeY = array.height;
             int groupIndex = validGroups.IndexOf(group);
             int sliceSlot = mgr.childLightLayerSlices[lightIndex];
-            int baseArraySlice = sliceSlot * 3 + validGroups.Count;
+            int baseArraySlice = sliceSlot + validGroups.Count;
 
-            EditorUtility.DisplayProgressBar("Layered Lighting", "Updating slices for '" + lightName + "'…", 0.5f);
+            EditorUtility.DisplayProgressBar("Layered Lighting", "Updating slice for '" + lightName + "'…", 0.5f);
 
-            WriteTextureIntoArraySlice(array, rnm.X, baseArraySlice + 0, sizeX, sizeY);
-            WriteTextureIntoArraySlice(array, rnm.Y, baseArraySlice + 1, sizeX, sizeY);
-            WriteTextureIntoArraySlice(array, rnm.Z, baseArraySlice + 2, sizeX, sizeY);
+            WriteTextureIntoArraySlice(array, entry.Texture, baseArraySlice, sizeX, sizeY);
 
             // The group mask blends every light in the group, so it has to be
             // regenerated whenever any one of them changes — not just copied.
-            var rnmList = new List<Texture2D>();
+            var lightmapList = new List<Texture2D>();
             foreach (Light l in mgr.childLights)
             {
                 if (l == null) continue;
-                RNMSet r = FindRNMSet(group, l.name, texturesByName);
-                if (!r.IsValid) continue;
-                if (r.X != null) rnmList.Add(r.X);
-                if (r.Y != null) rnmList.Add(r.Y);
-                if (r.Z != null) rnmList.Add(r.Z);
+                LightmapEntry e = FindLightmapTexture(group, l.name, texturesByName);
+                if (!e.IsValid) continue;
+                lightmapList.Add(e.Texture);
             }
 
             var report = new System.Text.StringBuilder();
-            Texture2D mask = BuildMaskTexture(rnmList, sizeX, sizeY, groupIndex, validGroups.Count, report);
+            Texture2D mask = BuildMaskTexture(lightmapList, sizeX, sizeY, groupIndex, validGroups.Count, report);
             if (mask != null)
             {
                 WriteTextureIntoArraySlice(array, mask, groupIndex, sizeX, sizeY);
@@ -197,8 +205,8 @@ public static class ArrayBuilder
             EditorUtility.SetDirty(mgr);
             AssetDatabase.SaveAssets();
 
-            Debug.Log("[Layered Lighting] Patched '" + lightName + "' (group '" + group + "') in place — slices " +
-                      baseArraySlice + "-" + (baseArraySlice + 2) + ", mask slice " + groupIndex + ".");
+            Debug.Log("[Layered Lighting] Patched '" + lightName + "' (group '" + group + "') in place — slice " +
+                      baseArraySlice + ", mask slice " + groupIndex + ".");
         }
         finally
         {
@@ -206,18 +214,14 @@ public static class ArrayBuilder
         }
     }
 
-    // Resolves to the folder this .cs file lives in at compile time, so the
-    // script path stays correct no matter where the package is installed from
-    // (embedded, git, or otherwise) — no hardcoded absolute paths.
+
     private static string GetDenoiseScriptPath(
         [System.Runtime.CompilerServices.CallerFilePath] string thisFilePath = "")
     {
         return Path.Combine(Path.GetDirectoryName(thisFilePath), DENOISE_SCRIPT_NAME);
     }
 
-    // Writes a single source texture into one slice of an EXISTING Texture2DArray
-    // asset (no new array is allocated) — this is what makes the incremental
-    // path possible. Mirrors the per-texture step inside BuildArray().
+
     private static bool WriteTextureIntoArraySlice(Texture2DArray target, Texture2D src,
         int sliceIndex, int sizeX, int sizeY)
     {
@@ -261,8 +265,8 @@ public static class ArrayBuilder
         return true;
     }
 
-    // ── Main entry point (full rebuild, unchanged) ───────────────────────────
-    [MenuItem("Meenphie/Layered Lighting/Build Array")]
+    // ── Main entry point (full rebuild) ───────────────────────────
+    [MenuItem("Meenphie/Layered Lighting/Build Lightmap Array")]
     public static void AutoAssignLightLayers()
     {
         try
@@ -292,7 +296,7 @@ public static class ArrayBuilder
             Dictionary<string, string> texturesByName = CollectProjectTextures();
             report.AppendLine(texturesByName.Count + " textures found under Assets.");
 
-            // ── Detailed scan: show every light & whether it has textures ──
+            // ── Detailed scan: show every light & whether it has a texture ──
             report.AppendLine("=== Scanning all " + mgr.childLights.Length + " lights in the scene ===");
             foreach (Light l in mgr.childLights)
             {
@@ -301,16 +305,16 @@ public static class ArrayBuilder
                 bool foundAny = false;
                 foreach (string group in allGroupNames)
                 {
-                    RNMSet rnm = FindRNMSet(group, ln, texturesByName);
-                    if (rnm.IsValid)
+                    LightmapEntry entry = FindLightmapTexture(group, ln, texturesByName);
+                    if (entry.IsValid)
                     {
                         foundAny = true;
-                        report.AppendLine($"  [texture] {ln} -> group '{group}' (X:{rnm.X != null} Y:{rnm.Y != null} Z:{rnm.Z != null})");
+                        report.AppendLine($"  [texture] {ln} -> group '{group}'");
                         break;
                     }
                 }
                 if (!foundAny)
-                    report.AppendLine($"  [missing] {ln} -> no RNM textures found for any group");
+                    report.AppendLine($"  [missing] {ln} -> no lightmap texture found for any group");
             }
             report.AppendLine("=== End light scan ===");
 
@@ -326,8 +330,8 @@ public static class ArrayBuilder
                 foreach (Light l in mgr.childLights)
                 {
                     if (l == null) continue;
-                    RNMSet rnm = FindRNMSet(group, l.name, texturesByName);
-                    if (rnm.IsValid) lightsWithTextures++;
+                    LightmapEntry entry = FindLightmapTexture(group, l.name, texturesByName);
+                    if (entry.IsValid) lightsWithTextures++;
                 }
                 if (lightsWithTextures > 0)
                 {
@@ -361,9 +365,9 @@ public static class ArrayBuilder
 
             int totalLights = lightCountPerGroup.Values.Sum();
             string message = validGroups.Count + " zone(s) with lightmaps:" + groupInfo +
-                             "\n\n" + totalLights + " lights total × 3 = " + (totalLights * 3) +
+                             "\n\n" + totalLights + " lights = " + totalLights +
                              " slices, plus " + validGroups.Count + " mask slices = " +
-                             (totalLights * 3 + validGroups.Count) + " total slices." +
+                             (totalLights + validGroups.Count) + " total slices." +
                              "\n\nCookies found: " + cookieCount + " lights with a cookie assigned." +
                              "\n\nBuild array?";
 
@@ -408,12 +412,11 @@ public static class ArrayBuilder
                 foreach (Light l in mgr.childLights)
                 {
                     if (l == null) continue;
-                    RNMSet rnm = FindRNMSet(group, l.name, texturesByName);
-                    if (rnm.IsValid)
+                    LightmapEntry entry = FindLightmapTexture(group, l.name, texturesByName);
+                    if (entry.IsValid)
                     {
-                        if (rnm.X != null) { dimRef = rnm.X; break; }
-                        if (rnm.Y != null) { dimRef = rnm.Y; break; }
-                        if (rnm.Z != null) { dimRef = rnm.Z; break; }
+                        dimRef = entry.Texture;
+                        break;
                     }
                 }
                 if (dimRef != null) break;
@@ -430,20 +433,15 @@ public static class ArrayBuilder
                 EditorUtility.DisplayProgressBar("Layered Lighting",
                     "Generating mask for '" + group + "' (" + (gi + 1) + "/" + validGroups.Count + ")…", prog);
 
-                List<Texture2D> rnmList = new List<Texture2D>();
+                List<Texture2D> lightmapList = new List<Texture2D>();
                 foreach (Light l in mgr.childLights)
                 {
                     if (l == null) continue;
-                    RNMSet rnm = FindRNMSet(group, l.name, texturesByName);
-                    if (rnm.IsValid)
-                    {
-                        if (rnm.X != null) rnmList.Add(rnm.X);
-                        if (rnm.Y != null) rnmList.Add(rnm.Y);
-                        if (rnm.Z != null) rnmList.Add(rnm.Z);
-                    }
+                    LightmapEntry entry = FindLightmapTexture(group, l.name, texturesByName);
+                    if (entry.IsValid) lightmapList.Add(entry.Texture);
                 }
 
-                Texture2D maskTex = BuildMaskTexture(rnmList, sizeX, sizeY, gi, validGroups.Count, report);
+                Texture2D maskTex = BuildMaskTexture(lightmapList, sizeX, sizeY, gi, validGroups.Count, report);
                 if (maskTex == null)
                 {
                     Debug.LogError("[Layered Lighting] Mask generation failed for group '" + group + "'.\n" + report);
@@ -454,7 +452,7 @@ public static class ArrayBuilder
                 report.AppendLine("  [mask] Group='" + group + "' -> slice " + gi);
             }
 
-            // Match lights to groups and assign slice indices (unchanged from original)
+            // Match lights to groups and assign slice indices (1 slice per light now)
             var newChildLights = new List<Light>();
             var newSlice = new List<int>();
             var newGroupMask = new List<int>();
@@ -479,18 +477,18 @@ public static class ArrayBuilder
                 bool hasAnyGroup = false;
 
                 string matchedGroup = null;
-                RNMSet matchedRnm = default;
+                LightmapEntry matchedEntry = default;
                 var conflictingGroups = new List<string>();
 
                 foreach (string group in validGroups)
                 {
-                    RNMSet rnm = FindRNMSet(group, lightName, texturesByName);
-                    if (!rnm.IsValid) continue;
+                    LightmapEntry entry = FindLightmapTexture(group, lightName, texturesByName);
+                    if (!entry.IsValid) continue;
 
                     if (matchedGroup == null)
                     {
                         matchedGroup = group;
-                        matchedRnm = rnm;
+                        matchedEntry = entry;
                     }
                     else
                     {
@@ -507,7 +505,7 @@ public static class ArrayBuilder
 
                 if (matchedGroup != null)
                 {
-                    int sliceSlot = orderedTextures.Count / 3;
+                    int sliceSlot = orderedTextures.Count;
                     int bit = 1 << validGroups.IndexOf(matchedGroup);
 
                     newChildLights.Add(d.light);
@@ -521,14 +519,12 @@ public static class ArrayBuilder
                     newFault.Add(d.faultState);
                     newAudioOverride.Add(d.audioOverride);
 
-                    orderedTextures.Add(matchedRnm.X);
-                    orderedTextures.Add(matchedRnm.Y);
-                    orderedTextures.Add(matchedRnm.Z);
+                    orderedTextures.Add(matchedEntry.Texture);
 
                     hasAnyGroup = true;
                     report.AppendLine("  [ok]   " + lightName + "  group=" + matchedGroup +
                                       "  sliceSlot=" + sliceSlot +
-                                      "  arraySlice=" + (sliceSlot * 3 + validGroups.Count) +
+                                      "  arraySlice=" + (sliceSlot + validGroups.Count) +
                                       "  bit=" + bit);
                 }
 
@@ -548,47 +544,69 @@ public static class ArrayBuilder
                 }
             }
 
-            // Build texture array
-            EditorUtility.DisplayProgressBar("Layered Lighting", "Building texture array…", 0.80f);
-            var finalTextureList = new List<Texture2D>();
-            finalTextureList.AddRange(maskTextures);
-            finalTextureList.AddRange(orderedTextures);
+            // ── Build PC array (original resolution) ──
+            EditorUtility.DisplayProgressBar("Layered Lighting", "Building PC texture array…", 0.75f);
+            var finalTextureListPC = new List<Texture2D>();
+            finalTextureListPC.AddRange(maskTextures);
+            finalTextureListPC.AddRange(orderedTextures);
 
-            Texture2DArray builtArray = BuildArray(finalTextureList, sizeX, sizeY, report);
-            if (builtArray == null)
+            Texture2DArray builtArrayPC = BuildArray(finalTextureListPC, sizeX, sizeY, report);
+            if (builtArrayPC == null)
             {
-                Debug.LogError("[Layered Lighting] Texture array build failed.\n" + report);
+                Debug.LogError("[Layered Lighting] PC texture array build failed.\n" + report);
                 return;
             }
+            builtArrayPC.name = OUTPUT_NAME_PC;
 
-            builtArray.name = OUTPUT_NAME;
+            // ── Build Quest array (half resolution) ──
+            int questSizeX = Mathf.Max(1, sizeX / 2);
+            int questSizeY = Mathf.Max(1, sizeY / 2);
+            EditorUtility.DisplayProgressBar("Layered Lighting", "Building Quest texture array (half res)…", 0.85f);
 
-            // Clean up temp textures
+            var questTextures = new List<Texture2D>();
+            foreach (var tex in finalTextureListPC)
+            {
+                if (tex == null) continue;
+                Texture2D resized = ResizeTexture(tex, questSizeX, questSizeY);
+                questTextures.Add(resized);
+            }
+
+            Texture2DArray builtArrayQuest = BuildArray(questTextures, questSizeX, questSizeY, report);
+            if (builtArrayQuest == null)
+            {
+                Debug.LogError("[Layered Lighting] Quest texture array build failed.\n" + report);
+                return;
+            }
+            builtArrayQuest.name = OUTPUT_NAME_QUEST;
+
+            // Nettoyage des textures temporaires Quest
+            foreach (var tex in questTextures)
+                UnityEngine.Object.DestroyImmediate(tex);
+
+            // Nettoyage des masques et placeholder
             foreach (var tex in maskTextures) if (tex != null) UnityEngine.Object.DestroyImmediate(tex);
             foreach (var tex in orderedTextures)
                 if (tex != null && tex.name.StartsWith("BlackPlaceholder"))
                     UnityEngine.Object.DestroyImmediate(tex);
 
-            // Save array and assign to manager
-            EditorUtility.DisplayProgressBar("Layered Lighting", "Saving array…", 0.95f);
+            // Sauvegarde des deux assets
             EnsureFolder(OUTPUT_FOLDER);
-            string assetPath = OUTPUT_FOLDER + OUTPUT_NAME + ".asset";
-            Texture2DArray existingAsset = AssetDatabase.LoadAssetAtPath<Texture2DArray>(assetPath);
-            if (existingAsset != null)
-            {
-                EditorUtility.CopySerialized(builtArray, existingAsset);
-                UnityEngine.Object.DestroyImmediate(builtArray);
-                builtArray = existingAsset;
-            }
-            else
-            {
-                AssetDatabase.CreateAsset(builtArray, assetPath);
-            }
+            string assetPathPC = OUTPUT_FOLDER + OUTPUT_NAME_PC + ".asset";
+            string assetPathQuest = OUTPUT_FOLDER + OUTPUT_NAME_QUEST + ".asset";
+
+            Texture2DArray existingPC = AssetDatabase.LoadAssetAtPath<Texture2DArray>(assetPathPC);
+            Texture2DArray existingQuest = AssetDatabase.LoadAssetAtPath<Texture2DArray>(assetPathQuest);
+
+            SaveOrReplaceArray(ref builtArrayPC, existingPC, assetPathPC);
+            SaveOrReplaceArray(ref builtArrayQuest, existingQuest, assetPathQuest);
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            // Assignation aux champs PC/Quest du manager
             Undo.RecordObject(mgr, "Layered Lighting Build Array");
-            mgr.lightLayerArray = builtArray;
+            mgr.lightLayerArrayPC = builtArrayPC;
+            mgr.lightLayerArrayQuest = builtArrayQuest;
             mgr.lightmapGroupCount = validGroups.Count;
             mgr.childLights = newChildLights.ToArray();
             mgr.childLightLayerSlices = newSlice.ToArray();
@@ -683,8 +701,6 @@ public static class ArrayBuilder
             foreach (var t in uniqueCookies)
                 UnityEngine.Object.DestroyImmediate(t);
 
-            Debug.Log("[Layered Lighting] Done. " + validGroups.Count + " groups, " +
-                      totalLights + " lights, " + builtArray.depth + " slices. Saved to: " + assetPath + "\n" + report);
         }
         finally
         {
@@ -693,11 +709,11 @@ public static class ArrayBuilder
     }
 
     // ── Per-group mask generation ─────────────────────────────────────────────
-    private static Texture2D BuildMaskTexture(List<Texture2D> rnmTextures,
+    private static Texture2D BuildMaskTexture(List<Texture2D> lightmapTextures,
         int sizeX, int sizeY, int groupIndex, int totalGroups,
         System.Text.StringBuilder report)
     {
-        if (rnmTextures == null || rnmTextures.Count == 0) return null;
+        if (lightmapTextures == null || lightmapTextures.Count == 0) return null;
 
         if (sizeX % 4 != 0 || sizeY % 4 != 0)
             Debug.LogWarning("[Layered Lighting] Mask size " + sizeX + "x" + sizeY +
@@ -720,17 +736,17 @@ public static class ArrayBuilder
             RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
         rt.Create();
 
-        for (int i = 0; i < rnmTextures.Count; i++)
+        for (int i = 0; i < lightmapTextures.Count; i++)
         {
-            Texture2D src = rnmTextures[i];
+            Texture2D src = lightmapTextures[i];
             if (src == null) continue;
 
             float globalMin = (float)groupIndex / Mathf.Max(totalGroups, 1);
             float globalMax = (float)(groupIndex + 1) / Mathf.Max(totalGroups, 1);
             float p = Mathf.Lerp(globalMin, globalMax,
-                (float)i / Mathf.Max(rnmTextures.Count - 1, 1));
+                (float)i / Mathf.Max(lightmapTextures.Count - 1, 1));
             EditorUtility.DisplayProgressBar("Layered Lighting",
-                "Generating mask… " + (i + 1) + "/" + rnmTextures.Count +
+                "Generating mask… " + (i + 1) + "/" + lightmapTextures.Count +
                 " (" + src.name + ")", p);
 
             RenderTexture.active = rt;
@@ -771,8 +787,14 @@ public static class ArrayBuilder
         EditorUtility.CompressTexture(mask, TextureFormat.BC6H, 100);
         mask.Apply(false);
 
+        // NOTE: each light now contributes exactly 1 texture to this sum instead
+        // of 3 (X+Y+Z RNM basis), so the accumulated magnitude here is roughly
+        // 1/3 of what it was pre-refactor for an equivalent scene. The shader's
+        // DIFFUSE_MASK_THRESHOLD (5.0h) was calibrated against the old 3x
+        // magnitude — you'll likely want to retune it empirically in-editor
+        // after the first rebuild with real content.
         report.AppendLine("  [mask] BC6H " + sizeX + "x" + sizeY +
-                          " from " + rnmTextures.Count + " RNM textures.");
+                          " from " + lightmapTextures.Count + " lightmap textures.");
         return mask;
     }
 
@@ -794,7 +816,6 @@ public static class ArrayBuilder
             anisoLevel = ANISO
         };
         textureArray.Apply(false);
-        textureArray.name = OUTPUT_NAME;
 
         RenderTexture cache = RenderTexture.active;
         var rt = new RenderTexture(sizeX, sizeY, 0, RenderTextureFormat.ARGBFloat,
@@ -843,7 +864,6 @@ public static class ArrayBuilder
         UnityEngine.Object.DestroyImmediate(rt);
         RenderTexture.active = cache;
         textureArray.Apply(false, false);
-        textureArray.name = OUTPUT_NAME;
         return textureArray;
     }
 
@@ -931,31 +951,19 @@ public static class ArrayBuilder
         return dict;
     }
 
-    private static RNMSet FindRNMSet(string group, string lightName,
+    // Was FindRNMSet (3 lookups for X/Y/Z). Now a single lookup, tries the
+    // denoised variant first and falls back to the raw bake.
+    private static LightmapEntry FindLightmapTexture(string group, string lightName,
         Dictionary<string, string> texturesByName)
     {
-        var rnm = new RNMSet();
-        // Suffixes: try denoised first, then raw
-        string[] xSuffixes = { RNM_X_SUFFIX + DENOISED_INFIX, RNM_X_SUFFIX };
-        string[] ySuffixes = { RNM_Y_SUFFIX + DENOISED_INFIX, RNM_Y_SUFFIX };
-        string[] zSuffixes = { RNM_Z_SUFFIX + DENOISED_INFIX, RNM_Z_SUFFIX };
-
-        foreach (string sx in xSuffixes)
+        var entry = new LightmapEntry();
+        string[] suffixes = { LIGHTMAP_TEXTURE_SUFFIX + DENOISED_INFIX, LIGHTMAP_TEXTURE_SUFFIX };
+        foreach (string s in suffixes)
         {
-            rnm.X = FindTextureForGroupAndLight(group, lightName, sx, texturesByName);
-            if (rnm.X != null) break;
+            entry.Texture = FindTextureForGroupAndLight(group, lightName, s, texturesByName);
+            if (entry.Texture != null) break;
         }
-        foreach (string sy in ySuffixes)
-        {
-            rnm.Y = FindTextureForGroupAndLight(group, lightName, sy, texturesByName);
-            if (rnm.Y != null) break;
-        }
-        foreach (string sz in zSuffixes)
-        {
-            rnm.Z = FindTextureForGroupAndLight(group, lightName, sz, texturesByName);
-            if (rnm.Z != null) break;
-        }
-        return rnm;
+        return entry;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
