@@ -85,6 +85,7 @@ public class LightInspector : Editor
                 && mgr.childLightIsRealtime != null && index < mgr.childLightIsRealtime.Length
                 && mgr.childLightDiffuseEnabled != null && index < mgr.childLightDiffuseEnabled.Length
                 && mgr.childLightSpecularDistance != null && index < mgr.childLightSpecularDistance.Length
+                && mgr.childLightCastsShadow != null && index < mgr.childLightCastsShadow.Length
                 && mgr.childLightFaultState != null && index < mgr.childLightFaultState.Length
                 && mgr.childLightBrokenOnMin != null && index < mgr.childLightBrokenOnMin.Length
                 && mgr.childLightBrokenOnMax != null && index < mgr.childLightBrokenOnMax.Length
@@ -127,6 +128,13 @@ public class LightInspector : Editor
                 "Include the selected light(s) in the specular channel.",
                 e => e.manager.childLightSpecularDistance[e.index],
                 (e, v) => e.manager.childLightSpecularDistance[e.index] = v);
+
+            DrawSharedToggle(
+                tracked, "Casts Shadow",
+                "Marque la lumière comme éligible à un slot du shadow atlas (ShadowAtlasCaster), " +
+                "indépendamment du Shadow Type natif du composant Light.",
+                e => e.manager.childLightCastsShadow[e.index],
+                (e, v) => e.manager.childLightCastsShadow[e.index] = v);
 
             // ── Cookie (realtime only) ──────────────────────────────────
 

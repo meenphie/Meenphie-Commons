@@ -4,7 +4,7 @@ using System.Diagnostics;
 using UnityEditor;
 using Debug = UnityEngine.Debug;
 
-namespace Meenphie.Lighting
+namespace Meenphie.Commons
 {
     /// <summary>
     /// Runs denoise_batch_headless.sh as a child process and translates its

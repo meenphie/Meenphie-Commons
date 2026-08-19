@@ -5,7 +5,6 @@ using System;
 using System.IO;
 using System.Linq;
 using Meenphie.Commons;
-using Meenphie.Lighting;
 
 public static class LightmapArrayBuilder
 {

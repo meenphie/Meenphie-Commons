@@ -1,4 +1,4 @@
-﻿#if UDONSHARP
+#if UDONSHARP
 using UdonSharp;
 #endif
 using UnityEngine;
@@ -54,6 +54,7 @@ namespace Meenphie.Commons
         // falls back to a hardcoded default (see Start()).
         [HideInInspector] public float reflectionProbeMaxMip;
 
+
         [Header("Animation – Audio Clips")]
         public AudioClip faultAudioClip;
         [Range(0f, 1f)] public float audioMasterVolume = 1.0f;
@@ -67,6 +68,11 @@ namespace Meenphie.Commons
         public float specCameraFadeEnd = 20f;
         public float specCullMargin = 0f;
         private int _specCameraFadeEndID;
+
+        [Header("View Cone Culling")]
+        public float fovCullAngle = 240;
+        public float specularFovCullAngle = 90f;
+        public float coneCullMinDistance = 15f;
 
         public ShadowAtlasCaster shadowAtlasCaster;
         [Header("Shadow Map Atlas")]
@@ -99,9 +105,7 @@ namespace Meenphie.Commons
 
         [Header("Light Sources (auto-filled)")]
         public Light[] childLights;
-#if UNITY_EDITOR
-        public Vector3 debugViewerPos;
-#endif
+
         [HideInInspector] public Vector2[] childLightHalfExtents;
         [HideInInspector] public bool[] childLightIsRealtime;
         [HideInInspector] public Vector3[] childLightBakedColors;
@@ -109,6 +113,7 @@ namespace Meenphie.Commons
 
         [HideInInspector] public bool[] childLightDiffuseEnabled;
         [HideInInspector] public bool[] childLightSpecularDistance;
+        [HideInInspector] public bool[] childLightCastsShadow;
         [HideInInspector] public LightFaultState[] childLightFaultState;
         [HideInInspector] public int[] childLightGroupIndex;
         [HideInInspector] public AudioClip[] childLightAudioClipOverride;
@@ -198,6 +203,7 @@ namespace Meenphie.Commons
         private VRCPlayerApi _localPlayer;
         private float _viewerTickTimer;
         private float[] _lastAnimatedIntensity = new float[MAX_LIGHTS];
+        private Vector3 _viewForward;
 
         private bool _diffuseStaticEnabled = true;
         private bool _diffuseRealtimeEnabled = true;
@@ -302,22 +308,16 @@ namespace Meenphie.Commons
             if (cookieArray != null) VRCShader.SetGlobalTexture(_cookieArrayID, cookieArray);
 
 #if UNITY_ANDROID
-            if (reflectionProbeArrayQuest != null)
-                VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArrayQuest);
+            VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArrayQuest);
             VRCShader.SetGlobalFloat(_reflectionArrayValidID, reflectionProbeArrayQuest != null ? 1f : 0f);
 #else
-            if (reflectionProbeArrayPC != null)
-                VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArrayPC);
+            VRCShader.SetGlobalTexture(_reflectionProbeArrayID, reflectionProbeArrayPC);
             VRCShader.SetGlobalFloat(_reflectionArrayValidID, reflectionProbeArrayPC != null ? 1f : 0f);
 #endif
-
-            if (reflectionProbeData != null && reflectionProbeData.Length > 0)
-                VRCShader.SetGlobalVectorArray(_reflectionProbeDataID, reflectionProbeData);
-            if (reflectionProbeHDR != null && reflectionProbeHDR.Length > 0)
-                VRCShader.SetGlobalVectorArray(_reflectionProbeHDRID, reflectionProbeHDR);
+            VRCShader.SetGlobalVectorArray(_reflectionProbeDataID, reflectionProbeData);
+            VRCShader.SetGlobalVectorArray(_reflectionProbeHDRID, reflectionProbeHDR);
             VRCShader.SetGlobalFloat(_reflectionProbeCountID, (float)reflectionProbeCount);
             VRCShader.SetGlobalFloat(_reflectionProbeMaxMipID, reflectionProbeMaxMip);
-
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonCookieArrayValid"), cookieArray != null ? 1f : 0f);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightmapSliceOffset"), (float)lightmapGroupCount);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLODDistanceNear"), lodDistanceNear);
@@ -376,6 +376,24 @@ namespace Meenphie.Commons
             _sortRealtimeCandidates = new int[MAX_LIGHTS];
 
             _lastRateUpdateTime = Time.realtimeSinceStartup;
+
+            if (activeShadowChildIndex < 0)
+            {
+                for (int i = 0; i < childLights.Length; i++)
+                {
+                    Light l = childLights[i];
+                    if (l != null && l.enabled && l.gameObject.activeInHierarchy && childLightCastsShadow[i])
+                    {
+                        activeShadowChildIndex = i;
+                        break;
+                    }
+                }
+                if (activeShadowChildIndex >= 0)
+                {
+                    ForceRefresh();
+                    shadowAtlasCaster.UpdateShadowMatrices();
+                }
+            }
         }
 
         private void AllocatePhysicalAnimState()
@@ -477,6 +495,7 @@ namespace Meenphie.Commons
 
         private void ValidateChildArrays()
         {
+
             int cap = (childLights != null) ? childLights.Length : 0;
             childLightHalfExtents = ResizeOrDefault(childLightHalfExtents, cap, new Vector2(0.01f, 0.01f));
             childLightIsRealtime = ResizeOrDefault(childLightIsRealtime, cap, true);
@@ -484,7 +503,20 @@ namespace Meenphie.Commons
             childLightLayerSlices = ResizeOrDefault(childLightLayerSlices, cap, -1);
             childLightDiffuseEnabled = ResizeOrDefault(childLightDiffuseEnabled, cap, true);
             childLightSpecularDistance = ResizeOrDefault(childLightSpecularDistance, cap, true);
+
+            if (childLightCastsShadow == null || childLightCastsShadow.Length != cap)
+            {
+                bool[] resized = new bool[cap];
+                int copyLen = (childLightCastsShadow != null) ? Mathf.Min(childLightCastsShadow.Length, cap) : 0;
+                if (copyLen > 0) System.Array.Copy(childLightCastsShadow, resized, copyLen);
+                for (int i = copyLen; i < cap; i++)
+                    resized[i] = (childLights[i] != null) && (childLights[i].shadows != LightShadows.None);
+                childLightCastsShadow = resized;
+            }
+
             childLightFaultState = ResizeOrDefault(childLightFaultState, cap, LightFaultState.Normal);
+            childLightGroupIndex = ResizeOrDefault(childLightGroupIndex, cap, ~0);
+
             childLightGroupIndex = ResizeOrDefault(childLightGroupIndex, cap, ~0);
 
             childLightBrokenOnMin = ResizeOrDefault(childLightBrokenOnMin, cap, 0.01f);
@@ -635,7 +667,6 @@ namespace Meenphie.Commons
             shaderWasUpdated = false;
             shaderUpdatesThisFrame = 0;
 #endif
-
             if (!_isReady || childLights == null || childLights.Length == 0) return;
 
             float dt = Time.deltaTime;
@@ -652,8 +683,8 @@ namespace Meenphie.Commons
             }
             if (lightsChanged)
             {
-                ForceRefresh();
                 _mergedDirty = true;
+                ForceRefresh();
                 return;
             }
 
@@ -689,7 +720,7 @@ namespace Meenphie.Commons
             }
 
             if (shadowAtlasCaster != null && shadowAtlasCaster.enabled)
-                shadowAtlasCaster.UpdateShadowCameras();
+                shadowAtlasCaster.UpdateShadowMatrices();
 
             // ---- Per-frame performance metrics ----
             float elapsedMs = (Time.realtimeSinceStartup - startTime) * 1000f;
@@ -714,7 +745,8 @@ namespace Meenphie.Commons
             _debugTimer += dt;
             if (_debugTimer >= 1.0f)
             {
-                shaderUpdatesPerSecond = _debugUpdateCount / _debugTimer;
+                float currentRate = _debugUpdateCount / _debugTimer;
+                shaderUpdatesPerSecond = Mathf.Lerp(shaderUpdatesPerSecond, currentRate, 0.1f);
                 _debugTimer = 0f;
                 _debugUpdateCount = 0;
             }
@@ -726,7 +758,7 @@ namespace Meenphie.Commons
         // Physical animation (unchanged)
         private bool TickPhysicalAnimation(float dt)
         {
-            if (mergedCount == 0) return false;
+            if (mergedCount == 0 || _animatedMask == 0) return false;
             bool anyChanged = false;
 
             for (int mi = 0; mi < mergedCount; mi++)
@@ -739,7 +771,7 @@ namespace Meenphie.Commons
 
                 bool isFaulted = state != LightFaultState.Normal;
                 bool needsSettle = !isFaulted && Mathf.Abs(_faultIntensity[li] - 1f) > INTENSITY_EPSILON;
-                if (!isFaulted && !needsSettle) continue;
+                if (!isFaulted && !needsSettle) { _animatedMask &= ~(1 << mi); continue; }
 
                 float newIntensity = isFaulted
                     ? TickFault(li, mi, state, dt)
@@ -941,12 +973,16 @@ namespace Meenphie.Commons
             if (_mergedDirty) { BuildMergedGroups(); _mergedDirty = false; mergedRebuilt = true; }
             if (!_isReady || childLights == null || childLights.Length == 0) return;
 
-            Vector3 viewerPos = _localPlayer != null
-                ? _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position
-                : _thisTransform.position;
-#if UNITY_EDITOR
-            debugViewerPos = viewerPos;
-#endif
+            Vector3 viewerPos = _localPlayer != null ? _localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position : _thisTransform.position;
+
+            if (_localPlayer != null)
+            {
+                _viewForward = (_localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward).normalized;
+            }
+            else
+            {
+                _viewForward = _thisTransform.forward;
+            }
 
             bool viewerDue = mergedRebuilt || _viewerTickTimer >= VIEWER_UPDATE_INTERVAL || _lastFinalCount < 0;
             int finalCount;
@@ -1080,11 +1116,7 @@ namespace Meenphie.Commons
                 mergedFaultState[mi] = faultState;
                 mergedGroupMask[mi] = childLightGroupIndex[li];
 
-                // Any light with shadows enabled gets the flag — the shader decides
-                // where it actually applies (realtime: everywhere, baked: dynamic
-                // meshes only) via isBaked, so this is no longer gated on isRealtime.
-                bool castsShadows = (l.shadows != LightShadows.None);
-                mergedCastShadow[mi] = castsShadows;
+                mergedCastShadow[mi] = childLightCastsShadow[li];
 
                 _mergedBaseIntensity[mi] = intensity;
                 _mergedToChild[mi] = li;
@@ -1130,10 +1162,13 @@ namespace Meenphie.Commons
             float specCullDistSq = Sq(specCameraFadeEnd + specCullMargin);
             bool diffuseGloballyOn = _diffuseStaticEnabled || _diffuseRealtimeEnabled;
 
-            // Réinitialise les compteurs
             int bakedCount = 0, realtimeCount = 0;
 
-            // Passe 1 : précalcul des distances, séparation baked/realtime
+            // Culling conique : précalcul des cosinus des demi‑angles
+            float cosHalfFovGeneral = Mathf.Cos(fovCullAngle * 0.5f * Mathf.Deg2Rad);
+            float cosHalfFovSpecular = Mathf.Cos(specularFovCullAngle * 0.5f * Mathf.Deg2Rad);
+            float minDistSqForCone = coneCullMinDistance * coneCullMinDistance;
+
             for (int i = 0; i < mergedCount; i++)
             {
                 int li = _mergedToChild[i];
@@ -1149,6 +1184,27 @@ namespace Meenphie.Commons
                 float distSq = dx * dx + dy * dy + dz * dz;
                 if (distSq > maxDistSq) continue;
 
+                // --- Culling conique ---
+                // Uniquement si la light est assez loin pour éviter le popping des proches.
+                if (distSq > minDistSqForCone)
+                {
+                    float dist = Mathf.Sqrt(distSq);
+                    Vector3 toLight = new Vector3(mp.x - viewerPos.x, mp.y - viewerPos.y, mp.z - viewerPos.z);
+                    float cosAngle = (toLight.x * _viewForward.x + toLight.y * _viewForward.y + toLight.z * _viewForward.z) / dist;
+
+                    if (canDiffuse)
+                    {
+                        // Contribution diffuse : cône large
+                        if (cosAngle < cosHalfFovGeneral) continue;
+                    }
+                    else
+                    {
+                        // Spéculaire seulement : cône plus strict
+                        if (cosAngle < cosHalfFovSpecular) continue;
+                    }
+                }
+                // ---------------------
+
                 if (!isRealtime)
                 {
                     _sortBakedCandidates[bakedCount] = i;
@@ -1161,7 +1217,7 @@ namespace Meenphie.Commons
                 }
             }
 
-            // Tri par insertion pour chaque liste (optimisé pour petits tableaux)
+            // Tri par insertion des baked
             for (int i = 1; i < bakedCount; i++)
             {
                 int key = _sortBakedCandidates[i];
@@ -1180,6 +1236,7 @@ namespace Meenphie.Commons
                 _sortBakedCandidates[j + 1] = key;
             }
 
+            // Tri par insertion des realtime
             for (int i = 1; i < realtimeCount; i++)
             {
                 int key = _sortRealtimeCandidates[i];
@@ -1198,7 +1255,6 @@ namespace Meenphie.Commons
                 _sortRealtimeCandidates[j + 1] = key;
             }
 
-            // Remplissage final : baked en premier (priorité absolue)
             int count = 0;
             for (int i = 0; i < bakedCount && count < MAX_LIGHTS; i++)
             {
@@ -1224,7 +1280,7 @@ namespace Meenphie.Commons
         {
             if (childLightIndex == activeShadowChildIndex) return;
             activeShadowChildIndex = childLightIndex;
-            ForceRefresh(); // resort + AssignShadowSlots + upload immédiat, synchrone
+            ForceRefresh();
         }
 
         // Pratique si ton script de pickup n'a pas envie de connaître son propre index
@@ -1391,6 +1447,7 @@ namespace Meenphie.Commons
             if (cosOuter <= 0.0f) return 2;
             return 1;
         }
+
 
         // =================================================================
         //  LIGHTING TOGGLES (Diffuse Static / Diffuse Realtime / Specular / Reflection / Directionals)

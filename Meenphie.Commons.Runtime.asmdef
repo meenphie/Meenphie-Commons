@@ -2,7 +2,11 @@
     "name": "Meenphie.Commons.Runtime",
     "rootNamespace": "",
     "references": [
-        "GUID:99835874ee819da44948776e0df4ff1d"
+        "GUID:d60799ab2a985554ea1a39cd38695018",
+        "GUID:84265b35cca3905448e623ef3903f0ff",
+        "GUID:99835874ee819da44948776e0df4ff1d",
+        "GUID:627c4d5cd580ddf41bd320e784fe8b9d",
+        "GUID:3c1bc1267eab5884ebe7f232c09ee0d9"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -10,7 +14,9 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [],
+    "defineConstraints": [
+        "UDONSHARP"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }

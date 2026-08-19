@@ -70,8 +70,11 @@ public class ReflectionProbeArrayBuilder : EditorWindow
             Debug.LogWarning("Quest : Format BC7 non supporté par la plateforme actuelle, utilisation de DXT5.");
         }
 
+        // Un seul Vector4 par probe : position monde (xyz), w inutilisé.
+        // La sélection est faite per-pixel dans le shader par distance au centre.
         Vector4[] dataArray = new Vector4[MAX_PROBES * 3];
         Vector4[] hdrArray = new Vector4[MAX_PROBES];
+
         for (int i = 0; i < probes.Length; i++)
         {
             var probe = probes[i];
@@ -108,7 +111,7 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         };
         AssetDatabase.CreateAsset(arrayQuest, pathQuest);
 
-        // 3. Remplissage
+        // Remplissage
         for (int i = 0; i < probes.Length; i++)
         {
             ReflectionProbe probe = probes[i];
@@ -116,6 +119,7 @@ public class ReflectionProbeArrayBuilder : EditorWindow
 
             for (int face = 0; face < 6; face++)
             {
+                // PC : copie directe avec chaîne de mips complète
                 for (int mip = 0; mip < pcMipCount; mip++)
                 {
                     Graphics.CopyTexture(
@@ -128,6 +132,7 @@ public class ReflectionProbeArrayBuilder : EditorWindow
                     );
                 }
 
+                // Quest : downsampled, un seul mip
                 WriteDownsampledFace(sourceCube, face, pcRes, questRes, arrayQuest, (i * 6) + face, questFormat, questTexFormat);
             }
         }
@@ -136,7 +141,7 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         EditorUtility.SetDirty(arrayQuest);
         AssetDatabase.SaveAssets();
 
-        // 4. Assignation
+        // Assignation au manager
         Undo.RecordObject(mgr, "Build Reflection Probe Arrays");
         mgr.reflectionProbeArrayPC = arrayPC;
         mgr.reflectionProbeArrayQuest = arrayQuest;
@@ -147,78 +152,15 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         EditorUtility.SetDirty(mgr);
         AssetDatabase.SaveAssets();
 
+        // Uploads globaux (fallback pour les shaders qui ne passent pas par LightingManager)
         Shader.SetGlobalTexture("_UdonReflectionProbeArray", arrayPC);
         Shader.SetGlobalFloat("_UdonReflectionProbeCount", probes.Length);
         Shader.SetGlobalFloat("_UdonReflectionProbeMaxMip", pcMipCount - 1);
         Shader.SetGlobalVectorArray("_UdonReflectionProbeData", dataArray);
         Shader.SetGlobalVectorArray("_UdonReflectionProbeHDR", hdrArray);
 
-        AssignProbeIndexToMaterials(probes);
-
         Debug.Log($"[ReflectionProbeBuilder] Success – PC {pcRes}px, Quest {questRes}px, {probes.Length} probes dans {OUTPUT_FOLDER}.");
         ResetTempBuffers();
-    }
-
-    private static void AssignProbeIndexToMaterials(ReflectionProbe[] probes)
-    {
-        if (probes == null || probes.Length == 0) return;
-
-        var allRenderers = Object.FindObjectsOfType<Renderer>();
-
-        foreach (var rend in allRenderers)
-        {
-            if (rend.sharedMaterials == null) continue;
-            foreach (var mat in rend.sharedMaterials)
-            {
-                if (mat == null || !mat.HasProperty("_ProbeIndex")) continue;
-
-                // On utilise le centre du renderer comme point représentatif,
-                // comme Unity le fait approximativement.
-                Vector3 center = rend.bounds.center;
-                int bestIndex = FindBestProbeIndex(center, probes);
-                if (bestIndex >= 0)
-                {
-                    mat.SetFloat("_ProbeIndex", bestIndex);
-                    EditorUtility.SetDirty(mat);
-                }
-            }
-        }
-    }
-
-    private static int FindBestProbeIndex(Vector3 worldPos, ReflectionProbe[] probes)
-    {
-        int bestBoxProbe = -1;
-        float bestBoxVolume = float.MaxValue;
-
-        int bestNoBoxProbe = -1;
-        float bestNoBoxDist = float.MaxValue;
-
-        for (int i = 0; i < probes.Length; i++)
-        {
-            var probe = probes[i];
-            if (probe.boxProjection && probe.bounds.Contains(worldPos))
-            {
-                float volume = probe.bounds.size.x * probe.bounds.size.y * probe.bounds.size.z;
-                if (volume < bestBoxVolume)
-                {
-                    bestBoxVolume = volume;
-                    bestBoxProbe = i;
-                }
-            }
-            else
-            {
-                float dist = Vector3.Distance(worldPos, probe.transform.position);
-                if (dist < bestNoBoxDist)
-                {
-                    bestNoBoxDist = dist;
-                    bestNoBoxProbe = i;
-                }
-            }
-        }
-
-        // Priorité aux boîtes contenantes (comme Unity)
-        if (bestBoxProbe >= 0) return bestBoxProbe;
-        return bestNoBoxProbe;
     }
 
     private static void WriteDownsampledFace(Cubemap source, int face, int srcRes, int destRes,
@@ -238,7 +180,6 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         if (_tempTex == null || _tempTex.width != destRes)
         {
             if (_tempTex != null) Object.DestroyImmediate(_tempTex);
-            // RGBAHalf pour conserver la précision du RenderTexture ARGBHalf
             _tempTex = new Texture2D(destRes, destRes, TextureFormat.RGBAHalf, false, true);
         }
 

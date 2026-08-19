@@ -24,6 +24,7 @@ namespace Meenphie.Commons
         private int _lightNearID;
         private int _lightFarID;
         private int _shadowMap_ID;
+        private bool _initialized = false;
 
         private Transform _currentParent;
         private bool _shadowRenderingEnabled = true;
@@ -43,34 +44,30 @@ namespace Meenphie.Commons
             _lightFarID = VRCShader.PropertyToID("_Udon_LightFar");
             _shadowMap_ID = VRCShader.PropertyToID("_UdonShadowMap");
 
-            if (shadowCamera != null)
-            {
-                shadowCamera.enabled = false;
-                shadowCamera.targetTexture = shadowMap;
-            }
+            _initialized = true;
 
-            if (shadowMap != null)
-                VRCShader.SetGlobalTexture(_shadowMap_ID, shadowMap);
+            shadowCamera.depth = -100f;
+            shadowCamera.SetReplacementShader(shadowCasterShader, "RenderType");
 
+            shadowCamera.targetTexture = shadowMap;
+            shadowCamera.enabled = true;
+
+            VRCShader.SetGlobalTexture(_shadowMap_ID, shadowMap);
             VRCShader.SetGlobalMatrix(_shadowViewMatrixID, Matrix4x4.identity);
             VRCShader.SetGlobalMatrix(_shadowProjectionMatrixID, Matrix4x4.identity);
             VRCShader.SetGlobalMatrix(_lightViewMatrixID, Matrix4x4.identity);
 
-            VRCShader.SetGlobalFloat(_lightNearID, shadowCamera != null ? shadowCamera.nearClipPlane : 0.3f);
-            VRCShader.SetGlobalFloat(_lightFarID, shadowCamera != null ? shadowCamera.farClipPlane : 1000f);
+            VRCShader.SetGlobalFloat(_lightNearID, shadowCamera.nearClipPlane);
+            VRCShader.SetGlobalFloat(_lightFarID, shadowCamera.farClipPlane);
+
+            UpdateShadowMatrices();
         }
 
-        public void UpdateShadowCameras()
+        public void UpdateShadowMatrices()
         {
+            if (!_initialized) return;
             if (lightingManager == null || shadowCamera == null || !_shadowRenderingEnabled)
                 return;
-
-            VRCPlayerApi localPlayer = Networking.LocalPlayer;
-            if (localPlayer != null)
-            {
-                Vector3 viewPos = localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
-                VRCShader.SetGlobalVector(VRCShader.PropertyToID("_UdonMainCameraPos"), viewPos);
-            }
 
             Transform lightT = lightingManager.GetShadowSlotTransform(0);
             if (lightT == null)
@@ -87,8 +84,6 @@ namespace Meenphie.Commons
                 _currentParent = lightT;
             }
 
-            // On récupère la matrice brute de la caméra.
-            // Unity l'ajuste déjà partiellement pour la plateforme cible (DirectX/Vulkan/OpenGL).
             Matrix4x4 viewMatrix = shadowCamera.worldToCameraMatrix;
             Matrix4x4 projMatrix = shadowCamera.projectionMatrix;
 
@@ -97,8 +92,6 @@ namespace Meenphie.Commons
             VRCShader.SetGlobalMatrix(_lightViewMatrixID, viewMatrix);
             VRCShader.SetGlobalFloat(_lightNearID, shadowCamera.nearClipPlane);
             VRCShader.SetGlobalFloat(_lightFarID, shadowCamera.farClipPlane);
-
-            shadowCamera.RenderWithShader(shadowCasterShader, "RenderType");
         }
     }
 }

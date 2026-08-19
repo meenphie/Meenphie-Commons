@@ -15,7 +15,6 @@ uniform float4x4  _UdonShadowMatrixVP;   // Matrice de la lumière
     #define UDON_SHADOW_COMMON
     uniform float _UdonShadowRaySteps;
     uniform float _UdonShadowNearCasterExclude;
-    UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
 #endif
 
 static const float _RTShadowMaxDist    = 10.0;
