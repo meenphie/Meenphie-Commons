@@ -2,7 +2,7 @@
     #define LAYERED_LIGHTMAP_LIGHTING
 
     // Textures & buffers globaux
-    uniform float4 _UdonLightData[257];
+    uniform float4 _UdonLightData[513];
     static const int MAX_PROBES = 16;
 
     #if defined(SHADER_API_MOBILE)
@@ -17,6 +17,7 @@
 
     // Uniforms globaux
     uniform float _UdonReflectionArrayValid;
+    uniform float _UdonLightmapSliceOffset;
     uniform float _UdonReflectionProbeCount;
     uniform float _UdonReflectionProbeMaxMip;
     uniform float4 _UdonReflectionProbeData[MAX_PROBES * 3];
@@ -24,12 +25,12 @@
 
     uniform float _UdonCookieArrayValid;
     uniform float _UdonLightLayerArrayValid;
-    uniform float _UdonLightmapSliceOffset;
 
     uniform float _UdonDirectionalEnabled;
     uniform float _UdonDiffuseStaticEnabled;
     uniform float _UdonDiffuseRealtimeEnabled;
     uniform float _UdonRealtimeShadowsEnabled;
+    uniform float _UdonSSSEnabled;
 
     uniform float _UdonLODDistanceNear;
     uniform float _UdonLODDistanceFar;
@@ -49,28 +50,33 @@
     static const float _StaticDiffuseSmoothing     = 0.5;
 
     // Dynamic
-    static const float _MaxDynamicDiffuseRange     = 20.0;
+    static const float _MaxDynamicDiffuseRange     = 50.0;
     static const float _MaxDynamicDiffuseRangeSq   = _MaxDynamicDiffuseRange * _MaxDynamicDiffuseRange;
     static const half  _DynamicDiffuseBoost        = 0.25h;
     static const float _DynamicDiffuseSmoothing    = 0.1;
-    static const float _MinLightRadius             = 0.5;
+    static const float _MinLightRadius             = 1.0;
     static const float _UdonRealtimeDiffuseWrap    = 1.0;
 
-    static const half  _AreaIndirectBoost          = 0.05h;
-    static const half  _AreaMaskTransitionWidth    = 0.2h;
+    static const half  _AreaIndirectBoost          = 0.02h;
+    static const half  _AreaMaskTransitionWidth    = 0.1h;
 
     // Translucence 
-    static const half  _SSSDistortion              = 0.2h;  // courbe la direction lumière vers/à travers la normale (simule l'épaisseur traversée)
+    static const half  _SSSDistortion              = 0.05h;  // courbe la direction lumière vers/à travers la normale (simule l'épaisseur traversée)
     static const half  _SSSPower                   = 8.0h;  // resserre (grand) / élargit (petit) le halo de transmission
     static const half  _SSSAmbient                 = 0.0h;  // plancher constant additionnel, 0 = désactivé
 
     // Specular
-    static const float _MaxSpecularRange           = 100.0;
+    static const float _MaxSpecularRange           = 50.0;
     static const float _MaxSpecularRangeSq         = _MaxSpecularRange * _MaxSpecularRange;
     static const float _SpecularSmoothing          = 2.0;
     static const half  _StaticSpecBoost            = 0.05h;
     static const half  _DynamicSpecBoost           = 0.01h;
-    static const half  _MaxSpecIntensity           = 100.0h;
+    static const half  _MaxSpecIntensity           = 10.0h;
+
+    //GeometricAA
+    static const half _SpecularAAScreenSpaceVariance = 0.12h;
+    static const half _SpecularAAThreshold           = 0.0001h;
+    static const half _SpecularAAMinRoughness        = 0.1h;
 
     static const float _SpecularOcclusionMin           = 0.0;
     static const float _SpecularOcclusionMax           = 1.0;
@@ -84,25 +90,30 @@
     static const half _SpecIntensityFadeSmoothing  = 0.002h;
 
     // Reflection
-    static const float _UdonReflectionProbeBlendRadius = 4.0;
+    static const float _UdonReflectionProbeBlendRadius = 1.0;   // utilisé seulement si le builder n'a pas exporté de blendDistance (défaut Unity = 1)
     static const half  _StaticReflectionBoost      = 1.0h;
     static const half  _DynamicReflectionBoost     = 1.0h;
     static const float _DynamicReflectionSmoothing = 2.0;
+    static const float _UdonSpecCubeLodSteps       = 6.0;   // UNITY_SPECCUBE_LOD_STEPS : nombre de niveaux de rugosité des probes Unity
+    // Debug des réflexions (la valeur est lue à la compilation) :
+    //   0 = off | 1 = probe retenue par pixel (une couleur par index, noir = aucune)
+    //   2 = poids de la probe principale (blanc = seule/entière, gris = en fondu avec la 2e) | 3 = facteur d'occlusion
+    static const int   _UdonDebugReflection        = 0;
 
-    static const float _ReflectionOcclusionMin            = 0.1;
+    static const float _ReflectionOcclusionMin            = 0.15;
     static const float _ReflectionOcclusionMax            = 1.0;
     static const float _ReflectionOcclusionSmoothing      = 0.1;
-    static const float _ReflectionOcclusionSmoothingLow   = 0.1;   // largeur côté sombre
+    static const float _ReflectionOcclusionSmoothingLow   = 0.15;  // largeur côté sombre (0.15 = fondu de 0 jusqu'à Min : plus de contour franc, jamais moins de reflet qu'avant)
     static const float _ReflectionOcclusionSmoothingHigh  = 0.1;   // largeur côté clair
     static const half  _ReflectionOcclusionStrengthLow    = 1.0h;  // >1 = transition plus dure côté sombre, <1 = plus douce
     static const half  _ReflectionOcclusionStrengthHigh   = 1.0h;  // idem côté clair
 
     // Shadow
-    static const float _ShadowMapBias             = 0.00025;
-    static const float _ShadowMapSlopeBias        = 0.0004;
+    static const float _ShadowMapBias             = 0.0005;
+    static const float _ShadowMapSlopeBias        = 0.0005;
     static const float _UdonShadowBackfaceFadeStart  = -0.333; // début du fondu (N·L)
     static const float _UdonShadowBackfaceFadeEnd    = 0.2; // fin du fondu
-    static const float _UdonShadowBackfaceMaxThickness = 0.001;
+    static const float _UdonShadowBackfaceMaxThickness = 0.00025;
 
     // BRDF & utilitaires
     static const half  _NDotVFloor                 = 0.05h;
@@ -114,6 +125,29 @@
     static const half3 LUM = half3(1.0h, 1.0h, 1.0h);
 
 
+    half GeometricSpecularAA(
+    half3 geomNormalWS,
+    half3 viewDirWS,
+    float camDist,
+    half  perceptualRoughness,
+    half  metallic)
+    {
+        // Même gate que la version "GeometricAA" d'origine
+        if (metallic < 0.99h || perceptualRoughness < _SpecularAAMinRoughness)
+        return perceptualRoughness;
+
+        float pixelWorldSize = camDist * 0.002; // ~2mm à 1m (1080p, FOV ~90°) — à ajuster
+        half  distVar    = (half)(pixelWorldSize * pixelWorldSize * _SpecularAAScreenSpaceVariance);
+
+        half nDotV       = saturate(dot(geomNormalWS, viewDirWS));
+        half grazing     = 1.0h - nDotV;
+        half grazingVar  = grazing * grazing * _SpecularAAScreenSpaceVariance * 0.25h;
+
+        half variance = max(distVar + grazingVar - _SpecularAAThreshold, 0.0h);
+
+        half alpha = perceptualRoughness * perceptualRoughness + variance;
+        return sqrt(min(alpha, 1.0h));
+    }
 
     half3 _UdonSampleLightProbes(float3 normalWS)
     {
@@ -138,27 +172,68 @@
         return x1 + x2 + x3;
     }
 
-    void _UdonSelectProbes(float3 worldPos, out int idxA)
+    // Poids d'influence d'une probe en ce point : 0 à `blend` en dehors de la boîte, 0.5 sur la face,
+    // 1 à `blend` à l'intérieur. Deux boîtes qui se touchent fondent donc l'une dans l'autre de part et d'autre
+    // de leur frontière, au lieu de basculer d'un coup.
+    // Une surface qui regarde vers l'intérieur depuis une face (sol sur la face basse, mur sur une face latérale,
+    // plafond sur la face haute) ne doit pas s'estomper contre cette face : sa distance à la face est repoussée de
+    // `blend` en fonction de l'orientation de la normale. Le facteur est continu (smoothstep) : sur une voûte, le poids
+    // évolue progressivement avec la normale, sans seuil qui créerait une coupure franche dans le fondu.
+    float _UdonProbeInfluence(int probeIdx, float3 worldPos, float3 nrm)
     {
-        idxA = -1;
+        int b = probeIdx * 3;
+        float3 boxMin = _UdonReflectionProbeData[b + 1].xyz;
+        float3 boxMax = _UdonReflectionProbeData[b + 2].xyz;
 
-        int probeCount = (int)_UdonReflectionProbeCount;
-        if (probeCount <= 0) return;
+        float blend = _UdonReflectionProbeData[b + 0].w;   // blendDistance de la probe (0 = ancien export -> valeur par défaut)
+        if (blend <= 0.0) blend = _UdonReflectionProbeBlendRadius;
 
-        float bestBoxVolume = 1e30;
+        float3 dMin = worldPos - boxMin;   // > 0 à l'intérieur
+        float3 dMax = boxMax - worldPos;
+
+        dMin += smoothstep(0.2, 0.7,  nrm) * blend;   // normale vers +axe : la surface repose sur la face min
+        dMax += smoothstep(0.2, 0.7, -nrm) * blend;   // normale vers -axe : la surface repose sur la face max
+
+        float3 m3   = min(dMin, dMax);
+        float  edge = min(min(m3.x, m3.y), m3.z);          // distance signée à la face pertinente la plus proche
+
+        return saturate(edge / (2.0 * blend) + 0.5);
+    }
+
+    // Sélectionne les deux probes les plus prioritaires (importance d'abord, puis boîte la plus petite)
+    // parmi toutes celles qui influencent le pixel — box projection ou non.
+    void _UdonSelectProbes(float3 worldPos, float3 nrm,
+                           out int idxA, out int idxB, out half wA, out half wB)
+    {
+        idxA = -1; idxB = -1; wA = 1.0h; wB = 0.0h;
+
+        int probeCount = min((int)_UdonReflectionProbeCount, MAX_PROBES);
+        float impA = -1e30, volA = 1e30, wAf = 0.0;
+        float impB = -1e30, volB = 1e30, wBf = 0.0;
+
         for (int i = 0; i < probeCount; i++)
         {
-            int b = i * 3;
-            if (_UdonReflectionProbeData[b + 1].w <= 0.5) continue;   // pas une box projection
+            float w = _UdonProbeInfluence(i, worldPos, nrm);
+            if (w <= 0.0) continue;
 
-            float3 boxMin = _UdonReflectionProbeData[b + 1].xyz;
-            float3 boxMax = _UdonReflectionProbeData[b + 2].xyz;
-            if (!(all(worldPos >= boxMin) && all(worldPos <= boxMax))) continue;
+            int    b    = i * 3;
+            float3 size = _UdonReflectionProbeData[b + 2].xyz - _UdonReflectionProbeData[b + 1].xyz;
+            float  vol  = max(size.x * size.y * size.z, 1e-6);
+            float  imp  = _UdonReflectionProbeData[b + 2].w;   // importance Unity (0 = ancien export)
 
-            float3 size   = boxMax - boxMin;
-            float volume  = max(size.x * size.y * size.z, 1e-6);
-            if (volume < bestBoxVolume) { bestBoxVolume = volume; idxA = i; }
+            if (imp > impA || (imp == impA && vol < volA))
+            {
+                idxB = idxA; impB = impA; volB = volA; wBf = wAf;
+                idxA = i;    impA = imp;  volA = vol;  wAf = w;
+            }
+            else if (imp > impB || (imp == impB && vol < volB))
+            {
+                idxB = i; impB = imp; volB = vol; wBf = w;
+            }
         }
+
+        wA = (half)wAf;
+        wB = (half)wBf;
     }
 
     // Direction d'échantillonnage dans la probe : ré-ancrage par intersection rayon/boîte
@@ -174,14 +249,18 @@
             float3 boxMin   = _UdonReflectionProbeData[b + 1].xyz;
             float3 boxMax   = _UdonReflectionProbeData[b + 2].xyz;
 
+            // Origine ramenée dans la boîte : identique à worldPos à l'intérieur, et continue dans la zone
+            // de fondu juste à l'extérieur (où l'intersection rayon/boîte n'a plus de sens).
+            float3 origin  = clamp(worldPos, boxMin, boxMax);
+
             float3 dir     = normalize(ray);
             float3 safeDir = dir + (dir == 0.0 ? 1e-5 : 0.0);
-            float3 tMax    = (boxMax - worldPos) / safeDir;
-            float3 tMin    = (boxMin - worldPos) / safeDir;
+            float3 tMax    = (boxMax - origin) / safeDir;
+            float3 tMin    = (boxMin - origin) / safeDir;
             float3 tHit    = lerp(tMin, tMax, step(0.0, safeDir));
-            float  fa       = min(min(tHit.x, tHit.y), tHit.z);
+            float  fa      = max(min(min(tHit.x, tHit.y), tHit.z), 0.0);
 
-            ray = dir * fa + (worldPos - probePos);
+            ray = dir * fa + (origin - probePos);
         }
         return ray;
     }
@@ -229,28 +308,76 @@
         #endif
     }
 
+    // Rugosité perceptuelle -> niveau de mip, même courbe que Unity (Unity_GlossyEnvironment) :
+    // les probes bakées par Unity sont convoluées avec cette répartition, pas linéairement.
+    // maxMip doit valoir ~6 (UNITY_SPECCUBE_LOD_STEPS) pour des probes bakées par Unity.
+    float _UdonRoughnessToMip(float perceptualRoughness, float maxMip)
+    {
+        return perceptualRoughness * (1.7 - 0.7 * perceptualRoughness) * maxMip;
+    }
+
+    // Couleur de la probe `idx` dans la direction de réflexion (box projection gérée dans _UdonProbeSampleRay).
+    half3 _UdonSampleProbeColor(int idx, float3 worldPos, float3 reflDir, float mip)
+    {
+        float3 ray = _UdonProbeSampleRay(worldPos, reflDir, idx);
+        float4 smp = _UdonSampleProbeArray(idx, ray, mip);
+        return (half3)DecodeHDR(smp, _UdonReflectionProbeHDR[idx]);
+    }
+
+    // Une couleur par index de probe (debug). Jamais noir : le noir est réservé à "aucune probe".
+    half3 _UdonDebugProbeColor(int i)
+    {
+        float3 c = 0.5 + 0.5 * cos(6.2831853 * ((float)i * 0.381966 + float3(0.0, 0.33, 0.67)));
+        return (half3)(0.15 + 0.85 * c);
+    }
+
+    // geomN = normale géométrique (sans normal map) : sert à choisir/fondre les probes, pour que le détail de
+    // normal map ne fasse pas scintiller le poids de fondu.
     half3 _UdonComputeReflectionArray(
-    float3 WorldPos, half3 N, half3 vDir, half3 R,
+    float3 WorldPos, half3 N, half3 geomN, half3 vDir, half3 R,
     half nDotV, half Metallic, half Roughness, half3 F0,
     bool isDynamicMesh, half occlusionFactor)
     {
-        int idxA;
-        _UdonSelectProbes(WorldPos, idxA);
-        if (idxA < 0 || (float)idxA >= _UdonReflectionProbeCount) return (half3)0;
+        int idxA, idxB;
+        half wA, wB;
+        _UdonSelectProbes(WorldPos, (float3)geomN, idxA, idxB, wA, wB);
 
-        float maxMip   = (_UdonReflectionProbeMaxMip > 0.0) ? _UdonReflectionProbeMaxMip : _MaxReflectionMipFallback;
-        float mipLevel = (float)Roughness * maxMip;
+        // Debug (voir _UdonDebugReflection) : 1 = probe retenue (noir = aucune), 2 = poids de A, 3 = occlusion
+        if (_UdonDebugReflection == 1) return (idxA >= 0) ? _UdonDebugProbeColor(idxA) : (half3)0;
+        if (_UdonDebugReflection == 2) return (half3)((idxB >= 0) ? wA : 1.0h);
+        if (_UdonDebugReflection == 3) return (half3)occlusionFactor;
 
-        // Box projection → ré-ancrage rayon/boîte (corrige le parallaxe), sinon R direct.
-        float3 rayA   = _UdonProbeSampleRay(WorldPos, (float3)R, idxA);
-        float4 smpA   = _UdonSampleProbeArray(idxA, rayA, mipLevel);
-        half3  colA   = (half3)DecodeHDR(smpA, _UdonReflectionProbeHDR[idxA]);
+        if (idxA < 0) return (half3)0;
 
-        half3 fresnel = F0;
-        half3 F_refl = F0 + (max(half3(1.0h - Roughness, 1.0h - Roughness, 1.0h - Roughness), F0) - F0) * fresnel;
+        // Unity convolue ses probes sur UNITY_SPECCUBE_LOD_STEPS (6) niveaux, pas sur toute la chaîne de mips.
+        float maxMip   = (_UdonReflectionProbeMaxMip > 0.0) ? min(_UdonReflectionProbeMaxMip, _UdonSpecCubeLodSteps) : _MaxReflectionMipFallback;
+        float mipLevel = _UdonRoughnessToMip((float)Roughness, maxMip);
+
+        half3 colA = _UdonSampleProbeColor(idxA, WorldPos, (float3)R, mipLevel);
+
+        // Fondu avec la deuxième probe : A garde son poids, le reste va à B pondéré par sa propre influence
+        // (B arrive donc à 0 à la limite de sa zone, sans apparition brutale). Une probe seule n'est jamais atténuée.
+        if (idxB >= 0 && wA < 0.999h)
+        {
+            half3 colB = _UdonSampleProbeColor(idxB, WorldPos, (float3)R, mipLevel);
+            half  bw   = (1.0h - wA) * wB;
+            colA = (colA * wA + colB * bw) / max(wA + bw, 1e-4h);
+        }
+
+        // Fresnel Schlick (formulation Unity Standard : F0 de face -> grazingTerm à l'angle rasant)
+        half  oneMinusNV  = 1.0h - saturate(nDotV);
+        half  fresnelTerm = oneMinusNV * oneMinusNV;
+        fresnelTerm       = fresnelTerm * fresnelTerm * oneMinusNV;      // (1 - nDotV)^5
+        half3 grazingTerm = max((half3)(1.0h - Roughness), F0);
+        half3 F_refl      = lerp(F0, grazingTerm, fresnelTerm);
+
+        // Surface reduction (Unity Standard) : atténue le reflet des surfaces rugueuses.
+        half  alphaR           = Roughness * Roughness;
+        half  surfaceReduction = 1.0h / (alphaR * alphaR + 1.0h);
+
         half boost   = isDynamicMesh ? _DynamicReflectionBoost : _StaticReflectionBoost;
 
-        return colA * F_refl * boost * occlusionFactor;
+        return colA * F_refl * surfaceReduction * boost * occlusionFactor;
     }
 
     half _UdonComputeOcclusionFactor(
@@ -292,6 +419,8 @@
         return t * _UdonLODMaxMip;
     }
 
+    // NB : ces trois helpers ne sont plus appelés par _UdonAccumulateLight (masques inlinés
+    // avec un dot partagé). Conservés au cas où un autre include les utiliserait.
     half _UdonSpotMask(half3 L_norm, half3 lightFwd, half cosOuter, half cosInner)
     {
         half cosAngle = dot(-L_norm, lightFwd);
@@ -329,7 +458,7 @@
     {
         if (!hasShadow || _UdonRealtimeShadowsEnabled < 0.5) return 1.0h;
 
-        // Produit scalaire N·L
+        // Produit scalaire N·L (réutilisé pour le test backface ET le slope bias)
         half nDotL = dot(defaultN, L_norm);
 
         float3 lightView = mul(_UdonShadowViewMatrix, float4(WorldPos, 1.0)).xyz;
@@ -346,61 +475,59 @@
         if (edgeDist <= 0.0) return 1.0h;
 
         float myDepth = saturate((viewDepth - _Udon_LightNear) / max(_Udon_LightFar - _Udon_LightNear, 1e-5));
-        float bias = _ShadowMapBias + _ShadowMapSlopeBias * saturate(1.0 - dot((float3)defaultN, (float3)L_norm));
 
-        // Échantillon central pour l'épaisseur
-        float storedDepth = UNITY_SAMPLE_TEX2D_LOD(_UdonShadowMap, shadowUV, 0).r;
-        // Épaisseur en unités monde (positive si le pixel est derrière la surface la plus proche)
-        float thickness = (myDepth - storedDepth) * (_Udon_LightFar - _Udon_LightNear);
+        half atten;
 
-        // PCF classique
-        float2 texel = _UdonShadowMap_TexelSize.xy;
-        half atten = 0.0h;
-        [unroll]
-        for (int y = 0; y <= 1; y++)
+        if (nDotL < 0.0h)
         {
-            [unroll]
-            for (int x = 0; x <= 1; x++)
-            {
-                float2 uv = shadowUV + (float2(x, y) - 0.5) * texel;
-                float sampleDepth = UNITY_SAMPLE_TEX2D_LOD(_UdonShadowMap, uv, 0).r;
-                atten += (myDepth - bias <= sampleDepth) ? 1.0h : 0.0h;
-            }
+            // Backface par rapport à la lumière : deuxième couche d'un objet double-face.
+            // On autorise la lumière à traverser si l'épaisseur est faible (objet fin),
+            // sinon on force l'ombre (blocage par plusieurs couches).
+            // Un seul tap suffit : le PCF serait de toute façon écrasé.
+            float storedDepth = UNITY_SAMPLE_TEX2D_LOD(_UdonShadowMap, shadowUV, 0).r;
+            // Épaisseur en unités monde (positive si le pixel est derrière la surface la plus proche)
+            float thickness = (myDepth - storedDepth) * (_Udon_LightFar - _Udon_LightNear);
+            atten = (thickness < _UdonShadowBackfaceMaxThickness) ? 1.0h : 0.0h;
         }
-        atten *= 0.25h;
-
-        // Si la face est une backface par rapport à la lumière (nDotL < 0)
-        // elle appartient à la deuxième couche d'un objet double-face.
-        // On autorise la lumière à traverser si l'épaisseur est faible (objet fin),
-        // sinon on force l'ombre (blocage par plusieurs couches).
-        if (nDotL < 0.0)
+        else
         {
-            if (thickness < _UdonShadowBackfaceMaxThickness)
+            // Face avant : PCF 2x2 (l'épaisseur n'est pas utilisée dans ce cas)
+            float bias = _ShadowMapBias + _ShadowMapSlopeBias * saturate(1.0 - (float)nDotL);
+            float2 texel = _UdonShadowMap_TexelSize.xy;
+            atten = 0.0h;
+            [unroll]
+            for (int y = 0; y <= 1; y++)
             {
-                atten = 1.0h; // laisse passer la lumière à travers une seule backface fine
-            }
-            else
-            {
-                atten = 0.0h; // plusieurs backfaces successives → ombre
+                [unroll]
+                for (int x = 0; x <= 1; x++)
+                {
+                    float2 uv = shadowUV + (float2(x, y) - 0.5) * texel;
+                    float sampleDepth = UNITY_SAMPLE_TEX2D_LOD(_UdonShadowMap, uv, 0).r;
+                    atten += (myDepth - bias <= sampleDepth) ? 0.25h : 0.0h;
+                }
             }
         }
 
         // Fondu sur les bords de la shadow map pour éviter les artefacts
         const float edgeFadeMargin = 0.05;
         half edgeBlend = (half)smoothstep(0.0, edgeFadeMargin, edgeDist);
-        return lerp(1.0h, atten, edgeBlend); // ou simplement atten si edgeBlend déjà géré
+        return lerp(1.0h, atten, edgeBlend);
     }
 
+    // Les valeurs par pixel (a2, lambdaV, alignThreshold, camFade) sont calculées une seule fois
+    // dans LayeredLightmapLighting et passées ici, au lieu d'être recalculées à chaque lumière.
+    // specPixelOn = specularGlobalEnabled && pixel dans la portée caméra du spéculaire.
     void _UdonAccumulateLight(
     int    baseIdx,
     float3 WorldPos, half3 N, half3 defaultN, half3 R, half3 vDir,
-    float  effectiveLod, half  nDotV,
-    half3 F0, half Roughness,
+    float  effectiveLod,
+    half3 F0,
+    half  a2, half lambdaV, half alignThreshold, half camFade,
     half Thickness, half3 SubsurfaceColor,
     float2 MainUV, float2 LightmapUV,
     bool   isDynamicMesh,
     bool   arrayValid,
-    bool   specularGlobalEnabled,
+    bool   specPixelOn,
     bool   diffuseStaticEnabled,
     bool   diffuseRealtimeEnabled,
     int    materialMask,
@@ -427,9 +554,9 @@
         bool isBaked    = (!isDynamicMesh) && (bakedColorAndRealtimeFlag.w < 0.5);
 
         #if defined(SHADER_API_MOBILE)
-            bool canSpecularBase = specularOn && specularGlobalEnabled && !isBaked;
+            bool canSpecularBase = specularOn && specPixelOn && !isBaked;
         #else
-            bool canSpecularBase = specularOn && specularGlobalEnabled;
+            bool canSpecularBase = specularOn && specPixelOn;
         #endif
 
         float3 lightPos = lightPosAndBakedIntensity.xyz;
@@ -462,11 +589,25 @@
         half   cosInner = (half)rangesAndType.w;
         int    lightType = (int)round(rangesAndType.z);
 
-        half spotMask = _UdonSpotMask(L_norm, dirVec, cosOuter, cosInner);
-        half areaMask = _UdonAreaMask(L_norm, dirVec); // large, sert au diffus (direct + backfill)
-        half dirMask = (lightType == 0) ? 1.0h : ((lightType == 1) ? spotMask : areaMask);
-
-        half specDirMask = (lightType == 2) ? _UdonAreaMaskSpecular(L_norm, dirVec) : dirMask;
+        // Masques directionnels : un seul dot partagé, seul le masque du type concerné est calculé.
+        // 0 = point/directionnelle, 1 = spot, 2 = area.
+        half dirMask     = 1.0h;
+        half specDirMask = 1.0h;
+        if (lightType != 0)
+        {
+            half frontDot = dot(-L_norm, dirVec);
+            if (lightType == 1)
+            {
+                dirMask     = smoothstep(cosOuter, cosInner, frontDot);
+                specDirMask = dirMask;
+            }
+            else
+            {
+                // large, sert au diffus (direct + backfill)
+                dirMask     = smoothstep(-_AreaMaskTransitionWidth, _AreaMaskTransitionWidth, frontDot);
+                specDirMask = (lightType == 2) ? saturate(frontDot * 4.0h) : dirMask;
+            }
+        }
 
         bool skippableByDirMask = !(isBaked && diffuseOn);
 
@@ -483,7 +624,7 @@
         int   shadowSlice = (int)round(rangesAndType.y);
 
         bool  wantsShadow = (shadowSlice >= 0) && !isBaked;
-        bool  cookieNeeded = (!isBaked) || (specularOn && specularGlobalEnabled);
+        bool  cookieNeeded = (!isBaked) || (specularOn && specPixelOn);
 
         if (wantsShadow)
         shadowAtten = _UdonComputeShadowMapShadow(WorldPos, defaultN, L_norm, vDir, true);
@@ -513,7 +654,9 @@
                     }
                 }
                 float2 inBounds2 = step(0.0, cookieUV) * step(cookieUV, 1.0);
-                float cookieSample = saturate(UNITY_SAMPLE_TEX2DARRAY(_UdonCookieArray, float3(cookieUV, (float)cookieSlice)).r);
+                // _LOD 0 : pas de dérivées dans une branche dynamique, et pas de flou de mip
+                // sur les bords du cône (cookieUV = -1 hors cône fausserait les dérivées).
+                float cookieSample = saturate(UNITY_SAMPLE_TEX2DARRAY_LOD(_UdonCookieArray, float3(cookieUV, (float)cookieSlice), 0).r);
                 cookieAtten = (half)(cookieSample * inBounds2.x * inBounds2.y);
             }
         }
@@ -527,7 +670,7 @@
             {
                 if (diffuseStaticEnabled && arrayValid && (layerSliceAndFlags.x >= 0) && distSq <= _MaxStaticDiffuseRangeSq)
                 {
-                    float baseSlice = (float)layerSliceAndFlags.x * 1.0 + _UdonLightmapSliceOffset;
+                    float baseSlice = (float)layerSliceAndFlags.x + _UdonLightmapSliceOffset;
                     half3 bakedTransfer = SampleLayerSlice(LightmapUV, baseSlice, effectiveLod);
 
                     half3 layerSample;
@@ -583,9 +726,9 @@
                     }
 
                     // --- Translucence simple (fake SSS) ---
-                    if (Thickness > 0.001h)
+                    if (_UdonSSSEnabled > 0.5h && Thickness > 0.001h)
                     {
-                        half3 transDir = normalize(L_norm + N * _SSSDistortion); // pousse la direction lumière "à travers" la surface
+                        half3 transDir = normalize(L_norm + N * _SSSDistortion);
                         half  transDot = pow(saturate(dot(vDir, -transDir)), _SSSPower);
                         half  transTerm = (transDot + _SSSAmbient) * Thickness;
                         diffOut += (currentCol * SubsurfaceColor) * transTerm * dirMask * diffFalloff * cookieAtten * shadowAtten;
@@ -597,18 +740,12 @@
         // ====================================================================
         // SPÉCULAIRE
         // ====================================================================
+        // canSpecularBase inclut déjà specPixelOn (donc le test de portée caméra) ;
+        // le fondu caméra (camFade) arrive précalculé en paramètre.
         if (!canSpecularBase) return;
         if (lightType == 2 && specDirMask <= 1e-4h) return; // derrière le plan émissif : pas de spéculaire, diffus déjà géré via le backfill
 
-        // --- Fondu caméra (inchangé) ---
-        float3 cameraToPixel = _WorldSpaceCameraPos - WorldPos;
-        float camDistSq = dot(cameraToPixel, cameraToPixel);
-        float specCameraFadeEnd = max(_UdonSpecCameraFadeEnd, 0.0);
-        if (camDistSq >= specCameraFadeEnd * specCameraFadeEnd) return;
-        float camDistToPixel = sqrt(camDistSq);
-        half camFade = 1.0h - smoothstep(0.0, specCameraFadeEnd, camDistToPixel);
-
-        // --- Portée spéculaire (inchangé) ---
+        // --- Portée spéculaire ---
         if (distSq > _MaxSpecularRangeSq) return;
 
         // ====================================================================
@@ -645,7 +782,6 @@
         }
 
         // --- Atténuation spéculaire (calculée tôt) ---
-        // --- Atténuation spéculaire (calculée tôt) ---
         float repDistSq = max(dot(repDiff, repDiff), 1e-6);
         half specFalloff = (half)rcp(max(repDistSq, _MinLightRadius * _MinLightRadius));
 
@@ -658,19 +794,13 @@
         half specIntensityEstimate = (isBaked ? _StaticSpecBoost : _DynamicSpecBoost)
         * estimLum * specFalloff * specDirMask * camFade * cookieAtten * shadowAtten;
 
-        // Early‑out uniquement si la contribution est strictement nulle (pas de popping)
-        half specVisibility = smoothstep(
-        _SpecIntensityFadeMin - _SpecIntensityFadeSmoothing,
-        _SpecIntensityFadeMin,
-        specIntensityEstimate
-        );
-
-        if (specVisibility <= 0.0h) return;  // en dessous du fondu, on skip le BRDF (coût zéro visuel)
+        if (specIntensityEstimate <= _SpecIntensityFadeMin) return; // Early-out réel
+        half specVisibility = smoothstep(_SpecIntensityFadeMin, _SpecIntensityFadeMin + _SpecIntensityFadeSmoothing, specIntensityEstimate);
 
         // --- Test d'alignement du lobe (généralisé) ---
+        // alignThreshold est précalculé par pixel (dépend uniquement de la rugosité)
         half rDotL = dot(R, L_norm);
-        half alignmentThreshold = lerp(0.6h, 0.1h, Roughness);
-        half alignmentFade = smoothstep(alignmentThreshold - 0.05h, alignmentThreshold + 0.05h, rDotL);
+        half alignmentFade = smoothstep(alignThreshold - 0.05h, alignThreshold + 0.05h, rDotL);
         if (alignmentFade <= 0.0h) return;
 
         // --- Maintenant seulement, on fait les calculs vectoriels coûteux ---
@@ -681,11 +811,10 @@
         if (nDotL_spec <= 0.0h) return;
 
         // --- BRDF GGX isotrope ---
-        half alpha = max((half)Roughness * (half)Roughness, _Alpha2Floor);
-
-        half D = alpha * alpha / (3.14159265h * pow(max(nDotH * nDotH * (alpha * alpha - 1.0h) + 1.0h, 1e-7h), 2.0h));
-        half lambdaV = nDotV * sqrt(alpha * alpha + (1.0h - alpha * alpha) * nDotV * nDotV);
-        half lambdaL = nDotL_spec * sqrt(alpha * alpha + (1.0h - alpha * alpha) * nDotL_spec * nDotL_spec);
+        // a2 (= alpha²) et lambdaV sont précalculés par pixel
+        half ggxDenom = max(nDotH * nDotH * (a2 - 1.0h) + 1.0h, 1e-7h);
+        half D = a2 / (3.14159265h * ggxDenom * ggxDenom);
+        half lambdaL = nDotL_spec * sqrt(a2 + (1.0h - a2) * nDotL_spec * nDotL_spec);
         half Vis = 0.5h * rcp(max(lambdaV + lambdaL, 1e-5h));
 
         half hDotV = saturate(dot(H, vDir));
@@ -697,8 +826,13 @@
         half brdf = D * Vis * specDirMask;
         half currentSpecBoost = isBaked ? _StaticSpecBoost : _DynamicSpecBoost;
 
+        // alignmentFade n'était utilisé que comme early-out : le spéculaire apparaissait d'un coup au seuil
+        // d'alignement. On l'applique, ainsi qu'un fondu près de l'horizon (nDotL_spec -> 0), où le BRDF
+        // (sans terme cosinus) gardait une valeur non nulle et se coupait net.
+        half horizonFade = smoothstep(0.0h, 0.25h, nDotL_spec);
+
         specOut = max((half3)0, currentCol * fresnel * brdf * specFalloff * camFade * currentSpecBoost * cookieAtten * shadowAtten);
-        specOut *= specVisibility;
+        specOut *= specVisibility * alignmentFade * horizonFade;
         specOut = min(specOut, (half3)_MaxSpecIntensity);
     }
 
@@ -744,15 +878,38 @@
         half3 defaultN = (half3)normalize(DefaultNormal);
         half3 vDir = (half3)normalize(ViewDir);
         half3 R = reflect(-vDir, N);
+
         float camDist = distance(_WorldSpaceCameraPos, WorldPos);
+        half nDotV    = max(dot(N, vDir), _NDotVFloor);
+
+        half specularAARoughness = GeometricSpecularAA(
+        N, vDir, camDist, (half)Roughness, (half)Metallic);
+
         float effectiveLod = _UdonDistanceLODBias(camDist);
-        half nDotV = max(dot(N, vDir), _NDotVFloor);
 
         float specFadeEnd = max(_UdonSpecCameraFadeEnd, 0.0);
         bool  specInRange = (camDist * camDist) < (specFadeEnd * specFadeEnd);
 
+        // Le spéculaire n'est actif pour ce pixel que si le global est activé ET si le pixel est
+        // dans la portée caméra. Passé à _UdonAccumulateLight à la place de specularGlobalEnabled.
+        bool specPixelOn = specularGlobalEnabled && specInRange;
+
         half3 F0 = lerp(half3(0.04h, 0.04h, 0.04h), (half3)Color, (half)Metallic);
         int materialMask = (int)round(LightGroupMask);
+
+        // --- Constantes spéculaires par pixel (calculées une seule fois, hors de la boucle) ---
+        half a2 = 0.0h;
+        half lambdaV = 0.0h;
+        half alignThreshold = 0.0h;
+        half camFade = 0.0h;
+        if (specPixelOn)
+        {
+            half alpha = max(specularAARoughness * specularAARoughness, _Alpha2Floor);
+            a2 = alpha * alpha;
+            lambdaV = nDotV * sqrt(a2 + (1.0h - a2) * nDotV * nDotV);
+            alignThreshold = lerp(0.6h, 0.1h, specularAARoughness);
+            camFade = 1.0h - smoothstep(0.0, specFadeEnd, camDist);
+        }
 
         half3 diffAcc = half3(0,0,0);
         half3 specAccBaked = half3(0,0,0);
@@ -760,16 +917,18 @@
 
         int effectiveLoopCount = loopCount;
 
+        [loop]
         for (int i = 0; i < effectiveLoopCount; i++)
         {
             int baseIdx = i * 8 + 1;
             half3 diffC, specC;
             
             _UdonAccumulateLight(baseIdx, WorldPos, N, defaultN, R, vDir, effectiveLod,
-            nDotV, F0, (half)Roughness,
+            F0,
+            a2, lambdaV, alignThreshold, camFade,
             (half)Thickness, (half3)SubsurfaceColor,
             MainUV, LightmapUV,
-            isDynamicMesh, arrayValid, specularGlobalEnabled,
+            isDynamicMesh, arrayValid, specPixelOn,
             diffuseStaticEnabled, diffuseRealtimeEnabled,
             materialMask, diffC, specC);
 
@@ -786,7 +945,7 @@
         half rawDiffLum = dot(diffAcc, LUM);
         half occlusionFactor = 1.0h;
         #if defined(_DIFFUSE_ON)
-            if (diffuseAnyEnabled)
+            if (diffuseAnyEnabled && !isDynamicMesh)
             {
                 half occRaw = saturate(rawDiffLum);
                 occlusionFactor = _UdonComputeOcclusionFactor(occRaw,
@@ -800,7 +959,10 @@
         if (Roughness < 0.99 && reflectionGlobalEnabled && _UdonReflectionArrayValid > 0.5)
         {
             // Direction de réflexion standard (pas d'anisotropie)
-            refl = _UdonComputeReflectionArray(WorldPos, N, vDir, R, nDotV, (half)Metallic, (half)Roughness, F0, isDynamicMesh, occlusionFactor);
+            refl = _UdonComputeReflectionArray(WorldPos, N, defaultN, vDir, R, nDotV, (half)Metallic, specularAARoughness, F0, isDynamicMesh, occlusionFactor);
+
+            // Le seuil Roughness < 0.99 coupait le reflet d'un coup : on l'éteint progressivement avant ce seuil.
+            refl *= 1.0h - smoothstep(0.9h, 0.99h, (half)Roughness);
         }
 
         if (diffuseAnyEnabled)

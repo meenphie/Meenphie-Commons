@@ -10,7 +10,19 @@ public class LightInspector : Editor
     private Editor _defaultEditor;
     private bool _foldoutOpen = true;
 
-    private static readonly string[] FaultStateNames = { "Normal", "Broken", "Panic", "Off" };
+    // Dérivé de l'enum du manager : reste synchronisé si un état est ajouté.
+    private static readonly string[] FaultStateNames = System.Enum.GetNames(typeof(LightFaultState));
+
+    // FindObjectsOfType à chaque événement IMGUI (plusieurs par frame, un de plus à chaque mouvement de souris)
+    // coûte cher dans une grosse scène : on garde la liste une seconde.
+    private static LightingManager[] _managers;
+    private static double _managersTime = -10.0;
+    private const double ManagerCacheSeconds = 1.0;
+
+    // En Play, le LightingManager que voit cet éditeur est le proxy C# : MarkDirty() s'exécuterait sur lui et pas dans
+    // le programme Udon qui tourne. SendCustomEvent (hérité d'UdonSharpBehaviour) envoie l'événement au programme.
+    private static readonly System.Reflection.MethodInfo SendCustomEventMethod =
+        typeof(LightingManager).GetMethod("SendCustomEvent", new[] { typeof(string) });
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
     private void OnSceneGUI()
@@ -22,6 +34,7 @@ public class LightInspector : Editor
 
     private void OnEnable()
     {
+        _managers = null;
         var defaultEditorType = System.Type.GetType("UnityEditor.LightEditor, UnityEditor");
         if (defaultEditorType != null)
             _defaultEditor = CreateEditor(targets, defaultEditorType);
@@ -40,13 +53,38 @@ public class LightInspector : Editor
 
     public override void OnInspectorGUI()
     {
+        EditorGUI.BeginChangeCheck();
         if (_defaultEditor != null)
             _defaultEditor.OnInspectorGUI();
         else
             base.OnInspectorGUI();
+        bool lightEdited = EditorGUI.EndChangeCheck();
+
+        // Intensité, couleur, type... modifiés dans la partie standard : l'aperçu en mode Édition doit suivre.
+        if (lightEdited) QueuePreviewForSelection();
 
         EditorGUILayout.Space(6);
         DrawLayeredLightingFoldout();
+    }
+
+    // U# compile tout l'assembly (inspector compris) avec COMPILER_UDONSHARP défini : QueuePreviewRefresh n'existe que
+    // dans le bloc éditeur du manager, donc les appels sont gardés de la même façon.
+    private void QueuePreviewForSelection()
+    {
+#if !COMPILER_UDONSHARP
+        if (Application.isPlaying) return;
+
+        var seen = new HashSet<LightingManager>();
+        foreach (Object t in targets)
+        {
+            Light light = t as Light;
+            if (light == null) continue;
+
+            int index;
+            LightingManager mgr = FindManagerFor(light, out index);
+            if (mgr != null && seen.Add(mgr)) mgr.QueuePreviewRefresh();
+        }
+#endif
     }
 
     // ── Entry struct ───────────────────────────────────────────────────────
@@ -79,24 +117,10 @@ public class LightInspector : Editor
             Light light = t as Light;
             if (light == null) continue;
 
-            LightingManager mgr = FindManagerFor(light, out int index);
+            int index;
+            LightingManager mgr = FindManagerFor(light, out index);
 
-            bool valid = mgr != null && index >= 0
-                && mgr.childLightIsRealtime != null && index < mgr.childLightIsRealtime.Length
-                && mgr.childLightDiffuseEnabled != null && index < mgr.childLightDiffuseEnabled.Length
-                && mgr.childLightSpecularDistance != null && index < mgr.childLightSpecularDistance.Length
-                && mgr.childLightCastsShadow != null && index < mgr.childLightCastsShadow.Length
-                && mgr.childLightFaultState != null && index < mgr.childLightFaultState.Length
-                && mgr.childLightBrokenOnMin != null && index < mgr.childLightBrokenOnMin.Length
-                && mgr.childLightBrokenOnMax != null && index < mgr.childLightBrokenOnMax.Length
-                && mgr.childLightBrokenOffMin != null && index < mgr.childLightBrokenOffMin.Length
-                && mgr.childLightBrokenOffMax != null && index < mgr.childLightBrokenOffMax.Length
-                && mgr.childLightBrokenOnIntensity != null && index < mgr.childLightBrokenOnIntensity.Length
-                && mgr.childLightPanicSpeed != null && index < mgr.childLightPanicSpeed.Length
-                && mgr.childLightPanicIntensityMin != null && index < mgr.childLightPanicIntensityMin.Length
-                && mgr.childLightPanicIntensityMax != null && index < mgr.childLightPanicIntensityMax.Length;
-
-            if (!valid)
+            if (!IsTracked(mgr, index))
             {
                 untracked.Add(light.gameObject.name);
                 continue;
@@ -107,232 +131,10 @@ public class LightInspector : Editor
 
         if (tracked.Count > 0)
         {
-            // ── Rendering ─────────────────────────────────────────────────
-
-            EditorGUILayout.LabelField("Rendering", EditorStyles.boldLabel);
-
-            DrawSharedToggle(
-                tracked, "Is Realtime",
-                "Forces the selected light(s) into the analytic (non-lightmap) diffuse branch.",
-                e => e.manager.childLightIsRealtime[e.index],
-                (e, v) => e.manager.childLightIsRealtime[e.index] = v);
-
-            DrawSharedToggle(
-                tracked, "Diffuse",
-                "Include the selected light(s) in the diffuse channel.",
-                e => e.manager.childLightDiffuseEnabled[e.index],
-                (e, v) => e.manager.childLightDiffuseEnabled[e.index] = v);
-
-            DrawSharedToggle(
-                tracked, "Specular",
-                "Include the selected light(s) in the specular channel.",
-                e => e.manager.childLightSpecularDistance[e.index],
-                (e, v) => e.manager.childLightSpecularDistance[e.index] = v);
-
-            DrawSharedToggle(
-                tracked, "Casts Shadow",
-                "Marque la lumière comme éligible à un slot du shadow atlas (ShadowAtlasCaster), " +
-                "indépendamment du Shadow Type natif du composant Light.",
-                e => e.manager.childLightCastsShadow[e.index],
-                (e, v) => e.manager.childLightCastsShadow[e.index] = v);
-
-            // ── Cookie (realtime only) ──────────────────────────────────
-
-            // Check if any selected light is realtime
-            bool anyRealtime = false;
-            foreach (var e in tracked)
-                if (e.manager.childLightIsRealtime[e.index]) { anyRealtime = true; break; }
-
-            // ── Cookie (shown for all tracked lights; array sizing and tooltip
-            //    both apply beyond just "this light is realtime") ──
-            EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("Cookie", EditorStyles.boldLabel);
-
-            foreach (var e in tracked)
-            {
-                int cap = e.manager.childLights.Length;
-                EnsureCookieArraysSized(e.manager, cap);
-            }
-
-            DrawSharedObjectField(
-                tracked, "Cookie Texture",
-                "Assign a Texture2D cookie. It will be used on dynamic meshes and for lights marked as realtime.",
-                e => (e.manager.childLightCookieTexture != null && e.index < e.manager.childLightCookieTexture.Length)
-                     ? e.manager.childLightCookieTexture[e.index] : null,
-                (e, v) =>
-                {
-                    if (e.manager.childLightCookieTexture != null && e.index < e.manager.childLightCookieTexture.Length)
-                        e.manager.childLightCookieTexture[e.index] = v;
-                });
-
-            if (anyRealtime && tracked.Count == 1 && tracked[0].manager.childLightIsRealtime[tracked[0].index])
-            {
-                var e = tracked[0];
-                if (e.manager.childLightCookieTexture[e.index] == null)
-                {
-                    EditorGUILayout.HelpBox(
-                        "No cookie texture assigned. Use the Cookie Texture field above to assign a Texture2D.",
-                        MessageType.Info);
-                }
-            }
-
-            // ── Animation ─────────────────────────────────────────────────
-
-            EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
-
-            DrawSharedDropdown(
-                tracked, "State",
-                "Normal: not animated.\nBroken: slow irregular blink with smooth fade.\nPanic: rapid erratic flicker at random intensities.",
-                FaultStateNames,
-                e => (int)e.manager.childLightFaultState[e.index],
-                (e, v) => e.manager.childLightFaultState[e.index] = (LightFaultState)v);
-
-            // Determine which states are present across the selection
-            bool anyBroken = false, anyPanic = false;
-            foreach (var e in tracked)
-            {
-                var s = e.manager.childLightFaultState[e.index];
-                if (s == LightFaultState.Broken) anyBroken = true;
-                if (s == LightFaultState.Panic) anyPanic = true;
-            }
-            bool anyNonNormal = anyBroken || anyPanic;
-
-            if (anyBroken)
-            {
-                EditorGUILayout.Space(4);
-                EditorGUILayout.LabelField("Broken timing", EditorStyles.miniBoldLabel);
-
-                DrawSharedSlider(
-                    tracked, "On min",
-                    "Minimum duration (seconds) the light stays on per blink.",
-                    0.001f, 5f,
-                    e => e.manager.childLightBrokenOnMin[e.index],
-                    (e, v) => e.manager.childLightBrokenOnMin[e.index] = v);
-
-                DrawSharedSlider(
-                    tracked, "On max",
-                    "Maximum duration (seconds) the light stays on per blink.",
-                    0.001f, 5f,
-                    e => e.manager.childLightBrokenOnMax[e.index],
-                    (e, v) => e.manager.childLightBrokenOnMax[e.index] = v);
-
-                DrawSharedSlider(
-                    tracked, "Off min",
-                    "Minimum duration (seconds) the light stays off per blink.",
-                    0.001f, 5f,
-                    e => e.manager.childLightBrokenOffMin[e.index],
-                    (e, v) => e.manager.childLightBrokenOffMin[e.index] = v);
-
-                DrawSharedSlider(
-                    tracked, "Off max",
-                    "Maximum duration (seconds) the light stays off per blink.",
-                    0.001f, 5f,
-                    e => e.manager.childLightBrokenOffMax[e.index],
-                    (e, v) => e.manager.childLightBrokenOffMax[e.index] = v);
-
-                DrawSharedSlider(
-                    tracked, "On intensity",
-                    "Intensity multiplier (0–1) applied to the light's base intensity when it is in its on-phase.",
-                    0f, 1f,
-                    e => e.manager.childLightBrokenOnIntensity[e.index],
-                    (e, v) => e.manager.childLightBrokenOnIntensity[e.index] = v);
-            }
-
-            if (anyPanic)
-            {
-                EditorGUILayout.Space(4);
-                EditorGUILayout.LabelField("Panic timing", EditorStyles.miniBoldLabel);
-
-                DrawSharedSlider(
-                    tracked, "Speed",
-                    "Controls how fast the light flickers. 0 = slow sparse blinks, 1 = rapid near-continuous strobe. " +
-                    "LightAnomalyController overwrites this at runtime based on proximity.",
-                    0f, 1f,
-                    e => e.manager.childLightPanicSpeed[e.index],
-                    (e, v) => e.manager.childLightPanicSpeed[e.index] = v);
-
-                DrawSharedSlider(
-                    tracked, "Intensity min",
-                    "Minimum random multiplier applied to the light's base intensity during a Panic on-phase. Values above 1 overshoot the base intensity.",
-                    0f, 2f,
-                    e => e.manager.childLightPanicIntensityMin[e.index],
-                    (e, v) => e.manager.childLightPanicIntensityMin[e.index] = v);
-
-                DrawSharedSlider(
-                    tracked, "Intensity max",
-                    "Maximum random multiplier applied to the light's base intensity during a Panic on-phase. Values above 1 overshoot the base intensity.",
-                    0f, 2f,
-                    e => e.manager.childLightPanicIntensityMax[e.index],
-                    (e, v) => e.manager.childLightPanicIntensityMax[e.index] = v);
-            }
-
-            // ── Audio override ─────────────────────────────────────────────
-
-            if (anyNonNormal)
-            {
-                EditorGUILayout.Space(4);
-                EditorGUILayout.LabelField("Audio (optional override)", EditorStyles.miniBoldLabel);
-
-                if (tracked.Count == 1)
-                {
-                    var e = tracked[0];
-                    bool hasOverride = e.manager.childLightAudioClipOverride != null
-                                   && e.index < e.manager.childLightAudioClipOverride.Length
-                                   && e.manager.childLightAudioClipOverride[e.index] != null;
-                    if (!hasOverride)
-                        EditorGUILayout.HelpBox("Default: the manager's fault audio clip.", MessageType.None);
-                }
-
-                DrawSharedAudioClipField(
-                    tracked,
-                    "Clip Override",
-                    "Replaces the manager's default fault clip for this specific light. Leave None to use the manager's clip.",
-                    e => (e.manager.childLightAudioClipOverride != null &&
-                          e.index < e.manager.childLightAudioClipOverride.Length)
-                         ? e.manager.childLightAudioClipOverride[e.index] : null,
-                    (e, v) =>
-                    {
-                        if (e.manager.childLightAudioClipOverride != null &&
-                            e.index < e.manager.childLightAudioClipOverride.Length)
-                            e.manager.childLightAudioClipOverride[e.index] = v;
-                    });
-
-                if (tracked.Count == 1)
-                {
-                    var e = tracked[0];
-                    AudioSource src = e.light.GetComponent<AudioSource>();
-                    if (src == null)
-                    {
-                        EditorGUILayout.HelpBox(
-                            "No AudioSource found on this Light. Add one (3D, loop) to enable spatial audio.",
-                            MessageType.Warning);
-
-                        if (GUILayout.Button("Add AudioSource"))
-                        {
-                            Undo.AddComponent<AudioSource>(e.light.gameObject);
-                            AudioSource added = e.light.GetComponent<AudioSource>();
-                            added.spatialBlend = 1f;
-                            added.loop = true;
-                            added.playOnAwake = false;
-                            added.volume = 0f;
-                            EditorUtility.SetDirty(e.light.gameObject);
-                        }
-                    }
-                    else
-                    {
-                        EditorGUI.BeginDisabledGroup(true);
-                        EditorGUILayout.FloatField("Spatial Blend", src.spatialBlend);
-                        EditorGUILayout.FloatField("Max Distance", src.maxDistance);
-                        EditorGUI.EndDisabledGroup();
-
-                        if (!Mathf.Approximately(src.spatialBlend, 1f))
-                            EditorGUILayout.HelpBox(
-                                "Spatial Blend is not 1 — audio will not be fully 3D.",
-                                MessageType.Warning);
-                    }
-                }
-            }
+            DrawIgnoredNotice(tracked);
+            DrawRenderingSection(tracked);
+            DrawCookieSection(tracked);
+            DrawAnimationSection(tracked);
         }
 
         if (untracked.Count > 0)
@@ -349,83 +151,391 @@ public class LightInspector : Editor
         EditorGUILayout.EndFoldoutHeaderGroup();
     }
 
-    // ── Shared control helpers ─────────────────────────────────────────────
+    // ── Sections ───────────────────────────────────────────────────────────
 
-    private static void DrawSharedToggle(
-        List<Entry> entries, string label, string tooltip,
-        System.Func<Entry, bool> getValue,
-        System.Action<Entry, bool> setValue)
+    // Le manager n'envoie jamais au shader les lights directionnelles ni celles en Render Mode "Not Important".
+    private static void DrawIgnoredNotice(List<Entry> tracked)
     {
-        bool first = getValue(entries[0]);
-        bool mixed = false;
-        for (int i = 1; i < entries.Count; i++)
-            if (getValue(entries[i]) != first) { mixed = true; break; }
+        var names = new List<string>();
+        foreach (var e in tracked)
+            if (e.light.type == LightType.Directional || e.light.renderMode == LightRenderMode.ForceVertex)
+                names.Add(e.light.gameObject.name);
 
-        EditorGUI.showMixedValue = mixed;
-        EditorGUI.BeginChangeCheck();
-        bool newValue = EditorGUILayout.Toggle(new GUIContent(label, tooltip), first);
-        EditorGUI.showMixedValue = false;
+        if (names.Count == 0) return;
 
-        if (EditorGUI.EndChangeCheck())
-            CommitChange(entries, "Change " + label, e => setValue(e, newValue));
+        EditorGUILayout.HelpBox(
+            "Ignorée(s) par le LightingManager (directionnelle, ou Render Mode = Not Important) : "
+            + string.Join(", ", names.ToArray()) + ". Les réglages ci-dessous n'ont aucun effet pour elles.",
+            MessageType.Warning);
     }
 
-    private static void DrawSharedDropdown(
-        List<Entry> entries, string label, string tooltip, string[] options,
-        System.Func<Entry, int> getValue,
-        System.Action<Entry, int> setValue)
+    private static void DrawRenderingSection(List<Entry> tracked)
     {
-        int first = getValue(entries[0]);
-        bool mixed = false;
-        for (int i = 1; i < entries.Count; i++)
-            if (getValue(entries[i]) != first) { mixed = true; break; }
+        EditorGUILayout.LabelField("Rendering", EditorStyles.boldLabel);
 
-        EditorGUI.showMixedValue = mixed;
-        EditorGUI.BeginChangeCheck();
-        int newValue = EditorGUILayout.Popup(new GUIContent(label, tooltip), first, options);
-        EditorGUI.showMixedValue = false;
+        DrawSharedToggle(
+            tracked, "Is Realtime",
+            "Forces the selected light(s) into the analytic (non-lightmap) diffuse branch.",
+            e => e.manager.childLightIsRealtime[e.index],
+            (e, v) => e.manager.childLightIsRealtime[e.index] = v);
 
-        if (EditorGUI.EndChangeCheck())
-            CommitChange(entries, "Change " + label, e => setValue(e, newValue));
+        DrawSharedToggle(
+            tracked, "Diffuse",
+            "Include the selected light(s) in the diffuse channel.",
+            e => e.manager.childLightDiffuseEnabled[e.index],
+            (e, v) => e.manager.childLightDiffuseEnabled[e.index] = v);
+
+        DrawSharedToggle(
+            tracked, "Specular",
+            "Include the selected light(s) in the specular channel.",
+            e => e.manager.childLightSpecularDistance[e.index],
+            (e, v) => e.manager.childLightSpecularDistance[e.index] = v);
+
+        DrawSharedToggle(
+            tracked, "Casts Shadow",
+            "Marque la lumière comme éligible à un slot du shadow atlas (ShadowAtlasCaster), " +
+            "indépendamment du Shadow Type natif du composant Light.",
+            e => e.manager.childLightCastsShadow[e.index],
+            (e, v) => e.manager.childLightCastsShadow[e.index] = v);
+
+        // Cohérence realtime / lightmap : une light "baked" sans slice n'ajoute aucun diffus ;
+        // une light "realtime" ignore la lightmap bakée qui existe pour elle.
+        int bakedNoSlice = 0, realtimeWithSlice = 0;
+        foreach (var e in tracked)
+        {
+            bool realtime = e.manager.childLightIsRealtime[e.index];
+            int slice = SliceOf(e);
+            if (!realtime && slice < 0) bakedNoSlice++;
+            if (realtime && slice >= 0) realtimeWithSlice++;
+        }
+
+        if (tracked.Count == 1)
+        {
+            int slice = SliceOf(tracked[0]);
+            EditorGUILayout.LabelField("Lightmap slice", slice >= 0 ? slice.ToString() : "aucune (-1)");
+        }
+
+        if (bakedNoSlice > 0)
+            EditorGUILayout.HelpBox(
+                bakedNoSlice + " light(s) en Baked sans lightmap slice : elles n'ajoutent aucun diffus (spéculaire seulement). " +
+                "Relance le bake des layers, ou coche Is Realtime.",
+                MessageType.Warning);
+
+        if (realtimeWithSlice > 0)
+            EditorGUILayout.HelpBox(
+                realtimeWithSlice + " light(s) en Realtime alors qu'une lightmap bakée existe : elle est ignorée, " +
+                "la light passe par le diffus analytique.",
+                MessageType.Info);
     }
 
-    private static void DrawSharedSlider(
-        List<Entry> entries, string label, string tooltip, float min, float max,
-        System.Func<Entry, float> getValue,
-        System.Action<Entry, float> setValue)
+    private static void DrawCookieSection(List<Entry> tracked)
     {
-        float first = getValue(entries[0]);
-        bool mixed = false;
-        for (int i = 1; i < entries.Count; i++)
-            if (!Mathf.Approximately(getValue(entries[i]), first)) { mixed = true; break; }
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Cookie", EditorStyles.boldLabel);
 
-        EditorGUI.showMixedValue = mixed;
-        EditorGUI.BeginChangeCheck();
-        float newValue = EditorGUILayout.Slider(new GUIContent(label, tooltip), first, min, max);
-        EditorGUI.showMixedValue = false;
+        // On ne modifie plus les tableaux pendant le dessin (le simple fait de sélectionner une light salissait la scène).
+        bool arraysOk = true;
+        foreach (var e in tracked)
+            if (!CookieArraysOk(e.manager)) { arraysOk = false; break; }
 
-        if (EditorGUI.EndChangeCheck())
-            CommitChange(entries, "Change " + label, e => setValue(e, newValue));
+        if (!arraysOk)
+        {
+            EditorGUILayout.HelpBox("Les tableaux de cookies n'ont pas la taille de childLights.", MessageType.Warning);
+            if (GUILayout.Button("Redimensionner les tableaux de cookies"))
+                FixCookieArrays(tracked);
+            return;
+        }
+
+        DrawSharedObjectField(
+            tracked, "Cookie Texture",
+            "Assign a Texture2D cookie. It will be used on dynamic meshes and for lights marked as realtime.",
+            e => e.manager.childLightCookieTexture[e.index],
+            (e, v) => e.manager.childLightCookieTexture[e.index] = v,
+            false);   // pas d'effet runtime direct : la texture sert au bake du tableau de cookies
+
+        bool allPoint = true;
+        foreach (var e in tracked)
+            if (e.light.type != LightType.Point) { allPoint = false; break; }
+
+        if (allPoint)
+        {
+            EditorGUILayout.HelpBox("Les lights Point ignorent les cookies (seuls Spot et Area en utilisent).", MessageType.Info);
+        }
+        else if (tracked.Count == 1
+                 && tracked[0].manager.childLightIsRealtime[tracked[0].index]
+                 && tracked[0].manager.childLightCookieTexture[tracked[0].index] == null)
+        {
+            EditorGUILayout.HelpBox(
+                "No cookie texture assigned. Use the Cookie Texture field above to assign a Texture2D.",
+                MessageType.Info);
+        }
     }
 
-    private static void DrawSharedAudioClipField(
-        List<Entry> entries, string label, string tooltip,
-        System.Func<Entry, AudioClip> getValue,
-        System.Action<Entry, AudioClip> setValue)
+    private static void DrawAnimationSection(List<Entry> tracked)
     {
-        AudioClip first = getValue(entries[0]);
-        bool mixed = false;
-        for (int i = 1; i < entries.Count; i++)
-            if (getValue(entries[i]) != first) { mixed = true; break; }
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
 
-        EditorGUI.showMixedValue = mixed;
-        EditorGUI.BeginChangeCheck();
-        var newValue = (AudioClip)EditorGUILayout.ObjectField(
-            new GUIContent(label, tooltip), first, typeof(AudioClip), false);
-        EditorGUI.showMixedValue = false;
+        DrawSharedDropdown(
+            tracked, "State",
+            "Normal: not animated.\nBroken: slow irregular blink with smooth fade.\nPanic: rapid erratic flicker at random intensities.\nOff: forced to zero intensity.",
+            FaultStateNames,
+            e => (int)e.manager.childLightFaultState[e.index],
+            (e, v) => e.manager.childLightFaultState[e.index] = (LightFaultState)v);   // changer d'état => rebuild
 
-        if (EditorGUI.EndChangeCheck())
-            CommitChange(entries, "Change " + label, e => setValue(e, newValue));
+        bool anyBroken = false, anyPanic = false;
+        foreach (var e in tracked)
+        {
+            var s = e.manager.childLightFaultState[e.index];
+            if (s == LightFaultState.Broken) anyBroken = true;
+            if (s == LightFaultState.Panic) anyPanic = true;
+        }
+
+        // Les curseurs de timing ne demandent pas de rebuild : le manager relit ces tableaux à chaque tick.
+        if (anyBroken)
+        {
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Broken timing", EditorStyles.miniBoldLabel);
+
+            DrawSharedSlider(
+                tracked, "On min",
+                "Minimum duration (seconds) the light stays on per blink.",
+                0.001f, 5f,
+                e => e.manager.childLightBrokenOnMin[e.index],
+                (e, v) => e.manager.childLightBrokenOnMin[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "On max",
+                "Maximum duration (seconds) the light stays on per blink.",
+                0.001f, 5f,
+                e => e.manager.childLightBrokenOnMax[e.index],
+                (e, v) => e.manager.childLightBrokenOnMax[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Off min",
+                "Minimum duration (seconds) the light stays off per blink.",
+                0.001f, 5f,
+                e => e.manager.childLightBrokenOffMin[e.index],
+                (e, v) => e.manager.childLightBrokenOffMin[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Off max",
+                "Maximum duration (seconds) the light stays off per blink.",
+                0.001f, 5f,
+                e => e.manager.childLightBrokenOffMax[e.index],
+                (e, v) => e.manager.childLightBrokenOffMax[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "On intensity",
+                "Intensity multiplier (0–1) applied to the light's base intensity when it is in its on-phase.",
+                0f, 1f,
+                e => e.manager.childLightBrokenOnIntensity[e.index],
+                (e, v) => e.manager.childLightBrokenOnIntensity[e.index] = v, false);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Broken organic texture", EditorStyles.miniBoldLabel);
+
+            DrawSharedSlider(
+                tracked, "Noise amount",
+                "Depth of the low-frequency breathing applied during the ON phase. 0 = flat, 1 = very alive.",
+                0f, 1f,
+                e => e.manager.childLightBrokenNoiseAmount[e.index],
+                (e, v) => e.manager.childLightBrokenNoiseAmount[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Ember",
+                "Residual warm glow during the OFF phase. 0 = pure black, 0.2 = hot filament still cooling.",
+                0f, 0.2f,
+                e => e.manager.childLightBrokenEmber[e.index],
+                (e, v) => e.manager.childLightBrokenEmber[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Sputter",
+                "Turn-on catch + dying flicker intensity. 0 = clean, 1 = violent struggle.",
+                0f, 1f,
+                e => e.manager.childLightBrokenSputter[e.index],
+                (e, v) => e.manager.childLightBrokenSputter[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Fade speed",
+                "How fast the intensity reaches its target each tick. Low values (3-6) make the organic texture visible; high (>15) looks binary.",
+                1f, 30f,
+                e => e.manager.childLightBrokenFadeSpeed[e.index],
+                (e, v) => e.manager.childLightBrokenFadeSpeed[e.index] = v, false);
+        }
+
+        if (anyPanic)
+        {
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Panic timing", EditorStyles.miniBoldLabel);
+
+            DrawSharedSlider(
+                tracked, "Speed",
+                "Controls how fast the light flickers. 0 = slow sparse blinks, 1 = rapid near-continuous strobe. " +
+                "LightAnomalyController overwrites this at runtime based on proximity.",
+                0f, 1f,
+                e => e.manager.childLightPanicSpeed[e.index],
+                (e, v) => e.manager.childLightPanicSpeed[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Intensity min",
+                "Minimum random multiplier applied to the light's base intensity during a Panic on-phase. Values above 1 overshoot the base intensity.",
+                0f, 2f,
+                e => e.manager.childLightPanicIntensityMin[e.index],
+                (e, v) => e.manager.childLightPanicIntensityMin[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Intensity max",
+                "Maximum random multiplier applied to the light's base intensity during a Panic on-phase. Values above 1 overshoot the base intensity.",
+                0f, 2f,
+                e => e.manager.childLightPanicIntensityMax[e.index],
+                (e, v) => e.manager.childLightPanicIntensityMax[e.index] = v, false);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Panic organic texture", EditorStyles.miniBoldLabel);
+
+            DrawSharedSlider(
+                tracked, "Noise amount",
+                "Depth of the high-frequency jitter during an ON phase. 0 = clean strobe, 1 = violently alive.",
+                0f, 1f,
+                e => e.manager.childLightPanicNoiseAmount[e.index],
+                (e, v) => e.manager.childLightPanicNoiseAmount[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Ghost rate",
+                "Probability per second of a sudden near-death spike during an ON phase.",
+                0f, 3f,
+                e => e.manager.childLightPanicGhostRate[e.index],
+                (e, v) => e.manager.childLightPanicGhostRate[e.index] = v, false);
+
+            DrawSharedSlider(
+                tracked, "Ember",
+                "Residual warm glow during an OFF phase. 0 = pure black, 0.2 = hot filament.",
+                0f, 0.2f,
+                e => e.manager.childLightPanicEmber[e.index],
+                (e, v) => e.manager.childLightPanicEmber[e.index] = v, false);
+        }
+
+        if (anyBroken || anyPanic)
+            DrawAudioSection(tracked);
+    }
+
+    private static void DrawAudioSection(List<Entry> tracked)
+    {
+        EditorGUILayout.Space(4);
+        EditorGUILayout.LabelField("Audio (optional override)", EditorStyles.miniBoldLabel);
+
+        if (tracked.Count == 1)
+        {
+            var e = tracked[0];
+            bool hasOverride = Has(e.manager.childLightAudioClipOverride, e.index)
+                               && e.manager.childLightAudioClipOverride[e.index] != null;
+            if (!hasOverride)
+                EditorGUILayout.HelpBox("Default: the manager's fault audio clip.", MessageType.None);
+        }
+
+        DrawSharedAudioClipField(
+            tracked,
+            "Clip Override",
+            "Replaces the manager's default fault clip for this specific light. Leave None to use the manager's clip.",
+            e => Has(e.manager.childLightAudioClipOverride, e.index) ? e.manager.childLightAudioClipOverride[e.index] : null,
+            (e, v) =>
+            {
+                if (Has(e.manager.childLightAudioClipOverride, e.index))
+                    e.manager.childLightAudioClipOverride[e.index] = v;
+            },
+            false);   // lu par le manager au démarrage du son
+
+        if (tracked.Count != 1) return;
+
+        var single = tracked[0];
+        AudioSource src = single.light.GetComponent<AudioSource>();
+        if (src == null)
+        {
+            EditorGUILayout.HelpBox(
+                "No AudioSource found on this Light. Add one (3D, loop) to enable spatial audio.",
+                MessageType.Warning);
+
+            if (GUILayout.Button("Add AudioSource"))
+            {
+                Undo.AddComponent<AudioSource>(single.light.gameObject);
+                AudioSource added = single.light.GetComponent<AudioSource>();
+                added.spatialBlend = 1f;
+                added.loop = true;
+                added.playOnAwake = false;
+                added.volume = 0f;
+                EditorUtility.SetDirty(single.light.gameObject);
+            }
+        }
+        else
+        {
+            EditorGUI.BeginDisabledGroup(true);
+            EditorGUILayout.FloatField("Spatial Blend", src.spatialBlend);
+            EditorGUILayout.FloatField("Max Distance", src.maxDistance);
+            EditorGUI.EndDisabledGroup();
+
+            if (!Mathf.Approximately(src.spatialBlend, 1f))
+                EditorGUILayout.HelpBox(
+                    "Spatial Blend is not 1 — audio will not be fully 3D.",
+                    MessageType.Warning);
+        }
+    }
+
+    // ── Data helpers ───────────────────────────────────────────────────────
+
+    private static bool Has<T>(T[] arr, int index)
+    {
+        return arr != null && index >= 0 && index < arr.Length;
+    }
+
+    private static int SliceOf(Entry e)
+    {
+        return Has(e.manager.childLightLayerSlices, e.index) ? e.manager.childLightLayerSlices[e.index] : -1;
+    }
+
+    private static bool IsTracked(LightingManager mgr, int index)
+    {
+        return mgr != null && index >= 0
+            && Has(mgr.childLightIsRealtime, index)
+            && Has(mgr.childLightDiffuseEnabled, index)
+            && Has(mgr.childLightSpecularDistance, index)
+            && Has(mgr.childLightCastsShadow, index)
+            && Has(mgr.childLightFaultState, index)
+            && Has(mgr.childLightBrokenOnMin, index)
+            && Has(mgr.childLightBrokenOnMax, index)
+            && Has(mgr.childLightBrokenOffMin, index)
+            && Has(mgr.childLightBrokenOffMax, index)
+            && Has(mgr.childLightBrokenOnIntensity, index)
+            && Has(mgr.childLightBrokenNoiseAmount, index)
+            && Has(mgr.childLightBrokenEmber, index)
+            && Has(mgr.childLightBrokenSputter, index)
+            && Has(mgr.childLightBrokenFadeSpeed, index)
+            && Has(mgr.childLightPanicSpeed, index)
+            && Has(mgr.childLightPanicIntensityMin, index)
+            && Has(mgr.childLightPanicIntensityMax, index)
+            && Has(mgr.childLightPanicNoiseAmount, index)
+            && Has(mgr.childLightPanicGhostRate, index)
+            && Has(mgr.childLightPanicEmber, index);
+    }
+
+    private static bool CookieArraysOk(LightingManager mgr)
+    {
+        int cap = mgr.childLights.Length;
+        return mgr.childLightCookieTexture != null && mgr.childLightCookieTexture.Length == cap
+            && mgr.childLightCookieSlice != null && mgr.childLightCookieSlice.Length == cap;
+    }
+
+    private static void FixCookieArrays(List<Entry> entries)
+    {
+        var managers = new HashSet<LightingManager>();
+        foreach (var e in entries) managers.Add(e.manager);
+
+        foreach (var mgr in managers)
+        {
+            Undo.RecordObject(mgr, "Resize cookie arrays");
+            EnsureCookieArraysSized(mgr, mgr.childLights.Length);
+            EditorUtility.SetDirty(mgr);
+        }
     }
 
     private static void EnsureCookieArraysSized(LightingManager mgr, int cap)
@@ -439,7 +549,6 @@ public class LightInspector : Editor
                 System.Array.Copy(mgr.childLightCookieTexture, newTex, copyLen);
             }
             mgr.childLightCookieTexture = newTex;
-            EditorUtility.SetDirty(mgr);
         }
 
         if (mgr.childLightCookieSlice == null || mgr.childLightCookieSlice.Length != cap)
@@ -453,14 +562,99 @@ public class LightInspector : Editor
             }
             for (int i = oldLen; i < cap; i++) newSlice[i] = -1;
             mgr.childLightCookieSlice = newSlice;
-            EditorUtility.SetDirty(mgr);
         }
+    }
+
+    // ── Shared control helpers ─────────────────────────────────────────────
+    // needsRebuild : true si le manager doit reconstruire ses données fusionnées pour voir le changement
+    // (flags, état de panne). Les paramètres de timing et d'audio sont relus à chaque tick : false.
+
+    private static void DrawSharedToggle(
+        List<Entry> entries, string label, string tooltip,
+        System.Func<Entry, bool> getValue,
+        System.Action<Entry, bool> setValue,
+        bool needsRebuild = true)
+    {
+        bool first = getValue(entries[0]);
+        bool mixed = false;
+        for (int i = 1; i < entries.Count; i++)
+            if (getValue(entries[i]) != first) { mixed = true; break; }
+
+        EditorGUI.showMixedValue = mixed;
+        EditorGUI.BeginChangeCheck();
+        bool newValue = EditorGUILayout.Toggle(new GUIContent(label, tooltip), first);
+        EditorGUI.showMixedValue = false;
+
+        if (EditorGUI.EndChangeCheck())
+            CommitChange(entries, "Change " + label, e => setValue(e, newValue), needsRebuild);
+    }
+
+    private static void DrawSharedDropdown(
+        List<Entry> entries, string label, string tooltip, string[] options,
+        System.Func<Entry, int> getValue,
+        System.Action<Entry, int> setValue,
+        bool needsRebuild = true)
+    {
+        int first = getValue(entries[0]);
+        bool mixed = false;
+        for (int i = 1; i < entries.Count; i++)
+            if (getValue(entries[i]) != first) { mixed = true; break; }
+
+        EditorGUI.showMixedValue = mixed;
+        EditorGUI.BeginChangeCheck();
+        int newValue = EditorGUILayout.Popup(new GUIContent(label, tooltip), first, options);
+        EditorGUI.showMixedValue = false;
+
+        if (EditorGUI.EndChangeCheck())
+            CommitChange(entries, "Change " + label, e => setValue(e, newValue), needsRebuild);
+    }
+
+    private static void DrawSharedSlider(
+        List<Entry> entries, string label, string tooltip, float min, float max,
+        System.Func<Entry, float> getValue,
+        System.Action<Entry, float> setValue,
+        bool needsRebuild = true)
+    {
+        float first = getValue(entries[0]);
+        bool mixed = false;
+        for (int i = 1; i < entries.Count; i++)
+            if (!Mathf.Approximately(getValue(entries[i]), first)) { mixed = true; break; }
+
+        EditorGUI.showMixedValue = mixed;
+        EditorGUI.BeginChangeCheck();
+        float newValue = EditorGUILayout.Slider(new GUIContent(label, tooltip), first, min, max);
+        EditorGUI.showMixedValue = false;
+
+        if (EditorGUI.EndChangeCheck())
+            CommitChange(entries, "Change " + label, e => setValue(e, newValue), needsRebuild);
+    }
+
+    private static void DrawSharedAudioClipField(
+        List<Entry> entries, string label, string tooltip,
+        System.Func<Entry, AudioClip> getValue,
+        System.Action<Entry, AudioClip> setValue,
+        bool needsRebuild = true)
+    {
+        AudioClip first = getValue(entries[0]);
+        bool mixed = false;
+        for (int i = 1; i < entries.Count; i++)
+            if (getValue(entries[i]) != first) { mixed = true; break; }
+
+        EditorGUI.showMixedValue = mixed;
+        EditorGUI.BeginChangeCheck();
+        var newValue = (AudioClip)EditorGUILayout.ObjectField(
+            new GUIContent(label, tooltip), first, typeof(AudioClip), false);
+        EditorGUI.showMixedValue = false;
+
+        if (EditorGUI.EndChangeCheck())
+            CommitChange(entries, "Change " + label, e => setValue(e, newValue), needsRebuild);
     }
 
     private static void DrawSharedObjectField(
         List<Entry> entries, string label, string tooltip,
         System.Func<Entry, Texture2D> getValue,
-        System.Action<Entry, Texture2D> setValue)
+        System.Action<Entry, Texture2D> setValue,
+        bool needsRebuild = true)
     {
         Texture2D first = getValue(entries[0]);
         bool mixed = false;
@@ -474,14 +668,14 @@ public class LightInspector : Editor
         EditorGUI.showMixedValue = false;
 
         if (EditorGUI.EndChangeCheck())
-            CommitChange(entries, "Change " + label, e => setValue(e, newValue));
+            CommitChange(entries, "Change " + label, e => setValue(e, newValue), needsRebuild);
     }
 
     // ── Generic undo-aware commit ──────────────────────────────────────────
 
     private static void CommitChange(
         List<Entry> entries, string undoLabel,
-        System.Action<Entry> apply)
+        System.Action<Entry> apply, bool needsRebuild)
     {
         var managers = new HashSet<LightingManager>();
         foreach (var e in entries) managers.Add(e.manager);
@@ -491,22 +685,55 @@ public class LightInspector : Editor
         foreach (var mgr in managers)
         {
             EditorUtility.SetDirty(mgr);
-            mgr.MarkDirty(); // invalidate merged cache — without this, Play Mode edits
-                             // silently don't take effect until something else forces a rebuild
+            if (needsRebuild) RequestRebuild(mgr);
         }
+    }
+
+    private static void RequestRebuild(LightingManager mgr)
+    {
+        if (!Application.isPlaying)
+        {
+#if !COMPILER_UDONSHARP
+            mgr.QueuePreviewRefresh();   // hors Play le manager ne tourne pas : on met à jour l'aperçu du shader
+#endif
+            return;
+        }
+
+        try
+        {
+            if (SendCustomEventMethod != null)
+            {
+                SendCustomEventMethod.Invoke(mgr, new object[] { "MarkDirty" });
+                return;
+            }
+        }
+        catch (System.Exception) { }
+
+        mgr.MarkDirty();   // repli : au pire, sans effet sur le programme Udon
     }
 
     // ── Manager lookup ─────────────────────────────────────────────────────
 
+    private static LightingManager[] GetManagers()
+    {
+        double now = EditorApplication.timeSinceStartup;
+        if (_managers == null || now - _managersTime > ManagerCacheSeconds)
+        {
+            _managers = Object.FindObjectsOfType<LightingManager>(true);
+            _managersTime = now;
+        }
+        return _managers;
+    }
+
     private static LightingManager FindManagerFor(Light light, out int index)
     {
         index = -1;
-        LightingManager[] managers =
-            Object.FindObjectsOfType<LightingManager>(true);
+        LightingManager[] managers = GetManagers();
 
-        foreach (LightingManager mgr in managers)
+        for (int m = 0; m < managers.Length; m++)
         {
-            if (mgr.childLights == null) continue;
+            LightingManager mgr = managers[m];
+            if (mgr == null || mgr.childLights == null) continue;   // détruit depuis la mise en cache
             for (int i = 0; i < mgr.childLights.Length; i++)
             {
                 if (mgr.childLights[i] == light)

@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Meenphie.Commons;
+using Meenphie.Lighting;
 
 public static class LightmapArrayBuilder
 {
@@ -17,7 +18,8 @@ public static class LightmapArrayBuilder
     private const string DENOISED_INFIX = "_denoised";
     private const string MATERIAL_GROUP_DELIMITER = " - ";
 
-    private const string OUTPUT_FOLDER = "Assets/Lightmaps/";
+    private const string RAW_FOLDER = "Assets/Lightmaps/";
+    private const string OUTPUT_FOLDER = BakePaths.Lightmaps;
     private const string OUTPUT_NAME_PC = "LightmapLayerArray_PC";
     private const string OUTPUT_NAME_QUEST = "LightmapLayerArray_Quest";
 
@@ -134,8 +136,7 @@ public static class LightmapArrayBuilder
                 return;
             }
 
-            // ── Safe to patch in place from here on ──
-            string rawPath = OUTPUT_FOLDER + group + "_" + lightName + LIGHTMAP_TEXTURE_SUFFIX + ".exr";
+            string rawPath = RAW_FOLDER + group + "_" + lightName + LIGHTMAP_TEXTURE_SUFFIX + ".exr";
             var rawFileNames = new List<string>();
             if (File.Exists(rawPath)) rawFileNames.Add(Path.GetFileName(rawPath));
 
@@ -146,7 +147,7 @@ public static class LightmapArrayBuilder
             }
 
             string scriptPath = GetDenoiseScriptPath();
-            string lightmapsDir = Path.GetFullPath(OUTPUT_FOLDER);
+            string lightmapsDir = Path.GetFullPath(RAW_FOLDER);
 
             var denoiseResult = DenoiseProcessRunner.Run(scriptPath, lightmapsDir, rawFileNames);
             if (!denoiseResult.Success)
@@ -589,7 +590,7 @@ public static class LightmapArrayBuilder
                     UnityEngine.Object.DestroyImmediate(tex);
 
             // Sauvegarde des deux assets
-            EnsureFolder(OUTPUT_FOLDER);
+            BakePaths.Ensure(OUTPUT_FOLDER);
             string assetPathPC = OUTPUT_FOLDER + OUTPUT_NAME_PC + ".asset";
             string assetPathQuest = OUTPUT_FOLDER + OUTPUT_NAME_QUEST + ".asset";
 
@@ -619,19 +620,15 @@ public static class LightmapArrayBuilder
             mgr.childLightAudioClipOverride = newAudioOverride.ToArray();
             EditorUtility.SetDirty(mgr);
 
-            // Assign material group masks
-            for (int gi = 0; gi < validGroups.Count; gi++)
+            // ✅ AJOUTER — reset à 0 = pas de filtrage (global bake)
+            foreach (Material mat in Resources.FindObjectsOfTypeAll<Material>())
             {
-                string group = validGroups[gi];
-                float matMask = (float)(1 << gi);
-                if (!groupMaterials.ContainsKey(group)) continue;
-                foreach (Material mat in groupMaterials[group])
-                {
-                    if (mat.HasProperty("_IsDynamicMesh") && mat.GetFloat("_IsDynamicMesh") > 0.5f)
-                        continue;
-                    mat.SetFloat("_LightGroupMask", matMask);
-                    EditorUtility.SetDirty(mat);
-                }
+                if (mat == null || !mat.HasProperty("_LightGroupMask")) continue;
+                string path = AssetDatabase.GetAssetPath(mat);
+                if (string.IsNullOrEmpty(path)) continue;
+                if (mat.GetFloat("_LightGroupMask") == 0f) continue;
+                mat.SetFloat("_LightGroupMask", 0f);
+                EditorUtility.SetDirty(mat);
             }
 
             // ── Build Cookie Array ─────────────────────────────────────────────
@@ -699,7 +696,8 @@ public static class LightmapArrayBuilder
 
             foreach (var t in uniqueCookies)
                 UnityEngine.Object.DestroyImmediate(t);
-
+            LightingEditorScene.RebuildLightData();
+            Debug.Log("[Layered Lighting] Build OK\n" + report);
         }
         finally
         {

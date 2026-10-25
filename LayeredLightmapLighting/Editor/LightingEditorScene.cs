@@ -7,7 +7,7 @@ using Meenphie.Commons;
 [InitializeOnLoad]
 public static class LightingEditorScene
 {
-    public const int MAX_LIGHTS = 32;
+    public const int MAX_LIGHTS = 64;
     private const int BUFFER_SIZE = MAX_LIGHTS * 8 + 1;
 
     private const float DEFAULT_RANGE_SCALE = 100f;
@@ -78,10 +78,6 @@ public static class LightingEditorScene
 
         // Réactive le preview après le mode Play
         _previewEnabled = true;
-        Shader.SetGlobalFloat("_UdonDiffuseStaticEnabled", 1f);
-        Shader.SetGlobalFloat("_UdonDiffuseRealtimeEnabled", 1f);
-        Shader.SetGlobalFloat("_UdonRNMEnabled", 1f);
-
         _worldRoot = null;
         _lastFinalCount = -1;
         _rescanPending = false;
@@ -102,10 +98,13 @@ public static class LightingEditorScene
         if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
         if (BuildPipeline.isBuildingPlayer) return;
 
-        if (_worldRoot == null) _worldRoot = null;   // forces destroyed object to null
+        if (_worldRoot == null) _worldRoot = null; // strip destroyed Unity objects
 
         _lastSceneGuiTime = EditorApplication.timeSinceStartup;
         if (!_previewEnabled || Application.isPlaying) return;
+
+        if (_worldRoot == null) TryFindAndRescan();   // ← add this line
+
         UploadToShader();
     }
 
@@ -168,22 +167,11 @@ public static class LightingEditorScene
         if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
         if (BuildPipeline.isBuildingPlayer) return;
         if (Application.isPlaying) return;
-
         if (!_previewEnabled) return;
 
-        double now = EditorApplication.timeSinceStartup;
-
-        PollAlwaysRefresh();
-
-        bool editorActive = InternalEditorUtility.isApplicationActive;
-        bool sceneVisible = (now - _lastSceneGuiTime) < SCENE_VISIBLE_TIMEOUT;
-        bool refreshAllowed = !_alwaysRefreshKnown || _lastKnownAlwaysRefresh;
-        if (!editorActive || !sceneVisible || !refreshAllowed)
-        {
-            _lastPrevTime = now;
-            return;
-        }
-
+        // ── Discovery + pending rescans must run every tick, regardless of
+        //    Animated Materials. That flag only controls the per-frame light
+        //    re-sorting below — it must NOT gate initialisation or bake pickup.
         if (_worldRoot == null)
         {
             TryFindAndRescan();
@@ -210,6 +198,21 @@ public static class LightingEditorScene
         LightingManager liveMgr = _worldRoot.GetComponent<LightingManager>();
         if (liveMgr != null && ShouldCheckExternalEditsNow() && HasExternalArrayEdits(liveMgr))
             Rescan(liveMgr);
+
+        // ── Only the per-frame tick (viewer-based light re-sorting) needs
+        //    Animated Materials. The editor can't drive Tick from OnSceneGui
+        //    without spamming, so it goes through update, but is gated here.
+        double now = EditorApplication.timeSinceStartup;
+        PollAlwaysRefresh();
+
+        bool editorActive = InternalEditorUtility.isApplicationActive;
+        bool sceneVisible = (now - _lastSceneGuiTime) < SCENE_VISIBLE_TIMEOUT;
+        bool refreshAllowed = !_alwaysRefreshKnown || _lastKnownAlwaysRefresh;
+        if (!editorActive || !sceneVisible || !refreshAllowed)
+        {
+            _lastPrevTime = now;
+            return;
+        }
 
         float dt = (float)(now - _lastPrevTime);
         _lastPrevTime = now;
@@ -454,23 +457,15 @@ public static class LightingEditorScene
             _lights = freshLights;
         }
 
-        // ⬇️ Utilise maintenant le tableau PC (compatible éditeur)
-        if (mgr.lightLayerArrayPC != null)
-        {
-            _previewLayerArray = mgr.lightLayerArrayPC;
-            Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
-        }
+        // after
+        _previewLayerArray = mgr.lightLayerArrayPC;
+        Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
         Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
         Shader.SetGlobalFloat("_UdonLightmapSliceOffset", (float)mgr.lightmapGroupCount);
 
         _previewCookieArray = mgr.cookieArray;
         Shader.SetGlobalTexture("_UdonCookieArray", _previewCookieArray);
         Shader.SetGlobalFloat("_UdonCookieArrayValid", _previewCookieArray != null ? 1f : 0f);
-
-        // Active le rendu diffus statique et temps réel par défaut en éditeur
-        Shader.SetGlobalFloat("_UdonDiffuseStaticEnabled", 1f);
-        Shader.SetGlobalFloat("_UdonDiffuseRealtimeEnabled", 1f);
-        Shader.SetGlobalFloat("_UdonRNMEnabled", 1f);
 
         for (int i = 0; i < MAX_LIGHTS; i++) _lastIndicesSorted[i] = -1;
         _lastUploadedSlotCount = 0;
@@ -632,9 +627,30 @@ public static class LightingEditorScene
         LightingManager mgr = _worldRoot.GetComponent<LightingManager>();
         if (mgr != null)
         {
+            // Reflection probe array + its lookup data
+            Shader.SetGlobalTexture("_UdonReflectionProbeArray", mgr.reflectionProbeArrayPC);
+            Shader.SetGlobalFloat("_UdonReflectionArrayValid", mgr.reflectionProbeArrayPC != null ? 1f : 0f);
+            if (mgr.reflectionProbeData != null && mgr.reflectionProbeData.Length > 0)
+                Shader.SetGlobalVectorArray("_UdonReflectionProbeData", mgr.reflectionProbeData);
+            if (mgr.reflectionProbeHDR != null && mgr.reflectionProbeHDR.Length > 0)
+                Shader.SetGlobalVectorArray("_UdonReflectionProbeHDR", mgr.reflectionProbeHDR);
+            Shader.SetGlobalFloat("_UdonReflectionProbeCount", (float)mgr.reflectionProbeCount);
+            Shader.SetGlobalFloat("_UdonReflectionProbeMaxMip", mgr.reflectionProbeMaxMip);
+
+            // LOD + specular fade
             Shader.SetGlobalFloat("_UdonLODDistanceNear", mgr.lodDistanceNear);
             Shader.SetGlobalFloat("_UdonLODDistanceFar", mgr.lodDistanceFar);
             Shader.SetGlobalFloat("_UdonLODMaxMip", mgr.lodAtFar);
+            Shader.SetGlobalFloat("_UdonSpecCameraFadeEnd", mgr.specCameraFadeEnd);
+
+            // Toggles
+            Shader.SetGlobalFloat("_UdonDirectionalEnabled", mgr.IsDirectionalEnabled() ? 1f : 0f);
+            Shader.SetGlobalFloat("_UdonDiffuseStaticEnabled", mgr.IsDiffuseStaticEnabled() ? 1f : 0f);
+            Shader.SetGlobalFloat("_UdonDiffuseRealtimeEnabled", mgr.IsDiffuseRealtimeEnabled() ? 1f : 0f);
+            Shader.SetGlobalFloat("_UdonRealtimeShadowsEnabled", mgr.IsRealtimeShadowsEnabled() ? 1f : 0f);
+            Shader.SetGlobalFloat("_UdonSSSEnabled", mgr.IsSSSEnabled() ? 1f : 0f);
+
+            Shader.SetGlobalFloat("_UdonLightmapSliceOffset", (float)mgr.lightmapGroupCount);
         }
     }
 

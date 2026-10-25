@@ -6,7 +6,7 @@ using Meenphie.Commons;
 
 public class ReflectionProbeArrayBuilder : EditorWindow
 {
-    private const string OUTPUT_FOLDER = "Assets/Lighting/";
+    private const string OUTPUT_FOLDER = BakePaths.ReflectionProbes;
     private const string ARRAY_NAME_PC = "ReflectionProbeArray_PC";
     private const string ARRAY_NAME_QUEST = "ReflectionProbeArray_Quest";
     private const int MAX_PROBES = 16;
@@ -41,6 +41,11 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         int pcRes = firstCube.width;
         int pcMipCount = firstCube.mipmapCount;
 
+        // Unity convolue ses probes sur UNITY_SPECCUBE_LOD_STEPS (6) niveaux de rugosité, quelle que soit la taille
+        // de la chaîne de mips : le shader doit mapper rugosité 1 -> mip 6, pas -> dernier mip (pcMipCount - 1).
+        const int SPECCUBE_LOD_STEPS = 6;
+        int probeMaxMip = Mathf.Min(SPECCUBE_LOD_STEPS, pcMipCount - 1);
+
         GraphicsFormat pcFormat = firstCube.graphicsFormat;
         Debug.Log($"Format PC source : {pcFormat} | Res : {pcRes} | Mips : {pcMipCount}");
 
@@ -70,8 +75,12 @@ public class ReflectionProbeArrayBuilder : EditorWindow
             Debug.LogWarning("Quest : Format BC7 non supporté par la plateforme actuelle, utilisation de DXT5.");
         }
 
-        // Un seul Vector4 par probe : position monde (xyz), w inutilisé.
-        // La sélection est faite per-pixel dans le shader par distance au centre.
+        // Trois Vector4 par probe :
+        //   [b+0] position de capture (xyz) | blendDistance (w)
+        //   [b+1] bounds.min (xyz)          | box projection 0/1 (w)
+        //   [b+2] bounds.max (xyz)          | importance (w)
+        // Le shader choisit les 2 probes les plus prioritaires par pixel (importance, puis plus petite boîte)
+        // et les fond sur la distance aux faces de leur boîte.
         Vector4[] dataArray = new Vector4[MAX_PROBES * 3];
         Vector4[] hdrArray = new Vector4[MAX_PROBES];
 
@@ -79,16 +88,16 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         {
             var probe = probes[i];
             int b = i * 3;
-            dataArray[b + 0] = new Vector4(probe.transform.position.x, probe.transform.position.y, probe.transform.position.z, 0f);
+            dataArray[b + 0] = new Vector4(probe.transform.position.x, probe.transform.position.y, probe.transform.position.z, probe.blendDistance);
             dataArray[b + 1] = new Vector4(probe.bounds.min.x, probe.bounds.min.y, probe.bounds.min.z, probe.boxProjection ? 1f : 0f);
-            dataArray[b + 2] = new Vector4(probe.bounds.max.x, probe.bounds.max.y, probe.bounds.max.z, 0f);
+            dataArray[b + 2] = new Vector4(probe.bounds.max.x, probe.bounds.max.y, probe.bounds.max.z, probe.importance);
 
             Vector4 hdr = probe.textureHDRDecodeValues;
             if (hdr.x <= 0f) hdr = new Vector4(1f, 1f, 0f, 0f);
             hdrArray[i] = hdr;
         }
 
-        EnsureFolder(OUTPUT_FOLDER);
+        BakePaths.Ensure(OUTPUT_FOLDER);
         string pathPC = OUTPUT_FOLDER + ARRAY_NAME_PC + ".asset";
         string pathQuest = OUTPUT_FOLDER + ARRAY_NAME_QUEST + ".asset";
 
@@ -148,14 +157,14 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         mgr.reflectionProbeData = dataArray;
         mgr.reflectionProbeHDR = hdrArray;
         mgr.reflectionProbeCount = probes.Length;
-        mgr.reflectionProbeMaxMip = pcMipCount - 1;
+        mgr.reflectionProbeMaxMip = probeMaxMip;
         EditorUtility.SetDirty(mgr);
         AssetDatabase.SaveAssets();
 
         // Uploads globaux (fallback pour les shaders qui ne passent pas par LightingManager)
         Shader.SetGlobalTexture("_UdonReflectionProbeArray", arrayPC);
         Shader.SetGlobalFloat("_UdonReflectionProbeCount", probes.Length);
-        Shader.SetGlobalFloat("_UdonReflectionProbeMaxMip", pcMipCount - 1);
+        Shader.SetGlobalFloat("_UdonReflectionProbeMaxMip", probeMaxMip);
         Shader.SetGlobalVectorArray("_UdonReflectionProbeData", dataArray);
         Shader.SetGlobalVectorArray("_UdonReflectionProbeHDR", hdrArray);
 
