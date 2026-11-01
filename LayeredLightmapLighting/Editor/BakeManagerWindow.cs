@@ -1,339 +1,292 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using Meenphie.Commons;
-using UnityEngine.Experimental.Rendering;
 
-public class BakeManagerWindow : EditorWindow
+/// <summary>
+/// Bake Manager: single place to bake, apply and audit everything the baker produces.
+///
+///   Overview  : KPI cards (renderers, materials, submeshes, mesh MB, verts, tris, texture MB), health checks, bake pipeline.
+///   Meshes    : sortable table, size in MB / verts / tris per mesh, original vs baked.
+///   Materials : baked shared material -> source materials -> meshes, render-state conflicts, skipped renderers.
+///   Textures  : thumbnails of every array slice (with usage), memory vs source textures, plus the material table.
+///   Preview   : Enabled / Disabled toggle per mesh-array input (see BakeManagerWindow.Preview.cs).
+///   LOD       : scene LOD distances and collider cleanup (see BakeManagerWindow.LOD.cs).
+///
+/// File layout (all partial):
+///   BakeManagerWindow.cs            state, lifecycle, header, tabs
+///   BakeManagerWindow.UI.cs         styles, palette, reusable widgets (KPI cards, pills, callouts, tables)
+///   BakeManagerWindow.Overview.cs
+///   BakeManagerWindow.Meshes.cs
+///   BakeManagerWindow.Materials.cs
+///   BakeManagerWindow.Textures.cs
+///   BakeManagerWindow.Actions.cs    bake / apply / delete / revert / report
+///   BakeStats.cs                    data + formatting, no GUI
+/// </summary>
+public partial class BakeManagerWindow : EditorWindow
 {
+    private enum Tab { Overview, Meshes, Probes, Materials, Textures, Preview, LOD }
+    private static readonly string[] TabNames = { "Overview", "Meshes", "Probes", "Materials", "Textures", "Preview", "LOD" };
+
+    // Same order as MeshArrayBaker.ChannelNames (Albedo, Normal, Metallic, Roughness, Emission)
+    private static readonly string[] ChannelTexProps = { "_MainTex", "_BumpMap", "_MetallicMap", "_GlossinessMap", "_EmissionMap" };
+
+    private const int ThumbRes = 128;
+    private const int ThumbBudgetPerPass = 8;
+
     private IBakeOperation[] _lightingOps;
     private MeshArraysBakeOp _meshOp;
-    private Vector2 _scroll;
 
-    // Preview state
-    private int _prevChannel, _prevSlice, _prevSize = 256;
-    private Texture2D _prevTex;
-    private int _prevBuiltChannel = -1, _prevBuiltSlice = -1, _prevBuiltSize = -1;
-    private bool _tableFold;
-    private Vector2 _tableScroll;
+    private Tab _tab;
+    private Vector2 _scroll;
+    private bool _showRuntimeMeshes;
+
+    // Shared by Meshes + Materials tabs
+    private string _search = "";
+    private readonly HashSet<string> _open = new HashSet<string>();
+
+    // Caches (dropped by InvalidateAll)
+    private List<MeshArrayBaker.RendererReport> _scan;
+    private BakeStats.SceneStats _stats;
+    private List<BakeStats.MeshRow> _meshRows;
+    private ChannelData[] _channels;
+    private readonly Dictionary<IBakeOperation, OpInfo> _opInfo = new Dictionary<IBakeOperation, OpInfo>();
+    private readonly Dictionary<int, Texture2D> _thumbs = new Dictionary<int, Texture2D>();
     private Color[] _tablePx;
     private int _tableW;
+    private long _tableBytes = -1;
+    private double _nextStatsRepaint;
 
-    private void OnProjectChange()
+    private static string[] _channelNames;
+    private static string[] ChannelNames => _channelNames ?? (_channelNames = MeshArrayBaker.ChannelNames);
+
+    private struct OpInfo { public string status; public int count; public bool warn, baked; }
+
+    [MenuItem("Meenphie/Bake Manager")]
+    public static void Open()
     {
-        _prevTex = null; _prevBuiltChannel = -1; _tablePx = null;
-        Repaint();
+        var w = GetWindow<BakeManagerWindow>("Bake Manager");
+        w.minSize = new Vector2(640, 520);
+    }
+
+    private void OnEnable()
+    {
+        _lightingOps = new IBakeOperation[] { new LightmapBakeOp(), new ReflectionProbeBakeOp() };
+        _meshOp = new MeshArraysBakeOp();
+        wantsMouseMove = true;
+        EditorApplication.update += UpdateRenderStats;
     }
 
     private void OnDisable()
     {
-        if (_prevTex != null) DestroyImmediate(_prevTex);
+        EditorApplication.update -= UpdateRenderStats;
+        ClearMeshPreview();
+        ClearThumbs();
     }
 
-    [MenuItem("Meenphie/Bake Manager")]
-    public static void Open() => GetWindow<BakeManagerWindow>("Bake Manager").minSize = new Vector2(550, 520);
-
-    private void OnEnable()
+    private void UpdateRenderStats()
     {
-        _lightingOps = new IBakeOperation[]
+        bool needsRefresh = _tab == Tab.Overview || EditorApplication.isPlaying;
+        if (!needsRefresh || EditorApplication.timeSinceStartup < _nextStatsRepaint) return;
+        _nextStatsRepaint = EditorApplication.timeSinceStartup + 0.5d;
+        Repaint();
+    }
+    private void OnProjectChange() => InvalidateAll();
+
+    private void InvalidateAll()
+    {
+        RefreshScan();
+        _opInfo.Clear();
+        InvalidatePreview();
+        ClearThumbs();
+        Repaint();
+    }
+
+    /// <summary>Drops everything derived from the scene scan (cheaper than InvalidateAll: keeps op info and thumbnails).</summary>
+    private void RefreshScan()
+    {
+        _scan = null;
+        _stats = null;
+        _meshRows = null;
+        _channels = null;
+        _tablePx = null;
+        _tableBytes = -1;
+    }
+
+    private void ClearThumbs()
+    {
+        foreach (var t in _thumbs.Values) if (t != null) DestroyImmediate(t);
+        _thumbs.Clear();
+    }
+
+    private List<MeshArrayBaker.RendererReport> Scan() => _scan ?? (_scan = MeshArrayBaker.Scan());
+    private BakeStats.SceneStats Stats() => _stats ?? (_stats = BakeStats.Compute(Scan()));
+    private List<BakeStats.MeshRow> MeshRows() => _meshRows ?? (_meshRows = BakeStats.BuildMeshRows(Scan()));
+
+    private OpInfo Info(IBakeOperation op)
+    {
+        if (_opInfo.TryGetValue(op, out var i)) return i;
+        var (count, warn) = op.GetSliceInfo();
+        i = new OpInfo { status = op.GetStatus(), count = count, warn = warn, baked = op.IsBaked };
+        _opInfo[op] = i;
+        return i;
+    }
+
+    private IEnumerable<IBakeOperation> AllOps()
+    {
+        foreach (var o in _lightingOps) yield return o;
+        yield return _meshOp;
+    }
+
+    private (string text, Tone tone) OverallState()
+    {
+        var s = Stats();
+        if (s.eligible == 0) return ("Nothing to bake", Tone.Neutral);
+        if (!Info(_meshOp).baked) return ("Not baked", Tone.Warn);
+        if (s.applied < s.eligible) return ("Pending apply", Tone.Warn);
+        return ("Up to date", Tone.Ok);
+    }
+
+    private void DrawPlayModeBanner()
+    {
+        if (!EditorApplication.isPlaying) return;
+
+        EditorGUILayout.HelpBox(
+            "Play Mode : le static batching fusionne les meshes à l'exécution, les stats d'édition " +
+            "(0 → 0, 'Combined Mesh') ne sont pas fiables ici. Bake / Apply sont désactivés.",
+            MessageType.Info);
+
+        using (new EditorGUILayout.HorizontalScope())
         {
-            new LightmapBakeOp(),
-            new ReflectionProbeBakeOp(),
-        };
-        _meshOp = new MeshArraysBakeOp();
+            GUILayout.Space(PagePad);
+            GUILayout.Label(
+                $"Batches {UnityStats.batches}  ·  Draw calls {UnityStats.drawCalls}  ·  " +
+                $"SetPass {UnityStats.setPassCalls}  ·  " +
+                $"Static {UnityStats.staticBatches} ({UnityStats.staticBatchedDrawCalls} draw calls)  ·  " +
+                $"Dynamic {UnityStats.dynamicBatches}  ·  Instanced {UnityStats.instancedBatches}",
+                EditorStyles.miniLabel);
+        }
     }
 
     private void OnGUI()
     {
-        EditorGUILayout.Space(4);
-        EditorGUILayout.LabelField("Bake Manager", EditorStyles.boldLabel);
-        EditorGUILayout.LabelField("Lightmaps, Probes, Texture Arrays + Material Table (UV0 / UV2 / UV4).", EditorStyles.miniLabel);
-        EditorGUILayout.Space(8);
+        EnsureStyles();
+        TickPreview();
+        if (Event.current.type == EventType.MouseMove) Repaint();
 
-        EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Bake All", GUILayout.Height(32)))
-        {
-            if (EditorUtility.DisplayDialog("Bake All",
-                "Lance TOUS les bakes (Lightmaps → Probes → Mesh Arrays),\n" +
-                "puis applique les meshes/matériaux partagés sur la scène.", "Bake", "Cancel"))
-                BakeAll();
-        }
-        if (GUILayout.Button("Apply to Scene", GUILayout.Height(32)))
-        {
-            MeshArrayBaker.Apply();
-            LightingEditorScene.RebuildLightData();
-        }
+        DrawHeader();
+        DrawTabBar();
+        DrawPlayModeBanner();
+        if (_tab == Tab.Meshes || _tab == Tab.Probes || _tab == Tab.Materials) DrawSearchBar();
 
-        if (GUILayout.Button("Delete All", GUILayout.Height(32)))
-        {
-            if (EditorUtility.DisplayDialog("Delete All",
-                "Restaure les meshes/matériaux d'origine puis supprime TOUS les assets générés ?", "Delete", "Cancel"))
-                DeleteAll();
-        }
-        EditorGUILayout.EndHorizontal();
-
-        EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Restore Originals (keep assets)", GUILayout.Height(24)))
-            MeshArrayBaker.Restore();
-
-        if (GUILayout.Button("Revert Prefab Mesh & Materials", GUILayout.Height(24)))
-        {
-            if (EditorUtility.DisplayDialog("Revert Prefab",
-                "Restaure le Mesh ET les Matériaux d'origine des Prefabs (ex: FBX) ?\n\n" +
-                "⚠️ Seuls le MeshFilter et les Matériaux seront restaurés.", "Revert", "Cancel"))
-                RevertPrefabMeshAndMaterials();
-        }
-        EditorGUILayout.EndHorizontal();
-
-        EditorGUILayout.Space(10);
         _scroll = EditorGUILayout.BeginScrollView(_scroll);
-
-        DrawSectionHeader("LIGHTING & PROBES");
-        foreach (var op in _lightingOps) DrawRow(op);
-
-        EditorGUILayout.Space(10);
-        DrawSectionHeader("MESH ARRAYS + MATERIAL TABLE");
-        EditorGUILayout.HelpBox(
-            "Un seul bake produit les arrays (Albedo/Normal/Metallic/Roughness/Emission), la table de matériaux et les meshes. " +
-            "Un Rebake relit toujours les originaux et ré-applique si la scène est déjà appliquée. " +
-            "Utilise le keyword _UDON_MESH_ARRAYS_ON dans ASE.", MessageType.Info);
-        DrawRow(_meshOp);
-
-        EditorGUILayout.Space(10);
-        DrawPreview();
-        DrawTable();
-
-        EditorGUILayout.EndScrollView();
-    }
-
-    // ───────────────────────── Preview ─────────────────────────
-
-    private void DrawPreview()
-    {
-        DrawSectionHeader("PREVIEW");
-        var names = MeshArrayBaker.ChannelNames;
-        _prevChannel = GUILayout.Toolbar(_prevChannel, names);
-
-        var arr = MeshArrayBaker.LoadArray(_prevChannel);
-        if (arr == null)
-        {
-            EditorGUILayout.HelpBox($"{names[_prevChannel]} : pas d'array (aucune texture, ou pas baké).", MessageType.None);
-            return;
-        }
-
-        _prevSlice = Mathf.Clamp(_prevSlice, 0, arr.depth - 1);
-        EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("◀", GUILayout.Width(28))) _prevSlice = (_prevSlice - 1 + arr.depth) % arr.depth;
-        _prevSlice = EditorGUILayout.IntSlider(_prevSlice, 0, arr.depth - 1);
-        if (GUILayout.Button("▶", GUILayout.Width(28))) _prevSlice = (_prevSlice + 1) % arr.depth;
-        _prevSize = EditorGUILayout.IntPopup(_prevSize, new[] { "128", "256", "512" }, new[] { 128, 256, 512 }, GUILayout.Width(60));
-        EditorGUILayout.EndHorizontal();
-
-        var sliceNames = MeshArrayBaker.LoadSliceNames(_prevChannel);
-        string src = _prevSlice < sliceNames.Length ? sliceNames[_prevSlice] : "(source inconnue : Rebake)";
-        EditorGUILayout.LabelField($"{arr.width}x{arr.height} · {arr.depth} slices · {arr.graphicsFormat}", EditorStyles.miniLabel);
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField(src, EditorStyles.miniLabel);
-        using (new EditorGUI.DisabledScope(_prevSlice >= sliceNames.Length))
-            if (GUILayout.Button("Ping", GUILayout.Width(50)))
-            {
-                var o = AssetDatabase.LoadAssetAtPath<Object>(src);
-                if (o != null) EditorGUIUtility.PingObject(o);
-            }
-        EditorGUILayout.EndHorizontal();
-
-        if (_prevTex == null || _prevBuiltChannel != _prevChannel || _prevBuiltSlice != _prevSlice || _prevBuiltSize != _prevSize)
-        {
-            if (_prevTex != null) DestroyImmediate(_prevTex);
-            _prevTex = BuildPreview(arr, _prevSlice, _prevSize,
-                MeshArrayBaker.IsSrgbChannel(_prevChannel), MeshArrayBaker.IsNormalChannel(_prevChannel));
-            _prevBuiltChannel = _prevChannel; _prevBuiltSlice = _prevSlice; _prevBuiltSize = _prevSize;
-        }
-
-        if (_prevTex != null)
-        {
-            var r = GUILayoutUtility.GetRect(_prevSize, _prevSize, GUILayout.ExpandWidth(false));
-            EditorGUI.DrawPreviewTexture(r, _prevTex, null, ScaleMode.ScaleToFit);
-        }
-        if (MeshArrayBaker.IsNormalChannel(_prevChannel))
-            EditorGUILayout.LabelField("Normal : Z reconstruit pour l'affichage.", EditorStyles.miniLabel);
-    }
-
-    private static Texture2D BuildPreview(Texture2DArray arr, int slice, int size, bool srgb, bool normal)
-    {
-        // GPU copy of one slice into a standalone texture (same compressed format), then decode to RGBA32.
-        var tmp = new Texture2D(arr.width, arr.height, arr.graphicsFormat, TextureCreationFlags.None);
-        Graphics.CopyTexture(arr, slice, 0, tmp, 0, 0);
-
-        var rt = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32,
-            srgb ? RenderTextureReadWrite.sRGB : RenderTextureReadWrite.Linear);
-        var prev = RenderTexture.active;
-        Graphics.Blit(tmp, rt);
-        var outTex = new Texture2D(size, size, TextureFormat.RGBA32, false, !srgb) { hideFlags = HideFlags.HideAndDontSave };
-        RenderTexture.active = rt;
-        outTex.ReadPixels(new Rect(0, 0, size, size), 0, 0, false);
-        RenderTexture.active = prev;
-        RenderTexture.ReleaseTemporary(rt);
-        DestroyImmediate(tmp);
-
-        if (normal || !srgb)
-        {
-            var px = outTex.GetPixels32();
-            for (int i = 0; i < px.Length; i++)
-            {
-                var c = px[i];
-                if (normal)
-                {
-                    float x = c.r / 255f * 2f - 1f, y = c.g / 255f * 2f - 1f;
-                    float z = Mathf.Sqrt(Mathf.Clamp01(1f - x * x - y * y));
-                    px[i] = new Color32(c.r, c.g, (byte)Mathf.RoundToInt((z * 0.5f + 0.5f) * 255f), 255);
-                }
-                else px[i] = new Color32(c.r, c.r, c.r, 255);   // single channel (BC4) -> grey
-            }
-            outTex.SetPixels32(px);
-        }
-        outTex.Apply(false);
-        return outTex;
-    }
-
-    private void DrawTable()
-    {
-        _tableFold = EditorGUILayout.Foldout(_tableFold, "Material table", true);
-        if (!_tableFold) return;
-
-        var t = MeshArrayBaker.LoadTable();
-        if (t == null) { EditorGUILayout.HelpBox("Pas de table baké.", MessageType.None); return; }
-        if (_tablePx == null) { _tablePx = t.GetPixels(); _tableW = t.width; }
-
-        EditorGUILayout.LabelField($"{_tableW} colonnes (1 par matériau distinct)", EditorStyles.miniLabel);
-        _tableScroll = EditorGUILayout.BeginScrollView(_tableScroll, GUILayout.Height(200));
-        int shown = Mathf.Min(_tableW, 300);
-        for (int x = 0; x < shown; x++)
-        {
-            Color c0 = _tablePx[0 * _tableW + x], c1 = _tablePx[1 * _tableW + x];
-            Color c2 = _tablePx[2 * _tableW + x], c3 = _tablePx[3 * _tableW + x];
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("#" + x, GUILayout.Width(36));
-            Swatch(c0);   // _Color
-            Swatch(c1);   // subsurface
-            Swatch(c2);   // emission
-            GUILayout.Label($"thick {c1.a:F2} · emis ×{c2.a:F2} · M {c3.r:F2} · R {c3.g:F2}", EditorStyles.miniLabel);
-            EditorGUILayout.EndHorizontal();
-        }
-        if (_tableW > shown) EditorGUILayout.LabelField($"… {_tableW - shown} de plus", EditorStyles.miniLabel);
-        EditorGUILayout.EndScrollView();
-        EditorGUILayout.LabelField("Pastilles : Color · Subsurface · Emission", EditorStyles.miniLabel);
-    }
-
-    private static void Swatch(Color linear)
-    {
-        var r = GUILayoutUtility.GetRect(34, 16, GUILayout.Width(34));
-        var g = linear.gamma; g.a = 1f;
-        EditorGUI.DrawRect(r, g);
-    }
-
-    private static void DrawSectionHeader(string title)
-    {
-        EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
-        EditorGUILayout.Space(2);
-    }
-
-    private static void DrawRow(IBakeOperation op)
-    {
-        EditorGUILayout.BeginVertical("box");
-
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField(op.DisplayName, EditorStyles.boldLabel, GUILayout.Width(220));
-        GUILayout.FlexibleSpace();
-        var (count, warn) = op.GetSliceInfo();
-        if (warn)
-        {
-            GUILayout.Label(EditorGUIUtility.IconContent("console.warnicon.sml"), GUILayout.Width(20));
-            EditorGUILayout.LabelField($"{count} slices (trop !)", EditorStyles.miniLabel, GUILayout.Width(140));
-        }
-        else if (count > 0)
-            EditorGUILayout.LabelField($"{count} slices max", EditorStyles.miniLabel, GUILayout.Width(140));
-        EditorGUILayout.EndHorizontal();
-
-        EditorGUILayout.LabelField(op.GetStatus(), EditorStyles.miniLabel);
-        EditorGUILayout.Space(4);
-
-        EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button(op.IsBaked ? "Rebake" : "Bake", GUILayout.Width(80)))
-        {
-            op.Bake();
-            LightingEditorScene.RebuildLightData();
-        }
-
-        if (op is MeshArraysBakeOp)
-        {
-            using (new EditorGUI.DisabledScope(!op.IsBaked))
-                if (GUILayout.Button("Apply", GUILayout.Width(80)))
-                {
-                    MeshArrayBaker.Apply();
-                    LightingEditorScene.RebuildLightData();
-                }
-        }
-
-        using (new EditorGUI.DisabledScope(!op.IsBaked))
-            if (GUILayout.Button("Delete", GUILayout.Width(80)))
-                if (EditorUtility.DisplayDialog($"Delete {op.DisplayName}", "Confirmer la suppression ?", "Delete", "Cancel"))
-                {
-                    op.Delete();
-                    LightingEditorScene.RebuildLightData();
-                }
-
-        EditorGUILayout.EndHorizontal();
-
-        EditorGUILayout.EndVertical();
-        EditorGUILayout.Space(2);
-    }
-
-    private void BakeAll()
-    {
         try
         {
-            foreach (var op in _lightingOps)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                EditorUtility.DisplayProgressBar("Bake All", $"Lighting : {op.DisplayName}...", 0.1f);
-                op.Bake();
+                GUILayout.Space(PagePad);
+                using (new EditorGUILayout.VerticalScope(GUILayout.ExpandWidth(true)))
+                {
+                    GUILayout.Space(4);
+                    switch (_tab)
+                    {
+                        case Tab.Overview: DrawOverview(); break;
+                        case Tab.Meshes: DrawMeshesTab(); break;
+                        case Tab.Probes: DrawProbesTab(); break;
+                        case Tab.Materials: DrawMaterialsTab(); break;
+                        case Tab.Textures: DrawTexturesTab(); break;
+                        case Tab.Preview: DrawPreviewTab(); break;
+                        case Tab.LOD: DrawLODTab(); break;
+                    }
+                    GUILayout.Space(8);
+                }
+                GUILayout.Space(PagePad);
             }
         }
-        finally { EditorUtility.ClearProgressBar(); }
-
-        _meshOp.Bake();
-        MeshArrayBaker.Apply();
-        LightingEditorScene.RebuildLightData();
-    }
-
-    private void DeleteAll()
-    {
-        if (!MeshArrayBaker.DeleteAll()) return;
-        foreach (var op in _lightingOps) op.Delete();
-        AssetDatabase.Refresh();
-        LightingEditorScene.RebuildLightData();
-    }
-
-    private void RevertPrefabMeshAndMaterials()
-    {
-        int count = 0;
-        foreach (var r in Object.FindObjectsOfType<MeshRenderer>())
+        finally
         {
-            if (!PrefabUtility.IsPartOfPrefabInstance(r.gameObject)) continue;
+            EditorGUILayout.EndScrollView();
+        }
+    }
 
-            var mf = r.GetComponent<MeshFilter>();
-            if (mf != null)
+    private void DrawHeader()
+    {
+        using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+        {
+            GUILayout.Label("Bake Manager", EditorStyles.boldLabel);
+
+            var (text, tone) = OverallState();
+            float pw = PillWidth(text);
+            var pr = GUILayoutUtility.GetRect(pw, 16, GUILayout.Width(pw), GUILayout.Height(16));
+            pr.y += 2;
+            Pill(pr, text, ToneColor(tone));
+
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button("Bake All", EditorStyles.toolbarButton, GUILayout.Width(72)))
             {
-                var mfSO = new SerializedObject(mf);
-                var meshProp = mfSO.FindProperty("m_Mesh");
-                if (meshProp != null) PrefabUtility.RevertPropertyOverride(meshProp, InteractionMode.UserAction);
+                if (EditorUtility.DisplayDialog("Bake All",
+                    "Lance TOUS les bakes (Lightmaps → Probes → Mesh Arrays),\n" +
+                    "puis applique les meshes/matériaux partagés sur la scène.", "Bake", "Cancel"))
+                    BakeAll();
+                GUIUtility.ExitGUI();
             }
 
-            var rSO = new SerializedObject(r);
-            var matsProp = rSO.FindProperty("m_Materials");
-            if (matsProp != null) PrefabUtility.RevertPropertyOverride(matsProp, InteractionMode.UserAction);
-            count++;
+            if (GUILayout.Button("Apply", EditorStyles.toolbarButton, GUILayout.Width(56)))
+            {
+                ApplyToScene();
+                GUIUtility.ExitGUI();
+            }
+
+            if (EditorGUILayout.DropdownButton(new GUIContent("More"), FocusType.Passive, EditorStyles.toolbarDropDown, GUILayout.Width(60)))
+                ShowMoreMenu(GUILayoutUtility.GetLastRect());
         }
-        Debug.Log($"[BakeManager] Revert terminé : Mesh et Matériaux restaurés sur {count} objets.");
+    }
+
+    private void DrawTabBar()
+    {
+        var bar = GUILayoutUtility.GetRect(0, 28, GUILayout.ExpandWidth(true));
+        var e = Event.current;
+
+        if (e.type == EventType.Repaint)
+            EditorGUI.DrawRect(new Rect(bar.x, bar.yMax - 1, bar.width, 1), Line);
+
+        float x = bar.x + 8;
+        for (int i = 0; i < TabNames.Length; i++)
+        {
+            var content = new GUIContent(TabNames[i]);
+            float w = _tabSelStyle.CalcSize(content).x + 30f;
+            var r = new Rect(x, bar.y, w, bar.height);
+            x += w;
+
+            bool sel = i == (int)_tab;
+            if (e.type == EventType.Repaint)
+            {
+                if (!sel && r.Contains(e.mousePosition)) EditorGUI.DrawRect(r, CellBg);
+                if (sel) EditorGUI.DrawRect(new Rect(r.x, r.yMax - 2, r.width, 2), Accent);
+            }
+            GUI.Label(r, content, sel ? _tabSelStyle : _tabStyle);
+            EditorGUIUtility.AddCursorRect(r, MouseCursor.Link);
+
+            if (e.type == EventType.MouseDown && e.button == 0 && r.Contains(e.mousePosition))
+            {
+                _tab = (Tab)i;
+                _scroll = Vector2.zero;
+                GUI.FocusControl(null);
+                e.Use();
+                Repaint();
+            }
+        }
+    }
+
+    private void DrawSearchBar()
+    {
+        using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+        {
+            _search = EditorGUILayout.TextField(_search, EditorStyles.toolbarSearchField);
+            if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(64)))
+                RefreshScan();
+        }
     }
 }

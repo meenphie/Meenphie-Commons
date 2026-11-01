@@ -1,4 +1,3 @@
-// Only replace your existing file if its members differ.
 public interface IBakeOperation
 {
     string DisplayName { get; }

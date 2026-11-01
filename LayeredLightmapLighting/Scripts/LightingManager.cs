@@ -59,14 +59,38 @@ namespace Meenphie.Commons
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         public Texture2DArray lightLayerArrayQuest;
+        public Texture2DArray albedoArrayQuest;
+        public Texture2DArray normalArrayQuest;
+        public Texture2DArray metallicArrayQuest;
+        public Texture2DArray roughnessArrayQuest;
+        public Texture2DArray emissionArrayQuest;
 #elif !UNITY_ANDROID && !UNITY_EDITOR
         public Texture2DArray lightLayerArrayPC;
+        public Texture2DArray albedoArrayPC;
+        public Texture2DArray normalArrayPC;
+        public Texture2DArray metallicArrayPC;
+        public Texture2DArray roughnessArrayPC;
+        public Texture2DArray emissionArrayPC;
 #else
         public Texture2DArray lightLayerArrayPC;
         public Texture2DArray lightLayerArrayQuest;
+        public Texture2DArray albedoArrayPC;
+        public Texture2DArray albedoArrayQuest;
+        public Texture2DArray normalArrayPC;
+        public Texture2DArray normalArrayQuest;
+        public Texture2DArray metallicArrayPC;
+        public Texture2DArray metallicArrayQuest;
+        public Texture2DArray roughnessArrayPC;
+        public Texture2DArray roughnessArrayQuest;
+        public Texture2DArray emissionArrayPC;
+        public Texture2DArray emissionArrayQuest;
 #endif
 
+        [Header("Mesh Arrays (auto-filled by MeshArrayBaker)")]
+        public Texture2D materialTable;
+
         public int lightmapGroupCount = 0;
+
         [Range(0f, 50f)] public float lodDistanceNear = 5f;
         [Range(0f, 80f)] public float lodDistanceFar = 35f;
         [Range(0f, 9f)] public float lodAtFar = 2f;
@@ -265,6 +289,7 @@ namespace Meenphie.Commons
         private float _viewerTickTimer;
         private bool _isReady;
         private bool _mergedDirty = true;
+        private bool _forceAllLightsRealtime;
 
         // ----- toggles -----
         private bool _diffuseStaticEnabled = true;
@@ -291,11 +316,14 @@ namespace Meenphie.Commons
         }
 
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
+        public static event System.Action EditorPreviewRefreshRequested;
+
         private void OnValidate()
         {
             if (childLights == null) return;
             ValidateChildArrays();
             QueuePreviewRefresh();
+            EditorPreviewRefreshRequested?.Invoke();
         }
 #endif
 
@@ -360,6 +388,7 @@ namespace Meenphie.Commons
 #else
             Texture2DArray layerArray = lightLayerArrayPC;
 #endif
+            _forceAllLightsRealtime = layerArray == null;
             if (layerArray != null) VRCShader.SetGlobalTexture(layerArrayID, layerArray);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightLayerArrayValid"), layerArray != null ? 1f : 0f);
 
@@ -391,6 +420,51 @@ namespace Meenphie.Commons
             VRCShader.SetGlobalFloat(_directionalEnabledID, _directionalEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_realtimeShadowsEnabledID, _realtimeShadowsEnabled ? 1f : 0f);
             VRCShader.SetGlobalFloat(_sssEnabledID, _sssEnabled ? 1f : 0f);
+
+            PushMeshArrayGlobals();
+        }
+
+        private bool IsEffectivelyRealtime(int childIndex)
+        {
+            return _forceAllLightsRealtime || childLightIsRealtime[childIndex];
+        }
+
+        // Globals des mesh arrays + material table. Posés une fois au Start, jamais réécrits en jeu.
+        private void PushMeshArrayGlobals()
+        {
+#if UNITY_ANDROID
+            Texture2DArray meshAlbedo    = albedoArrayQuest;
+            Texture2DArray meshNormal    = normalArrayQuest;
+            Texture2DArray meshMetallic  = metallicArrayQuest;
+            Texture2DArray meshRoughness = roughnessArrayQuest;
+            Texture2DArray meshEmission  = emissionArrayQuest;
+#else
+            Texture2DArray meshAlbedo = albedoArrayPC;
+            Texture2DArray meshNormal = normalArrayPC;
+            Texture2DArray meshMetallic = metallicArrayPC;
+            Texture2DArray meshRoughness = roughnessArrayPC;
+            Texture2DArray meshEmission = emissionArrayPC;
+#endif
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonAlbedoArray"), meshAlbedo);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonNormalArray"), meshNormal);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonMetallicArray"), meshMetallic);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonRoughnessArray"), meshRoughness);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonEmissionArray"), meshEmission);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonMaterialTable"), materialTable);
+            // Unity ne renseigne pas _TexelSize pour une texture globale : sans ça, _UdonMaterialRow lit toujours la colonne 0.
+            if (materialTable != null)
+                VRCShader.SetGlobalVector(VRCShader.PropertyToID("_UdonMaterialTable_TexelSize"),
+                    new Vector4(1f / materialTable.width, 1f / materialTable.height, materialTable.width, materialTable.height));
+        }
+
+        private void ClearMeshArrayGlobals()
+        {
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonAlbedoArray"), null);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonNormalArray"), null);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonMetallicArray"), null);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonRoughnessArray"), null);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonEmissionArray"), null);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonMaterialTable"), null);
         }
 
         // Tout ce qui est calculé une fois par child : références, éligibilité, angles, audio, état de référence.
@@ -642,6 +716,7 @@ namespace Meenphie.Commons
         // =================================================================
         void OnEnable()
         {
+            if (_isReady) PushMeshArrayGlobals();
             if (_localPlayer == null) return;
             // Des lights ont pu changer pendant que le manager était désactivé : on reconstruit tout.
             _mergedDirty = true;
@@ -686,7 +761,7 @@ namespace Meenphie.Commons
             for (int i = 0; i < mergedCount; i++)
             {
                 int li = _mergedToChild[i];
-                if (!childLightIsRealtime[li]) continue;
+                if (!IsEffectivelyRealtime(li)) continue;
 
                 Transform t = _childTransforms[li];
                 Vector3 pos = t.position;
@@ -897,7 +972,7 @@ namespace Meenphie.Commons
 
                 int mi = mergedCount;
                 Transform t = _childTransforms[li];
-                bool isRealtime = childLightIsRealtime[li];
+                bool isRealtime = IsEffectivelyRealtime(li);
                 LightFaultState faultState = childLightFaultState[li];
 
                 // Une seule lecture par propriété (chaque appel Unity coûte cher en Udon)
@@ -994,7 +1069,7 @@ namespace Meenphie.Commons
                 }
 
                 // Insertion triée (stable : à distance égale, l'ordre merged est conservé)
-                if (childLightIsRealtime[_mergedToChild[i]])
+                if (IsEffectivelyRealtime(_mergedToChild[i]))
                 {
                     int j = realtimeCount - 1;
                     while (j >= 0 && _sortRealtimeDist[j] > distSq)
@@ -1048,7 +1123,7 @@ namespace Meenphie.Commons
                 _mergedToShader[mi] = s;
 
                 int li = _mergedToChild[mi];
-                if (childLightIsRealtime[li] && mergedFaultState[mi] != LightFaultState.Off)
+                if (IsEffectivelyRealtime(li) && mergedFaultState[mi] != LightFaultState.Off)
                 {
                     _liveChild[_liveCount] = li;
                     _liveMerged[_liveCount] = mi;
@@ -1611,7 +1686,7 @@ namespace Meenphie.Commons
             for (int i = 0; i < _childCount; i++)
             {
                 if (!_childValid[i]) { missing++; continue; }
-                if (childLightIsRealtime[i])
+                if (IsEffectivelyRealtime(i))
                 {
                     realtime++;
                 }
@@ -1624,6 +1699,9 @@ namespace Meenphie.Commons
 
             Debug.Log("[LightingManager] " + _childCount + " lights (" + realtime + " realtime, " + baked
                       + " baked) - Light Layer Array " + platform + " : " + (layerArrayOk ? "OK" : "MANQUANTE"));
+            if (_forceAllLightsRealtime)
+                Debug.LogWarning("[LightingManager] Aucune Light Layer Array pour " + platform
+                                 + " : toutes les lights sont traitées comme realtime jusqu'au prochain bake.");
 
             if (_childCount == 0)
                 Debug.LogWarning("[LightingManager] childLights est vide : aucune light ne sera envoyée au shader (scène noire).");
@@ -1709,7 +1787,7 @@ namespace Meenphie.Commons
             ApplyPreviewGlobals();
 
             if (isActiveAndEnabled)
-                BuildPreviewData(PreviewViewerPosition(), _previewData);
+                BuildPreviewData(PreviewViewerPosition(), _previewData, !HasPlatformLightLayerArray());
             else
                 _previewData[0] = new Vector4(0f, 0f, 1f, 1f);   // manager désactivé : aucune light, comme en jeu
 
@@ -1773,10 +1851,19 @@ namespace Meenphie.Commons
             Shader.SetGlobalFloat("_UdonRealtimeShadowsEnabled", _realtimeShadowsEnabled ? 1f : 0f);
         }
 
+        private bool HasPlatformLightLayerArray()
+        {
+#if UNITY_ANDROID
+            return lightLayerArrayQuest != null;
+#else
+            return lightLayerArrayPC != null;
+#endif
+        }
+
         // Même disposition et mêmes règles de tri que BuildMergedGroups / SortNearest / FillUploadBuffers.
         // Éligibles : actives, ni directionnelles ni "Not Important", diffuse ou spéculaire activé, dans rangeScale.
         // Ordre : baked d'abord (par distance), puis realtime (par distance), dans la limite de MAX_LIGHTS.
-        private int BuildPreviewData(Vector3 viewer, Vector4[] dest)
+        private int BuildPreviewData(Vector3 viewer, Vector4[] dest, bool forceAllRealtime)
         {
             int n = childLights.Length;
             int[] bakedIdx = new int[n];
@@ -1799,7 +1886,7 @@ namespace Meenphie.Commons
                 if (distSq > maxDistSq) continue;
 
                 // insertion triée stable, comme SortNearest
-                if (PreviewAt(childLightIsRealtime, li, true))
+                if (forceAllRealtime || PreviewAt(childLightIsRealtime, li, true))
                 {
                     int j = realtimeCount - 1;
                     while (j >= 0 && realtimeDist[j] > distSq)
@@ -1833,7 +1920,7 @@ namespace Meenphie.Commons
             for (int slot = 0; slot < count; slot++)
             {
                 int li = slot < bakedCount ? bakedIdx[slot] : realtimeIdx[slot - bakedCount];
-                WritePreviewSlot(childLights[li], li, dest, 1 + slot * SLOT_STRIDE);
+                WritePreviewSlot(childLights[li], li, dest, 1 + slot * SLOT_STRIDE, forceAllRealtime);
             }
 
             for (int slot = count; slot < MAX_LIGHTS; slot++)
@@ -1847,13 +1934,13 @@ namespace Meenphie.Commons
             return count;
         }
 
-        private void WritePreviewSlot(Light l, int li, Vector4[] dest, int b)
+        private void WritePreviewSlot(Light l, int li, Vector4[] dest, int b, bool forceAllRealtime)
         {
             Transform t = l.transform;
             Vector3 pos = t.position, fwd = t.forward, right = t.right, up = t.up;
             Color c = l.color;
 
-            bool realtime = PreviewAt(childLightIsRealtime, li, true);
+            bool realtime = forceAllRealtime || PreviewAt(childLightIsRealtime, li, true);
             float intensity = PreviewAt(childLightFaultState, li, LightFaultState.Normal) == LightFaultState.Off ? 0f : l.intensity;
             Vector2 half = PreviewAt(childLightHalfExtents, li, new Vector2(0.01f, 0.01f));
             Vector3 baked = PreviewAt(childLightBakedColors, li, Vector3.one);

@@ -75,11 +75,12 @@ public class MeshImporter : AssetPostprocessor
     private static bool Apply(Material mat, Dictionary<string, string> data)
     {
         // 1. Base Color & Alpha
+        // 1. Base Color & Alpha
         string colorHex = GetValue(data, "ColorHex", "FFFFFF");
         if (ColorUtility.TryParseHtmlString("#" + colorHex, out Color c))
         {
-            c.a = ParseF(GetValue(data, "AlphaValue", "1.0"));
-            mat.SetColor("_Color", c);
+            c.a = ParseF(GetValue(data, "AlbedoAlpha", GetValue(data, "AlphaValue", "1.0")));
+            SetColorAny(mat, c, "_AlbedoColor", "_Color");   // nouveau nom d'abord, ancien en secours
         }
 
         // 2. Metallic & Smoothness
@@ -99,10 +100,10 @@ public class MeshImporter : AssetPostprocessor
             else mat.DisableKeyword("_EMISSIONENABLED_ON");
         }
 
-        // 4. Textures — toujours setter, null si absent du JSON ou texture introuvable
         SetTex(mat, data, "Base Color", "_MainTex");
-        SetTex(mat, data, "Normal", "_BumpMap", "_NORMALMAP", isNormal: true);
-        SetTex(mat, data, "Roughness", "_GlossinessMap");
+        SetTex(mat, data, "Normal", "_BumpMap", "_BUMPMAP", isNormal: true);
+        SetTex(mat, data, "Metallic", "_MetallicMap", "_METALLICMAP");
+        SetTex(mat, data, "Roughness", "_GlossinessMap", "_GLOSSINESSMAP");
         SetTex(mat, data, "Emission", "_EmissionMap");
 
         return true;
@@ -118,11 +119,14 @@ public class MeshImporter : AssetPostprocessor
         foreach (var p in texProps)
             if (mat.HasProperty(p)) mat.SetTexture(p, null);
 
-        mat.SetColor("_Color", Color.white);
+        SetColorAny(mat, Color.white, "_AlbedoColor", "_Color");
         mat.SetColor("_EmissionColor", Color.black);
         mat.SetFloat("_Metallic", 0);
         mat.SetFloat("_Glossiness", 0);
-        mat.DisableKeyword("_NORMALMAP");
+
+        mat.DisableKeyword("_BUMPMAP");
+        mat.DisableKeyword("_METALLICMAP");
+        mat.DisableKeyword("_GLOSSINESSMAP");
         return true;
     }
 
@@ -199,6 +203,13 @@ public class MeshImporter : AssetPostprocessor
 
     private static float ParseF(string s)
         => float.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out float r) ? r : 0;
+
+    private static void SetColorAny(Material mat, Color c, params string[] props)
+    {
+        foreach (var p in props)
+            if (mat.HasProperty(p)) { mat.SetColor(p, c); return; }
+        Debug.LogWarning($"{TAG} {mat.name} : aucune propriété couleur parmi {string.Join(", ", props)}");
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // OnPostprocessModel

@@ -5,7 +5,7 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 	Properties
 	{
 		[Meenphie_DrawerCategory(SURFACE OPTIONS,true,0,0)] _CATEGORY_SURFACEOPTIONS( "CATEGORY_SURFACEOPTIONS", Float ) = 1
-		_Color( "DIffuse Color", Color ) = ( 0.9058824, 0.9058824, 0.9058824, 1 )
+		_AlbedoColor( "Albedo Color", Color ) = ( 0.9058824, 0.9058824, 0.9058824, 1 )
 		[NoScaleOffset][SingleLineTexture] _MainTex( "Base Color", 2D ) = "white" {}
 		[NoScaleOffset][SingleLineTexture] _BumpMap( "Normal", 2D ) = "bump" {}
 		[NoScaleOffset][SingleLineTexture] _MetallicMap( "Metallic", 2D ) = "black" {}
@@ -38,9 +38,9 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 		[Meenphie_DrawerCategory(SPECIAL EFFECTS,true,0,0)] _CATEGORYSPECIALEFFECTS( "CATEGORY SPECIAL EFFECTS", Float ) = 0
 		[Meenphie_DrawerCategorySpace(10)] _CATEGORYSPACESPECIALEFFECTS( "CATEGORY SPACE SPECIAL EFFECTS", Float ) = 0
 		_Offset( "Offset", Float ) = 0
-		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
-		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
 		[HideInInspector] GenKey__MetallicMap( "Assign keyword _METALLICMAP", Float ) = 1.0
+		[HideInInspector] GenKey__BumpMap( "Assign keyword _BUMPMAP", Float ) = 1.0
+		[HideInInspector] GenKey__GlossinessMap( "Assign keyword _GLOSSINESSMAP", Float ) = 1.0
 
 	}
 	
@@ -71,7 +71,7 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 
 		CGINCLUDE
 			#pragma target 4.5
-			#pragma only_renderers d3d11 glcore gles3 metal vulkan // ensure rendering platforms toggle list is visible
+			#pragma only_renderers d3d11 gles3 metal vulkan // ensure rendering platforms toggle list is visible
 
 			#ifndef GLOBAL_HEADER_INCLUDED
 			#define GLOBAL_HEADER_INCLUDED
@@ -116,19 +116,18 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 				#define ASE_NEEDS_TEXTURE_COORDINATES0
 				#define ASE_NEEDS_TEXTURE_COORDINATES2
 				#define ASE_NEEDS_TEXTURE_COORDINATES3
-				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
-				#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES3
 				#define ASE_NEEDS_VERT_NORMAL
 				#define ASE_NEEDS_VERT_TANGENT
+				#define ASE_NEEDS_TEXTURE_COORDINATES7
 				#pragma shader_feature_local _DIFFUSE_ON
 				#pragma shader_feature_local _UDON_MESH_ARRAYS_ON
 				#pragma shader_feature_local _UV_UV0 _UV_UV2
 				#pragma shader_feature_local _METALLICMAP
 				#pragma shader_feature_local _GLOSSINESSMAP
-				#pragma shader_feature_local _BUMPMAP
-				#pragma shader_feature_local _REFLECTIONS_ON
 				#pragma shader_feature_local_fragment _EMISSIONUV_UV0 _EMISSIONUV_UV2
+				#pragma shader_feature_local _BUMPMAP
 				#pragma shader_feature_local _SPECULARS_ON
+				#pragma shader_feature_local _REFLECTIONS_ON
 				#if defined(SHADER_API_D3D11) || defined(SHADER_API_XBOXONE) || defined(UNITY_COMPILER_HLSLCC) || defined(SHADER_API_PSSL) || (defined(SHADER_TARGET_SURFACE_ANALYSIS) && !defined(SHADER_TARGET_SURFACE_ANALYSIS_MOJOSHADER))//ASE Sampler Macros
 				#define SAMPLE_TEXTURE2D(tex,samplerTex,coord) tex.Sample(samplerTex,coord)
 				#define SAMPLE_TEXTURE2D_LOD(tex,samplerTex,coord,lod) tex.SampleLevel(samplerTex,coord, lod)
@@ -163,6 +162,7 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					float4 ase_texcoord : TEXCOORD0;
 					float4 ase_texcoord2 : TEXCOORD2;
 					float4 ase_texcoord3 : TEXCOORD3;
+					float4 ase_texcoord7 : TEXCOORD7;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 				};
 
@@ -176,6 +176,7 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					float4 ase_texcoord4 : TEXCOORD4;
 					float4 ase_texcoord5 : TEXCOORD5;
 					float4 ase_texcoord6 : TEXCOORD6;
+					float4 ase_texcoord7 : TEXCOORD7;
 					UNITY_VERTEX_INPUT_INSTANCE_ID
 					UNITY_VERTEX_OUTPUT_STEREO
 				};
@@ -190,42 +191,51 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 				uniform float _CATEGORYCOLORGRADING;
 				uniform float _CATEGORYSPACESPECIALEFFECTS;
 				uniform float _CATEGORYSPECIALEFFECTS;
-				UNITY_DECLARE_TEX3D_NOSAMPLER(_LUT);
-				SamplerState sampler_LUT;
 				uniform float _CATEGORYLIGHTING;
 				uniform float _CATEGORYSPACELIGHTING;
 				uniform float _CATEGORYSUBSURFACESCATTERING;
 				uniform float _CATEGORYSPACESUBSURFACESCATTERING;
+				UNITY_DECLARE_TEX3D_NOSAMPLER(_LUT);
+				SamplerState sampler_LUT;
+				UNITY_DECLARE_TEX2D_NOSAMPLER(_MetallicMap);
+				SamplerState sampler_MetallicMap;
 				UNITY_DECLARE_TEX2D_NOSAMPLER(_MainTex);
 				SamplerState sampler_MainTex;
 				UNITY_DECLARE_TEX2D_NOSAMPLER(_BumpMap);
 				SamplerState sampler_BumpMap;
-				UNITY_DECLARE_TEX2D_NOSAMPLER(_MetallicMap);
-				SamplerState sampler_MetallicMap;
 				UNITY_DECLARE_TEX2D_NOSAMPLER(_GlossinessMap);
 				SamplerState sampler_GlossinessMap;
-				uniform half4 _Color;
+				uniform half4 _AlbedoColor;
 				UNITY_DECLARE_TEX2DARRAY_NOSAMPLER(_UdonAlbedoArray);
 				SamplerState sampler_UdonAlbedoArray;
-				UNITY_DECLARE_TEX2DARRAY_NOSAMPLER(_TextureSample0);
-				SamplerState sampler_TextureSample0;
+				UNITY_DECLARE_TEX2DARRAY_NOSAMPLER(_UdonMetallicArray);
+				SamplerState sampler_UdonMetallicArray;
 				uniform float _Metallic;
 				UNITY_DECLARE_TEX2DARRAY_NOSAMPLER(_UdonRoughnessArray);
 				SamplerState sampler_UdonRoughnessArray;
 				uniform float _Glossiness;
+				uniform float3 _EmissionColor;
+				UNITY_DECLARE_TEX2DARRAY_NOSAMPLER(_UdonEmissionArray);
+				SamplerState sampler_UdonEmissionArray;
+				UNITY_DECLARE_TEX2D_NOSAMPLER(_EmissionMap);
+				SamplerState sampler_EmissionMap;
+				uniform float _EmissionIntensity;
 				UNITY_DECLARE_TEX2DARRAY_NOSAMPLER(_UdonNormalArray);
 				SamplerState sampler_UdonNormalArray;
 				uniform float4 _SubsurfaceColor;
 				uniform float _Thickness;
 				uniform float _LightGroupMask;
 				uniform float _IsDynamicMesh;
-				uniform float3 _EmissionColor;
-				UNITY_DECLARE_TEX2D_NOSAMPLER(_EmissionMap);
-				SamplerState sampler_EmissionMap;
-				uniform float _EmissionIntensity;
 
 
+				float3 UnpackBC53396_g60100( float2 raw_rg )
+				{
+					float2 n = raw_rg * 2.0 - 1.0;
+					float z = sqrt(saturate(1.0 - dot(n, n)));
+					return float3(n, z);
+				}
 				
+
 				v2f vert( appdata v  )
 				{
 					UNITY_SETUP_INSTANCE_ID(v);
@@ -245,15 +255,16 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					o.ase_texcoord6.xyz = ase_bitangentWS;
 					
 					o.ase_texcoord = v.ase_texcoord;
-					o.ase_texcoord1.xy = v.ase_texcoord2.xy;
+					o.ase_texcoord1 = v.ase_texcoord2;
 					o.ase_texcoord2 = v.ase_texcoord3;
+					o.ase_texcoord7.xy = v.ase_texcoord7.xy;
 					
 					//setting value to unused interpolator channels and avoid initialization warnings
-					o.ase_texcoord1.zw = 0;
 					o.ase_texcoord3.w = 0;
 					o.ase_texcoord4.w = 0;
 					o.ase_texcoord5.w = 0;
 					o.ase_texcoord6.w = 0;
+					o.ase_texcoord7.zw = 0;
 
 					#ifdef ASE_ABSOLUTE_VERTEX_POS
 						float3 defaultVertexValue = v.vertex.xyz;
@@ -292,256 +303,267 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 					float4 ScreenPos = ComputeScreenPos( ClipPos );
 
 					float3 _Vector0 = float3(0,0,0);
-					float localLayeredLightmapLighting97_g60088 = ( 0.0 );
-					float4 texCoord2426_g60084 = IN.ase_texcoord;
-					texCoord2426_g60084.xy = IN.ase_texcoord.xy * float2( 1,1 ) + float2( 0,0 );
-					float2 MainUV2420_g60084 = (texCoord2426_g60084).xy;
-					float2 texCoord2594_g60084 = IN.ase_texcoord1.xy * float2( 1,1 ) + float2( 0,0 );
-					float2 UV_Decal2595_g60084 = texCoord2594_g60084;
-					float2 staticSwitch3313_g60084 = ( float2 )0;
+					float localLayeredLightmapLighting97_g60103 = ( 0.0 );
+					float4 Albedo_Color6_g60100 = _AlbedoColor;
+					float4 AlbedoColor97_g60103 = Albedo_Color6_g60100;
+					float4 texCoord2426_g60100 = IN.ase_texcoord;
+					texCoord2426_g60100.xy = IN.ase_texcoord.xy * float2( 1,1 ) + float2( 0,0 );
+					float2 MainUV2420_g60100 = (texCoord2426_g60100).xy;
+					float4 texCoord3407_g60100 = IN.ase_texcoord1;
+					texCoord3407_g60100.xy = IN.ase_texcoord1.xy * float2( 1,1 ) + float2( 0,0 );
+					float2 UV_Decal2595_g60100 = (texCoord3407_g60100).xy;
+					float2 staticSwitch3313_g60100 = ( float2 )0;
 					#if defined( _UV_UV0 )
 					{
-						staticSwitch3313_g60084 = MainUV2420_g60084;
+						staticSwitch3313_g60100 = MainUV2420_g60100;
 					}
 					#elif defined( _UV_UV2 )
 					{
-						staticSwitch3313_g60084 = UV_Decal2595_g60084;
+						staticSwitch3313_g60100 = UV_Decal2595_g60100;
 					}
 					#else
 					{
-						staticSwitch3313_g60084 = UV_Decal2595_g60084;
+						staticSwitch3313_g60100 = UV_Decal2595_g60100;
 					}
 					#endif
-					float4 texCoord3368_g60084 = IN.ase_texcoord2;
-					texCoord3368_g60084.xy = IN.ase_texcoord2.xy * float2( 1,1 ) + float2( 0,0 );
-					float4 break3395_g60084 = round( texCoord3368_g60084 );
-					float3 staticSwitch3388_g60084 = ( float3 )0;
+					float4 texCoord3368_g60100 = IN.ase_texcoord2;
+					texCoord3368_g60100.xy = IN.ase_texcoord2.xy * float2( 1,1 ) + float2( 0,0 );
+					float4 break3395_g60100 = round( texCoord3368_g60100 );
+					float4 staticSwitch3388_g60100 = ( float4 )0;
 					#ifdef _UDON_MESH_ARRAYS_ON
 					{
-						float Index_Albedo3367_g60084 = break3395_g60084.x;
-						float4 tex2DArrayNode3373_g60084 = SAMPLE_TEXTURE2D_ARRAY( _UdonAlbedoArray, sampler_UdonAlbedoArray, float3(staticSwitch3313_g60084,Index_Albedo3367_g60084) );
-						staticSwitch3388_g60084 = tex2DArrayNode3373_g60084.rgb;
+						float Index_Albedo3367_g60100 = break3395_g60100.x;
+						float4 tex2DArrayNode3373_g60100 = SAMPLE_TEXTURE2D_ARRAY( _UdonAlbedoArray, sampler_UdonAlbedoArray, float3(staticSwitch3313_g60100,Index_Albedo3367_g60100) );
+						staticSwitch3388_g60100 = tex2DArrayNode3373_g60100;
 					}
 					#else
 					{
-						float2 uv_MainTex907_g60084 = IN.ase_texcoord.xy;
-						float4 tex2DNode907_g60084 = SAMPLE_TEXTURE2D( _MainTex, sampler_MainTex, uv_MainTex907_g60084 );
-						staticSwitch3388_g60084 = tex2DNode907_g60084.rgb;
+						float4 tex2DNode907_g60100 = SAMPLE_TEXTURE2D( _MainTex, sampler_MainTex, staticSwitch3313_g60100 );
+						staticSwitch3388_g60100 = tex2DNode907_g60100;
 					}
 					#endif
-					float4 temp_output_3155_0_g60084 = ( _Color * float4( staticSwitch3388_g60084 , 0.0 ) );
-					float3 Albedo6_g60084 = (temp_output_3155_0_g60084).rgb;
-					float3 Color97_g60088 = Albedo6_g60084;
-					float2 staticSwitch2671_g60084 = ( float2 )0;
+					float4 Albedo3414_g60100 = staticSwitch3388_g60100;
+					float4 Albedo97_g60103 = Albedo3414_g60100;
+					float2 staticSwitch2671_g60100 = ( float2 )0;
 					#if defined( _UV_UV0 )
 					{
-						staticSwitch2671_g60084 = MainUV2420_g60084;
+						staticSwitch2671_g60100 = MainUV2420_g60100;
 					}
 					#elif defined( _UV_UV2 )
 					{
-						staticSwitch2671_g60084 = UV_Decal2595_g60084;
+						staticSwitch2671_g60100 = UV_Decal2595_g60100;
 					}
 					#else
 					{
-						staticSwitch2671_g60084 = UV_Decal2595_g60084;
+						staticSwitch2671_g60100 = UV_Decal2595_g60100;
 					}
 					#endif
-					float staticSwitch3392_g60084 = ( float )0;
+					float staticSwitch3392_g60100 = ( float )0;
 					#ifdef _UDON_MESH_ARRAYS_ON
 					{
-						float2 uv3_TextureSample03385_g60084 = IN.ase_texcoord2.xy;
-						float Index_Metallic3382_g60084 = break3395_g60084.z;
-						float4 tex2DArrayNode3385_g60084 = SAMPLE_TEXTURE2D_ARRAY( _TextureSample0, sampler_TextureSample0, float3(uv3_TextureSample03385_g60084,Index_Metallic3382_g60084) );
-						staticSwitch3392_g60084 = tex2DArrayNode3385_g60084.r;
+						float Index_Metallic3382_g60100 = break3395_g60100.z;
+						float4 tex2DArrayNode3385_g60100 = SAMPLE_TEXTURE2D_ARRAY( _UdonMetallicArray, sampler_UdonMetallicArray, float3(staticSwitch2671_g60100,Index_Metallic3382_g60100) );
+						staticSwitch3392_g60100 = tex2DArrayNode3385_g60100.r;
 					}
 					#else
 					{
-						float4 tex2DNode48_g60084 = SAMPLE_TEXTURE2D( _MetallicMap, sampler_MetallicMap, staticSwitch2671_g60084 );
-						staticSwitch3392_g60084 = tex2DNode48_g60084.r;
+						float4 tex2DNode48_g60100 = SAMPLE_TEXTURE2D( _MetallicMap, sampler_MetallicMap, staticSwitch2671_g60100 );
+						staticSwitch3392_g60100 = tex2DNode48_g60100.r;
 					}
 					#endif
-					float staticSwitch846_g60084 = ( float )0;
+					float staticSwitch846_g60100 = ( float )0;
 					#ifdef _METALLICMAP
 					{
-						staticSwitch846_g60084 = staticSwitch3392_g60084;
+						staticSwitch846_g60100 = staticSwitch3392_g60100;
 					}
 					#else
 					{
-						staticSwitch846_g60084 = _Metallic;
+						staticSwitch846_g60100 = _Metallic;
 					}
 					#endif
-					float Metallic1239_g60084 = staticSwitch846_g60084;
-					float Metallic97_g60088 = Metallic1239_g60084;
-					float2 staticSwitch2644_g60084 = ( float2 )0;
+					float Metallic1239_g60100 = staticSwitch846_g60100;
+					float Metallic97_g60103 = Metallic1239_g60100;
+					float2 staticSwitch2644_g60100 = ( float2 )0;
 					#if defined( _UV_UV0 )
 					{
-						staticSwitch2644_g60084 = MainUV2420_g60084;
+						staticSwitch2644_g60100 = MainUV2420_g60100;
 					}
 					#elif defined( _UV_UV2 )
 					{
-						staticSwitch2644_g60084 = UV_Decal2595_g60084;
+						staticSwitch2644_g60100 = UV_Decal2595_g60100;
 					}
 					#else
 					{
-						staticSwitch2644_g60084 = UV_Decal2595_g60084;
+						staticSwitch2644_g60100 = UV_Decal2595_g60100;
 					}
 					#endif
-					float staticSwitch3393_g60084 = ( float )0;
+					float staticSwitch3393_g60100 = ( float )0;
 					#ifdef _UDON_MESH_ARRAYS_ON
 					{
-						float Index_Roughness3379_g60084 = break3395_g60084.w;
-						float4 tex2DArrayNode3376_g60084 = SAMPLE_TEXTURE2D_ARRAY( _UdonRoughnessArray, sampler_UdonRoughnessArray, float3(staticSwitch2644_g60084,Index_Roughness3379_g60084) );
-						staticSwitch3393_g60084 = tex2DArrayNode3376_g60084.r;
+						float Index_Roughness3379_g60100 = break3395_g60100.w;
+						float4 tex2DArrayNode3376_g60100 = SAMPLE_TEXTURE2D_ARRAY( _UdonRoughnessArray, sampler_UdonRoughnessArray, float3(staticSwitch2644_g60100,Index_Roughness3379_g60100) );
+						staticSwitch3393_g60100 = tex2DArrayNode3376_g60100.r;
 					}
 					#else
 					{
-						float4 tex2DNode64_g60084 = SAMPLE_TEXTURE2D( _GlossinessMap, sampler_GlossinessMap, staticSwitch2644_g60084 );
-						staticSwitch3393_g60084 = tex2DNode64_g60084.r;
+						float4 tex2DNode64_g60100 = SAMPLE_TEXTURE2D( _GlossinessMap, sampler_GlossinessMap, staticSwitch2644_g60100 );
+						staticSwitch3393_g60100 = tex2DNode64_g60100.r;
 					}
 					#endif
-					float staticSwitch845_g60084 = ( float )0;
+					float staticSwitch845_g60100 = ( float )0;
 					#ifdef _GLOSSINESSMAP
 					{
-						staticSwitch845_g60084 = staticSwitch3393_g60084;
+						staticSwitch845_g60100 = staticSwitch3393_g60100;
 					}
 					#else
 					{
-						staticSwitch845_g60084 = _Glossiness;
+						staticSwitch845_g60100 = _Glossiness;
 					}
 					#endif
-					float Roughness1399_g60084 = staticSwitch845_g60084;
-					float Roughness97_g60088 = Roughness1399_g60084;
+					float Roughness1399_g60100 = staticSwitch845_g60100;
+					float Roughness97_g60103 = Roughness1399_g60100;
+					float3 Emission_Color86_g60100 = _EmissionColor;
+					float3 EmissionColor97_g60103 = Emission_Color86_g60100;
+					float2 staticSwitch2642_g60100 = ( float2 )0;
+					#if defined( _EMISSIONUV_UV0 )
+					{
+						staticSwitch2642_g60100 = MainUV2420_g60100;
+					}
+					#elif defined( _EMISSIONUV_UV2 )
+					{
+						staticSwitch2642_g60100 = UV_Decal2595_g60100;
+					}
+					#else
+					{
+						staticSwitch2642_g60100 = MainUV2420_g60100;
+					}
+					#endif
+					float3 staticSwitch3409_g60100 = ( float3 )0;
+					#ifdef _UDON_MESH_ARRAYS_ON
+					{
+						float Emission_Slice3406_g60100 = texCoord3407_g60100.z;
+						float4 tex2DArrayNode3405_g60100 = SAMPLE_TEXTURE2D_ARRAY( _UdonEmissionArray, sampler_UdonEmissionArray, float3(staticSwitch2642_g60100,Emission_Slice3406_g60100) );
+						staticSwitch3409_g60100 = tex2DArrayNode3405_g60100.rgb;
+					}
+					#else
+					{
+						float4 tex2DNode81_g60100 = SAMPLE_TEXTURE2D( _EmissionMap, sampler_EmissionMap, staticSwitch2642_g60100 );
+						staticSwitch3409_g60100 = tex2DNode81_g60100.rgb;
+					}
+					#endif
+					float3 Emission3416_g60100 = staticSwitch3409_g60100;
+					float3 Emission97_g60103 = Emission3416_g60100;
+					float Emission_Intensity3417_g60100 = _EmissionIntensity;
+					float EmissionIntensity97_g60103 = Emission_Intensity3417_g60100;
 					float3 ase_positionWS = IN.ase_texcoord3.xyz;
 					float3 ase_viewVectorWS = ( ( unity_OrthoParams.w == 0 ) ? _WorldSpaceCameraPos - ase_positionWS : UNITY_MATRIX_V[ 2 ].xyz );
 					float3 ase_viewDirWS = normalize( ase_viewVectorWS );
-					float3 View_Direction2511_g60084 = ase_viewDirWS;
-					float3 ViewDir97_g60088 = View_Direction2511_g60084;
-					float3 World_Position2505_g60084 = ase_positionWS;
-					float3 WorldPos97_g60088 = World_Position2505_g60084;
+					float3 View_Direction2511_g60100 = ase_viewDirWS;
+					float3 ViewDir97_g60103 = View_Direction2511_g60100;
+					float3 World_Position2505_g60100 = ase_positionWS;
+					float3 WorldPos97_g60103 = World_Position2505_g60100;
 					float3 ase_normalWS = IN.ase_texcoord4.xyz;
-					float3 Default_Normal3336_g60084 = ase_normalWS;
-					float3 DefaultNormal97_g60088 = Default_Normal3336_g60084;
-					float2 staticSwitch3312_g60084 = ( float2 )0;
+					float3 Default_Normal3336_g60100 = ase_normalWS;
+					float3 DefaultNormal97_g60103 = Default_Normal3336_g60100;
+					float2 staticSwitch3312_g60100 = ( float2 )0;
 					#if defined( _UV_UV0 )
 					{
-						staticSwitch3312_g60084 = MainUV2420_g60084;
+						staticSwitch3312_g60100 = MainUV2420_g60100;
 					}
 					#elif defined( _UV_UV2 )
 					{
-						staticSwitch3312_g60084 = UV_Decal2595_g60084;
+						staticSwitch3312_g60100 = UV_Decal2595_g60100;
 					}
 					#else
 					{
-						staticSwitch3312_g60084 = UV_Decal2595_g60084;
+						staticSwitch3312_g60100 = UV_Decal2595_g60100;
 					}
 					#endif
-					float3 staticSwitch3391_g60084 = ( float3 )0;
+					float3 staticSwitch3391_g60100 = ( float3 )0;
 					#ifdef _UDON_MESH_ARRAYS_ON
 					{
-						float2 uv3_UdonNormalArray3386_g60084 = IN.ase_texcoord2.xy;
-						float Index_Normal3380_g60084 = break3395_g60084.y;
-						float4 tex2DArrayNode3386_g60084 = SAMPLE_TEXTURE2D_ARRAY( _UdonNormalArray, sampler_UdonNormalArray, float3(uv3_UdonNormalArray3386_g60084,Index_Normal3380_g60084) );
-						staticSwitch3391_g60084 = tex2DArrayNode3386_g60084.rgb;
+						float Index_Normal3380_g60100 = break3395_g60100.y;
+						float4 tex2DArrayNode3386_g60100 = SAMPLE_TEXTURE2D_ARRAY( _UdonNormalArray, sampler_UdonNormalArray, float3(staticSwitch3312_g60100,Index_Normal3380_g60100) );
+						float2 raw_rg3396_g60100 = (tex2DArrayNode3386_g60100.rgb).xy;
+						float3 localUnpackBC53396_g60100 = UnpackBC53396_g60100( raw_rg3396_g60100 );
+						staticSwitch3391_g60100 = localUnpackBC53396_g60100;
 					}
 					#else
 					{
-						float3 tex2DNode830_g60084 = UnpackNormal( SAMPLE_TEXTURE2D( _BumpMap, sampler_BumpMap, staticSwitch3312_g60084 ) );
-						staticSwitch3391_g60084 = tex2DNode830_g60084;
+						float3 tex2DNode830_g60100 = UnpackNormal( SAMPLE_TEXTURE2D( _BumpMap, sampler_BumpMap, staticSwitch3312_g60100 ) );
+						staticSwitch3391_g60100 = tex2DNode830_g60100;
 					}
 					#endif
-					float3 staticSwitch980_g60084 = ( float3 )0;
+					float3 staticSwitch980_g60100 = ( float3 )0;
 					#ifdef _BUMPMAP
 					{
-						staticSwitch980_g60084 = staticSwitch3391_g60084;
+						staticSwitch980_g60100 = staticSwitch3391_g60100;
 					}
 					#else
 					{
-						staticSwitch980_g60084 = float3( 0, 0, 1 );
+						staticSwitch980_g60100 = float3( 0, 0, 1 );
 					}
 					#endif
-					float3 normalizeResult2878_g60084 = normalize( staticSwitch980_g60084 );
-					float3 Normal700_g60084 = normalizeResult2878_g60084;
+					float3 Normal700_g60100 = staticSwitch980_g60100;
 					float3 ase_tangentWS = IN.ase_texcoord5.xyz;
 					float3 ase_bitangentWS = IN.ase_texcoord6.xyz;
 					float3 tanToWorld0 = float3( ase_tangentWS.x, ase_bitangentWS.x, ase_normalWS.x );
 					float3 tanToWorld1 = float3( ase_tangentWS.y, ase_bitangentWS.y, ase_normalWS.y );
 					float3 tanToWorld2 = float3( ase_tangentWS.z, ase_bitangentWS.z, ase_normalWS.z );
-					float3 tanNormal2504_g60084 = Normal700_g60084;
-					float3 worldNormal2504_g60084 = normalize( float3( dot( tanToWorld0, tanNormal2504_g60084 ), dot( tanToWorld1, tanNormal2504_g60084 ), dot( tanToWorld2, tanNormal2504_g60084 ) ) );
-					float3 World_Normal2508_g60084 = worldNormal2504_g60084;
-					float3 WorldNormal97_g60088 = World_Normal2508_g60084;
-					float3 Subsurface_Color3358_g60084 = _SubsurfaceColor.rgb;
-					float3 SubsurfaceColor97_g60088 = Subsurface_Color3358_g60084;
-					float Thickness97_g60088 = _Thickness;
-					float2 MainUV97_g60088 = MainUV2420_g60084;
-					float2 LightmapUV2361_g60084 = (texCoord2426_g60084).zw;
-					float2 LightmapUV97_g60088 = LightmapUV2361_g60084;
-					float LightGroupMask97_g60088 = _LightGroupMask;
-					float IsDynamicMesh97_g60088 = _IsDynamicMesh;
-					float3 Diffuse97_g60088 = float3( 0,0,0 );
-					float3 Specular97_g60088 = float3( 0,0,0 );
-					float3 Reflection97_g60088 = float3( 0,0,0 );
-					LayeredLightmapLighting( Color97_g60088 , Metallic97_g60088 , Roughness97_g60088 , ViewDir97_g60088 , WorldPos97_g60088 , DefaultNormal97_g60088 , WorldNormal97_g60088 , SubsurfaceColor97_g60088 , Thickness97_g60088 , MainUV97_g60088 , LightmapUV97_g60088 , LightGroupMask97_g60088 , IsDynamicMesh97_g60088 , Diffuse97_g60088 , Specular97_g60088 , Reflection97_g60088 );
+					float3 tanNormal2504_g60100 = Normal700_g60100;
+					float3 worldNormal2504_g60100 = normalize( float3( dot( tanToWorld0, tanNormal2504_g60100 ), dot( tanToWorld1, tanNormal2504_g60100 ), dot( tanToWorld2, tanNormal2504_g60100 ) ) );
+					float3 World_Normal2508_g60100 = worldNormal2504_g60100;
+					float3 WorldNormal97_g60103 = World_Normal2508_g60100;
+					float3 Subsurface_Color3358_g60100 = _SubsurfaceColor.rgb;
+					float3 SubsurfaceColor97_g60103 = Subsurface_Color3358_g60100;
+					float Thickness97_g60103 = _Thickness;
+					float2 MainUV97_g60103 = MainUV2420_g60100;
+					float2 LightmapUV2361_g60100 = (texCoord2426_g60100).zw;
+					float2 LightmapUV97_g60103 = LightmapUV2361_g60100;
+					float LightGroupMask97_g60103 = _LightGroupMask;
+					float IsDynamicMesh97_g60103 = _IsDynamicMesh;
+					float Material_Column3402_g60100 = round( texCoord3407_g60100 ).w;
+					float MaterialColumn97_g60103 = Material_Column3402_g60100;
+					float2 texCoord3441_g60100 = IN.ase_texcoord7.xy * float2( 1,1 ) + float2( 0,0 );
+					float Ref_lectionProbe_Assignment3442_g60100 = texCoord3441_g60100.x;
+					float ReflectionProbeAssignment97_g60103 = Ref_lectionProbe_Assignment3442_g60100;
+					float3 Diffuse97_g60103 = float3( 0,0,0 );
+					float3 Specular97_g60103 = float3( 0,0,0 );
+					float3 Reflection97_g60103 = float3( 0,0,0 );
+					float3 EmissionOut97_g60103 = float3( 0,0,0 );
+					float AlphaOut97_g60103 = 0.0;
+					LayeredLightmapLighting( AlbedoColor97_g60103 , Albedo97_g60103 , Metallic97_g60103 , Roughness97_g60103 , EmissionColor97_g60103 , Emission97_g60103 , EmissionIntensity97_g60103 , ViewDir97_g60103 , WorldPos97_g60103 , DefaultNormal97_g60103 , WorldNormal97_g60103 , SubsurfaceColor97_g60103 , Thickness97_g60103 , MainUV97_g60103 , LightmapUV97_g60103 , LightGroupMask97_g60103 , IsDynamicMesh97_g60103 , MaterialColumn97_g60103 , ReflectionProbeAssignment97_g60103 , Diffuse97_g60103 , Specular97_g60103 , Reflection97_g60103 , EmissionOut97_g60103 , AlphaOut97_g60103 );
 					#ifdef _DIFFUSE_ON
-					float3 staticSwitch3319_g60084 = Diffuse97_g60088;
+					float3 staticSwitch3319_g60100 = Diffuse97_g60103;
 					#else
-					float3 staticSwitch3319_g60084 = _Vector0;
+					float3 staticSwitch3319_g60100 = _Vector0;
 					#endif
-					float3 Diffuse2560_g60084 = staticSwitch3319_g60084;
+					#ifdef _SPECULARS_ON
+					float3 staticSwitch3317_g60100 = Specular97_g60103;
+					#else
+					float3 staticSwitch3317_g60100 = _Vector0;
+					#endif
 					#ifdef _REFLECTIONS_ON
-					float3 staticSwitch3318_g60084 = Reflection97_g60088;
+					float3 staticSwitch3318_g60100 = Reflection97_g60103;
 					#else
-					float3 staticSwitch3318_g60084 = _Vector0;
+					float3 staticSwitch3318_g60100 = _Vector0;
 					#endif
-					float3 Reflections1419_g60084 = staticSwitch3318_g60084;
-					float2 staticSwitch2642_g60084 = ( float2 )0;
-					#if defined( _EMISSIONUV_UV0 )
-					{
-						staticSwitch2642_g60084 = MainUV2420_g60084;
-					}
-					#elif defined( _EMISSIONUV_UV2 )
-					{
-						staticSwitch2642_g60084 = UV_Decal2595_g60084;
-					}
-					#else
-					{
-						staticSwitch2642_g60084 = MainUV2420_g60084;
-					}
-					#endif
-					float4 tex2DNode81_g60084 = SAMPLE_TEXTURE2D( _EmissionMap, sampler_EmissionMap, staticSwitch2642_g60084 );
-					float3 Emission86_g60084 = ( _EmissionColor * tex2DNode81_g60084.rgb * _EmissionIntensity );
-					float4 staticSwitch1_g60085 = ( float4 )0;
+					float3 Color357_g60101 = ( staticSwitch3319_g60100 + staticSwitch3317_g60100 + staticSwitch3318_g60100 + EmissionOut97_g60103 );
+					float3 staticSwitch359_g60101 = ( float3 )0;
 					#ifdef SHADER_API_MOBILE
 					{
-						staticSwitch1_g60085 = float4( ( Diffuse2560_g60084 + Reflections1419_g60084 + Emission86_g60084 ) , 0.0 );
+						float3 LUT51_g60101 = SAMPLE_TEXTURE3D( _LUT, sampler_LUT, ( ( log10( ( ( Color357_g60101 * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) ).rgb;
+						staticSwitch359_g60101 = LUT51_g60101;
 					}
 					#else
 					{
-						#ifdef _SPECULARS_ON
-						float3 staticSwitch3317_g60084 = Specular97_g60088;
-						#else
-						float3 staticSwitch3317_g60084 = _Vector0;
-						#endif
-						float3 Speculars3240_g60084 = staticSwitch3317_g60084;
-						staticSwitch1_g60085 = float4( ( Diffuse2560_g60084 + Speculars3240_g60084 + Reflections1419_g60084 + Emission86_g60084 ) , 0.0 );
-					}
-					#endif
-					float4 Color357_g60086 = staticSwitch1_g60085;
-					float4 staticSwitch359_g60086 = ( float4 )0;
-					#ifdef SHADER_API_MOBILE
-					{
-						float4 LUT51_g60086 = SAMPLE_TEXTURE3D( _LUT, sampler_LUT, ( ( log10( ( ( (Color357_g60086).xyz * 5.555556 ) + 0.047996 ) ) * 0.244161 ) + 0.386036 ) );
-						staticSwitch359_g60086 = LUT51_g60086;
-					}
-					#else
-					{
-						staticSwitch359_g60086 = Color357_g60086;
+						staticSwitch359_g60101 = Color357_g60101;
 					}
 					#endif
 					
 
-					float3 Color = staticSwitch359_g60086.xyz;
-					float Alpha = temp_output_3155_0_g60084.a;
+					float3 Color = staticSwitch359_g60101;
+					float Alpha = AlphaOut97_g60103;
 					half AlphaClipThreshold = 0.5;
 					half AlphaClipThresholdShadow = 0.5;
 
@@ -571,12 +593,12 @@ Shader "Meenphie/Standard/Transparent/Alpha"
 }
 /*ASEBEGIN
 Version=19914
-{"type":"AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor","id":3057,"pos":[256,-1024],"params":["Inherit","False","Property","_Offset","Offset","41","0","Create","True","0","0","0","True","0","False","Object","-1","","0","-1","0","0","0","1","FLOAT","0"]}
-{"type":"AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor","id":3088,"pos":[192,-1200],"params":["Inherit","False","Meenphie","0","","60084","5cc94f8f8e02d10598af4792603e1e57","6,1008,0,2632,1,3311,1,2670,1,2635,1,2619,1","0","3","FLOAT4","624","FLOAT","156","FLOAT","427"]}
+{"type":"AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor","id":3057,"pos":[256,-1024],"params":["Inherit","False","Property","_Offset","Offset","42","0","Create","True","0","0","0","True","0","False","Object","-1","","0","0","0","0","0","1","FLOAT","0"]}
+{"type":"AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor","id":3116,"pos":[192,-1200],"params":["Inherit","False","Meenphie","0","","60100","5cc94f8f8e02d10598af4792603e1e57","6,1008,0,2632,1,3311,1,2670,1,2635,1,2619,1","0","3","FLOAT3","624","FLOAT","156","FLOAT","427"]}
 {"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3076,"pos":[512,-1200],"params":["Float","False","False","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","New Amplify Shader","0770190933193b94aaa3065e307002fa","True","ExtraPrePass","0","0","ExtraPrePass","6","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","True","True","0","False","","0","False","","True","1","False","","True","1","RenderType=Opaque=RenderType","True","3","True","12","all","0","False","True","1","1","False","","0","False","","0","1","False","","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","True","3","False","","True","True","0","False","","0","False","","False","False","False","False","0","","0","0","Standard","0","False","0"]}
-{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3077,"pos":[512,-1200],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","Meenphie/Standard/Transparent/Alpha","0770190933193b94aaa3065e307002fa","True","Unlit","0","1","Unlit","8","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","True","True","0","False","","0","False","","True","1","False","","True","2","RenderType=Transparent=RenderType","Queue=Transparent=Queue=0","True","5","True","5","d3d11","glcore","gles3","metal","vulkan","0","False","True","1","5","False","","10","False","","1","1","False","","10","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","True","True","2","False","","True","3","False","","True","True","0","True","_Offset","0","True","_Offset","False","False","False","False","0","","0","0","Standard","10","Surface","1","639175548287131210","  Keep Alpha","0","0","  Blend","0","0","Alpha Clipping","0","0","  Use Shadow Threshold","0","0","Cast Shadows","0","639175548306094770","Write Depth","0","0","  Conservative","0","0","Extra Pre Pass","0","0","Vertex Position","1","0","0","3","False","True","False","False","","True","0"]}
 {"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3078,"pos":[512,-1200],"params":["Float","False","False","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","New Amplify Shader","0770190933193b94aaa3065e307002fa","True","ShadowCaster","0","2","ShadowCaster","0","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","True","True","0","False","","0","False","","True","1","False","","True","1","RenderType=Opaque=RenderType","True","3","True","12","all","0","False","False","False","False","False","False","False","False","False","False","False","False","True","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","False","True","1","False","","True","3","False","","False","False","True","1","LightMode=ShadowCaster","False","False","0","","0","0","Standard","0","False","0"]}
-{"wire":[3077,0,3088,624]}
-{"wire":[3077,7,3088,156]}
+{"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":3077,"pos":[512,-1200],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","7","Meenphie/Standard/Transparent/Alpha","0770190933193b94aaa3065e307002fa","True","Unlit","0","1","Unlit","8","False","True","1","1","False","","0","False","","1","1","False","","0","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","False","True","1","False","","False","True","True","0","False","","0","False","","True","1","False","","True","2","RenderType=Transparent=RenderType","Queue=Transparent=Queue=0","True","5","True","4","d3d11","gles3","metal","vulkan","0","False","True","1","5","False","","10","False","","1","1","False","","10","False","","True","1","False","","1","False","","False","False","False","False","False","False","False","False","False","False","False","True","0","False","","False","True","True","True","True","True","0","False","","False","False","False","False","False","False","False","True","False","0","False","","255","False","","255","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","0","False","","True","True","2","False","","True","3","False","","True","True","0","True","_Offset","0","True","_Offset","False","False","False","False","0","","0","0","Standard","10","Surface","1","639175548287131210","  Keep Alpha","0","0","  Blend","0","0","Alpha Clipping","0","0","  Use Shadow Threshold","0","0","Cast Shadows","0","639175548306094770","Write Depth","0","0","  Conservative","0","0","Extra Pre Pass","0","0","Vertex Position","1","0","0","3","False","True","False","False","","True","0"]}
+{"wire":[3077,0,3116,624]}
+{"wire":[3077,7,3116,156]}
 ASEEND*/
-//CHKSM=6290E5B1EA620D61EFDCD0EF8E38921C0DE2E59B
+//CHKSM=B52C8BD74EB2F28A47EB6EA604FF301E78FAEE6A

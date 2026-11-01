@@ -10,27 +10,123 @@ public class ReflectionProbeArrayBuilder : EditorWindow
     private const string ARRAY_NAME_PC = "ReflectionProbeArray_PC";
     private const string ARRAY_NAME_QUEST = "ReflectionProbeArray_Quest";
     private const int MAX_PROBES = 16;
+    private const string HotspotFilterEnabledKey = "Meenphie.ReflectionProbeHotspotFilter.Enabled";
+    private const string HotspotThresholdKey = "Meenphie.ReflectionProbeHotspotFilter.Threshold";
+    private const string HotspotFeatherKey = "Meenphie.ReflectionProbeHotspotFilter.Feather";
+    private const string HotspotReplacementKey = "Meenphie.ReflectionProbeHotspotFilter.Replacement";
 
     private static Texture2D _tempSrcFace;
     private static Texture2D _tempTex;
+    private static Texture2D _tempPcFace;
+    private static Texture2D _tempPcCompressedFace;
+    private static Texture2D _tempQuestCompressedFace;
+    private static Material _hotspotFilterMaterial;
+
+    public static bool RemoveBrightPixels
+    {
+        get => EditorPrefs.GetBool(HotspotFilterEnabledKey, false);
+        set => EditorPrefs.SetBool(HotspotFilterEnabledKey, value);
+    }
+
+    public static float BrightPixelThreshold
+    {
+        get => Mathf.Clamp(EditorPrefs.GetFloat(HotspotThresholdKey, 1f), 0f, 1f);
+        set => EditorPrefs.SetFloat(HotspotThresholdKey, Mathf.Clamp(value, 0f, 1f));
+    }
+
+    public static float BrightPixelFeather
+    {
+        get => Mathf.Clamp(EditorPrefs.GetFloat(HotspotFeatherKey, 0.1f), 0f, 0.5f);
+        set => EditorPrefs.SetFloat(HotspotFeatherKey, Mathf.Clamp(value, 0f, 0.5f));
+    }
+
+    public static int BrightPixelReplacement
+    {
+        get => EditorPrefs.GetInt(HotspotReplacementKey, 1);
+        set => EditorPrefs.SetInt(HotspotReplacementKey, Mathf.Clamp(value, 0, 1));
+    }
 
     private static void ResetTempBuffers()
     {
         if (_tempSrcFace != null) { Object.DestroyImmediate(_tempSrcFace); _tempSrcFace = null; }
         if (_tempTex != null) { Object.DestroyImmediate(_tempTex); _tempTex = null; }
+        if (_tempPcFace != null) { Object.DestroyImmediate(_tempPcFace); _tempPcFace = null; }
+        if (_tempPcCompressedFace != null) { Object.DestroyImmediate(_tempPcCompressedFace); _tempPcCompressedFace = null; }
+        if (_tempQuestCompressedFace != null) { Object.DestroyImmediate(_tempQuestCompressedFace); _tempQuestCompressedFace = null; }
+        if (_hotspotFilterMaterial != null) { Object.DestroyImmediate(_hotspotFilterMaterial); _hotspotFilterMaterial = null; }
+    }
+
+    public static ReflectionProbe[] GetBakedProbes()
+    {
+        return MeshArrayBaker.CreateReflectionProbePlan().Probes;
+    }
+
+    public static ReflectionProbe[] GetAllBakedProbes()
+    {
+        return Object.FindObjectsOfType<ReflectionProbe>()
+            .Where(p => p.bakedTexture != null || p.customBakedTexture != null)
+            .OrderBy(p => p.name, System.StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public static int SelectNearestProbeForRenderer(Renderer renderer, ReflectionProbe[] probes)
+    {
+        if (renderer == null || probes == null || probes.Length == 0)
+            return -1;
+
+        if (renderer.probeAnchor != null)
+        {
+            ReflectionProbe anchorProbe = renderer.probeAnchor.GetComponentInParent<ReflectionProbe>();
+            if (anchorProbe != null)
+            {
+                for (int i = 0; i < probes.Length; i++)
+                    if (probes[i] == anchorProbe)
+                        return i;
+
+                return -1;
+            }
+        }
+
+        Vector3 pivot = renderer.transform.position;
+        int bestIndex = -1;
+        float bestDistanceSquared = float.PositiveInfinity;
+        for (int i = 0; i < probes.Length; i++)
+        {
+            ReflectionProbe probe = probes[i];
+            if (probe == null)
+                continue;
+
+            float distanceSquared = (probe.transform.position - pivot).sqrMagnitude;
+            if (distanceSquared >= bestDistanceSquared)
+                continue;
+
+            bestIndex = i;
+            bestDistanceSquared = distanceSquared;
+        }
+
+        return bestIndex;
     }
 
     [MenuItem("Meenphie/Layered Lighting/Build Reflection Probes Array")]
     public static void Build()
     {
+        if (Object.FindObjectOfType<LightingManager>() == null)
+        {
+            Debug.LogError("Aucun LightingManager trouvé dans la scène.");
+            return;
+        }
+
+        Build(MeshArrayBaker.CreateReflectionProbePlan());
+    }
+
+    public static void Build(MeshArrayBaker.ReflectionProbePlan probePlan)
+    {
+        if (probePlan == null) throw new System.ArgumentNullException(nameof(probePlan));
         ResetTempBuffers();
         LightingManager mgr = Object.FindObjectOfType<LightingManager>();
         if (mgr == null) { Debug.LogError("Aucun LightingManager trouvé dans la scène."); return; }
 
-        var probes = Object.FindObjectsOfType<ReflectionProbe>()
-            .Where(p => p.bakedTexture != null || p.customBakedTexture != null)
-            .OrderBy(p => p.name, System.StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        ReflectionProbe[] probes = probePlan.Probes;
 
         if (probes.Length == 0) { Debug.LogWarning("Aucune reflection probe bakée n'a été trouvée."); return; }
         if (probes.Length > MAX_PROBES) { Debug.LogError($"Trop de probes ({probes.Length}), la limite est fixée à {MAX_PROBES}."); return; }
@@ -39,14 +135,38 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         if (firstCube == null) { Debug.LogError("La première probe est invalide."); return; }
 
         int pcRes = firstCube.width;
-        int pcMipCount = firstCube.mipmapCount;
+        if (pcRes < 4)
+        {
+            Debug.LogError($"Reflection probes must be at least 4x4 to use BC7/DXT5 compression (got {pcRes}x{pcRes}).");
+            return;
+        }
 
-        // Unity convolue ses probes sur UNITY_SPECCUBE_LOD_STEPS (6) niveaux de rugosité, quelle que soit la taille
-        // de la chaîne de mips : le shader doit mapper rugosité 1 -> mip 6, pas -> dernier mip (pcMipCount - 1).
         const int SPECCUBE_LOD_STEPS = 6;
-        int probeMaxMip = Mathf.Min(SPECCUBE_LOD_STEPS, pcMipCount - 1);
+        int pcMipCount = Mathf.Min(firstCube.mipmapCount, SPECCUBE_LOD_STEPS + 1);
+        while (pcMipCount > 0 && Mathf.Max(1, pcRes >> (pcMipCount - 1)) < 4)
+            pcMipCount--;
+        if (pcMipCount == 0)
+        {
+            Debug.LogError($"No BC7/DXT5-compatible mip levels found for {pcRes}x{pcRes} reflection probes.");
+            return;
+        }
 
         GraphicsFormat pcFormat = firstCube.graphicsFormat;
+        TextureFormat pcTextureFormat;
+        if (SystemInfo.SupportsTextureFormat(TextureFormat.BC7))
+        {
+            pcTextureFormat = TextureFormat.BC7;
+        }
+        else
+        {
+            pcTextureFormat = TextureFormat.DXT5;
+            Debug.LogWarning("PC reflection probes: BC7 compression is unavailable; using DXT5.");
+        }
+        GraphicsFormat pcArrayFormat = GraphicsFormatUtility.GetGraphicsFormat(pcTextureFormat, false);
+
+        // Unity samples up to mip 6. Keep only complete compressed mip levels (minimum 4x4).
+        int probeMaxMip = Mathf.Min(SPECCUBE_LOD_STEPS, pcMipCount - 1);
+
         Debug.Log($"Format PC source : {pcFormat} | Res : {pcRes} | Mips : {pcMipCount}");
 
         for (int i = 1; i < probes.Length; i++)
@@ -55,32 +175,54 @@ public class ReflectionProbeArrayBuilder : EditorWindow
             Cubemap cube = p.bakedTexture as Cubemap ?? p.customBakedTexture as Cubemap;
             if (cube == null) { Debug.LogError($"Probe '{p.name}' invalide."); return; }
             if (cube.width != pcRes) { Debug.LogError($"Probe '{p.name}' résolution incompatible."); return; }
-            if (cube.mipmapCount > pcMipCount) { Debug.LogError($"Probe '{p.name}' possède trop de mips."); return; }
+            if (cube.mipmapCount < pcMipCount) { Debug.LogError($"Probe '{p.name}' n'a que {cube.mipmapCount} mip(s), {pcMipCount} sont nécessaires."); return; }
             if (cube.graphicsFormat != pcFormat) { Debug.LogError($"Probe '{p.name}' format différent ({cube.graphicsFormat} au lieu de {pcFormat})."); return; }
         }
 
-        int questRes = Mathf.Max(1, pcRes / 2);
+        Shader filterShader = Shader.Find("Hidden/Meenphie/ReflectionProbeHotspotFilter");
+        if (filterShader == null)
+        {
+            Debug.LogError("Reflection probe conversion shader is missing; probe arrays were not rebuilt.");
+            return;
+        }
+
+        _hotspotFilterMaterial = new Material(filterShader)
+        {
+            hideFlags = HideFlags.HideAndDontSave
+        };
+        _hotspotFilterMaterial.SetFloat("_HotspotEnabled", RemoveBrightPixels ? 1f : 0f);
+        _hotspotFilterMaterial.SetFloat("_HotspotThreshold", BrightPixelThreshold);
+        _hotspotFilterMaterial.SetFloat("_HotspotFeather", BrightPixelFeather);
+        _hotspotFilterMaterial.SetFloat("_HotspotReplacement", BrightPixelReplacement);
+
+        int questRes = Mathf.Max(4, pcRes / 2);
         GraphicsFormat questFormat;
         TextureFormat questTexFormat;
 
         if (SystemInfo.SupportsTextureFormat(TextureFormat.BC7))
         {
-            questFormat = GraphicsFormat.RGBA_BC7_UNorm;
+            questFormat = GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.BC7, false);
             questTexFormat = TextureFormat.BC7;
         }
         else
         {
-            questFormat = GraphicsFormat.RGBA_DXT5_SRGB;
+            questFormat = GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.DXT5, false);
             questTexFormat = TextureFormat.DXT5;
             Debug.LogWarning("Quest : Format BC7 non supporté par la plateforme actuelle, utilisation de DXT5.");
         }
 
+        if (!SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf))
+        {
+            Debug.LogError("Reflection probe conversion requires ARGBHalf render texture support; probe arrays were not rebuilt.");
+            ResetTempBuffers();
+            return;
+        }
+
         // Trois Vector4 par probe :
-        //   [b+0] position de capture (xyz) | blendDistance (w)
+        //   [b+0] position de capture (xyz)
         //   [b+1] bounds.min (xyz)          | box projection 0/1 (w)
         //   [b+2] bounds.max (xyz)          | importance (w)
-        // Le shader choisit les 2 probes les plus prioritaires par pixel (importance, puis plus petite boîte)
-        // et les fond sur la distance aux faces de leur boîte.
+        // Les meshes bakés stockent l'index de leur probe assignée dans UV8.
         Vector4[] dataArray = new Vector4[MAX_PROBES * 3];
         Vector4[] hdrArray = new Vector4[MAX_PROBES];
 
@@ -88,13 +230,11 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         {
             var probe = probes[i];
             int b = i * 3;
-            dataArray[b + 0] = new Vector4(probe.transform.position.x, probe.transform.position.y, probe.transform.position.z, probe.blendDistance);
+            dataArray[b + 0] = new Vector4(probe.transform.position.x, probe.transform.position.y, probe.transform.position.z, 0f);
             dataArray[b + 1] = new Vector4(probe.bounds.min.x, probe.bounds.min.y, probe.bounds.min.z, probe.boxProjection ? 1f : 0f);
             dataArray[b + 2] = new Vector4(probe.bounds.max.x, probe.bounds.max.y, probe.bounds.max.z, probe.importance);
 
-            Vector4 hdr = probe.textureHDRDecodeValues;
-            if (hdr.x <= 0f) hdr = new Vector4(1f, 1f, 0f, 0f);
-            hdrArray[i] = hdr;
+            hdrArray[i] = new Vector4(1f, 1f, 0f, 0f);
         }
 
         BakePaths.Ensure(OUTPUT_FOLDER);
@@ -104,7 +244,7 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         AssetDatabase.DeleteAsset(pathPC);
         AssetDatabase.DeleteAsset(pathQuest);
 
-        CubemapArray arrayPC = new CubemapArray(pcRes, probes.Length, pcFormat, TextureCreationFlags.MipChain, pcMipCount)
+        CubemapArray arrayPC = new CubemapArray(pcRes, probes.Length, pcArrayFormat, TextureCreationFlags.MipChain, pcMipCount)
         {
             wrapMode = TextureWrapMode.Clamp,
             filterMode = FilterMode.Trilinear,
@@ -125,24 +265,21 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         {
             ReflectionProbe probe = probes[i];
             Cubemap sourceCube = probe.bakedTexture as Cubemap ?? probe.customBakedTexture as Cubemap;
+            Vector4 sourceHdr = probe.textureHDRDecodeValues;
+            if (sourceHdr.x <= 0f) sourceHdr = new Vector4(1f, 1f, 0f, 0f);
+            _hotspotFilterMaterial.SetVector("_SourceHDRDecode", sourceHdr);
 
             for (int face = 0; face < 6; face++)
             {
-                // PC : copie directe avec chaîne de mips complète
+                // PC : convert each source mip to linear SDR, compress it, then transfer the cubemap face.
                 for (int mip = 0; mip < pcMipCount; mip++)
                 {
-                    Graphics.CopyTexture(
-                        sourceCube,
-                        face,
-                        mip,
-                        arrayPC,
-                        (i * 6) + face,
-                        mip
-                    );
+                    WritePcFace(sourceCube, face, mip, arrayPC, (i * 6) + face, pcTextureFormat);
                 }
 
                 // Quest : downsampled, un seul mip
-                WriteDownsampledFace(sourceCube, face, pcRes, questRes, arrayQuest, (i * 6) + face, questFormat, questTexFormat);
+                WriteDownsampledFace(sourceCube, face, pcRes, questRes, arrayQuest, (i * 6) + face, questTexFormat,
+                    _hotspotFilterMaterial);
             }
         }
 
@@ -170,41 +307,99 @@ public class ReflectionProbeArrayBuilder : EditorWindow
 
         Debug.Log($"[ReflectionProbeBuilder] Success – PC {pcRes}px, Quest {questRes}px, {probes.Length} probes dans {OUTPUT_FOLDER}.");
         ResetTempBuffers();
+        ReflectionProbeAssignmentPreview.Refresh();
+    }
+
+    private static void WritePcFace(
+        Cubemap source, int face, int mip, CubemapArray destination, int dstElement, TextureFormat compressionFormat)
+    {
+        int resolution = Mathf.Max(1, source.width >> mip);
+        EnsureSourceFace(source, resolution);
+        Graphics.CopyTexture(source, face, mip, _tempSrcFace, 0, 0);
+
+        RenderTexture output = RenderTexture.GetTemporary(
+            resolution, resolution, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+        RenderTexture previousActive = RenderTexture.active;
+        try
+        {
+            Graphics.Blit(_tempSrcFace, output, _hotspotFilterMaterial);
+
+            if (_tempPcFace == null || _tempPcFace.width != resolution)
+            {
+                if (_tempPcFace != null) Object.DestroyImmediate(_tempPcFace);
+                _tempPcFace = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false, true);
+            }
+
+            RenderTexture.active = output;
+            _tempPcFace.ReadPixels(new Rect(0, 0, resolution, resolution), 0, 0, false);
+            _tempPcFace.Apply(false, false);
+
+            if (_tempPcCompressedFace != null)
+                Object.DestroyImmediate(_tempPcCompressedFace);
+            _tempPcCompressedFace = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false, true);
+            Graphics.CopyTexture(_tempPcFace, _tempPcCompressedFace);
+            EditorUtility.CompressTexture(_tempPcCompressedFace, compressionFormat, TextureCompressionQuality.Best);
+            _tempPcCompressedFace.Apply(false, false);
+
+            Graphics.CopyTexture(_tempPcCompressedFace, 0, 0, destination, dstElement, mip);
+        }
+        finally
+        {
+            RenderTexture.active = previousActive;
+            RenderTexture.ReleaseTemporary(output);
+        }
+    }
+
+    private static void EnsureSourceFace(Cubemap source, int resolution)
+    {
+        if (_tempSrcFace != null && _tempSrcFace.width == resolution &&
+            _tempSrcFace.graphicsFormat == source.graphicsFormat)
+            return;
+
+        if (_tempSrcFace != null) Object.DestroyImmediate(_tempSrcFace);
+        _tempSrcFace = new Texture2D(resolution, resolution, source.graphicsFormat, TextureCreationFlags.None);
+        _tempSrcFace.wrapMode = TextureWrapMode.Clamp;
     }
 
     private static void WriteDownsampledFace(Cubemap source, int face, int srcRes, int destRes,
-        Texture2DArray destination, int dstElement, GraphicsFormat targetFormat, TextureFormat questTexFormat)
+        Texture2DArray destination, int dstElement, TextureFormat questTexFormat,
+        Material filterMaterial)
     {
-        if (_tempSrcFace == null || _tempSrcFace.width != srcRes)
-        {
-            if (_tempSrcFace != null) Object.DestroyImmediate(_tempSrcFace);
-            _tempSrcFace = new Texture2D(srcRes, srcRes, source.graphicsFormat, TextureCreationFlags.None);
-        }
+        EnsureSourceFace(source, srcRes);
 
         Graphics.CopyTexture(source, face, 0, _tempSrcFace, 0, 0);
 
         RenderTexture destRT = RenderTexture.GetTemporary(destRes, destRes, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
-        Graphics.Blit(_tempSrcFace, destRT);
-
-        if (_tempTex == null || _tempTex.width != destRes)
+        RenderTexture previousActive = RenderTexture.active;
+        try
         {
-            if (_tempTex != null) Object.DestroyImmediate(_tempTex);
-            _tempTex = new Texture2D(destRes, destRes, TextureFormat.RGBAHalf, false, true);
-        }
+            Graphics.Blit(_tempSrcFace, destRT, filterMaterial);
 
-        RenderTexture.active = destRT;
-        _tempTex.ReadPixels(new Rect(0, 0, destRes, destRes), 0, 0);
-        _tempTex.Apply(false);
-        RenderTexture.active = null;
-        RenderTexture.ReleaseTemporary(destRT);
+            if (_tempTex == null || _tempTex.width != destRes)
+            {
+                if (_tempTex != null) Object.DestroyImmediate(_tempTex);
+                _tempTex = new Texture2D(destRes, destRes, TextureFormat.RGBAHalf, false, true);
+            }
 
-        if (GraphicsFormatUtility.IsCompressedFormat(targetFormat))
-        {
-            EditorUtility.CompressTexture(_tempTex, questTexFormat, TextureCompressionQuality.Best);
+            RenderTexture.active = destRT;
+            _tempTex.ReadPixels(new Rect(0, 0, destRes, destRes), 0, 0);
             _tempTex.Apply(false);
         }
+        finally
+        {
+            RenderTexture.active = previousActive;
+            RenderTexture.ReleaseTemporary(destRT);
+        }
 
-        Graphics.CopyTexture(_tempTex, 0, 0, destination, dstElement, 0);
+        if (_tempQuestCompressedFace != null)
+            Object.DestroyImmediate(_tempQuestCompressedFace);
+        _tempQuestCompressedFace = new Texture2D(destRes, destRes, TextureFormat.RGBAHalf, false, true);
+        Graphics.CopyTexture(_tempTex, _tempQuestCompressedFace);
+        EditorUtility.CompressTexture(_tempQuestCompressedFace, questTexFormat, TextureCompressionQuality.Best);
+        _tempQuestCompressedFace.Apply(false);
+        Graphics.CopyTexture(_tempQuestCompressedFace, 0, 0, destination, dstElement, 0);
+        Object.DestroyImmediate(_tempQuestCompressedFace);
+        _tempQuestCompressedFace = null;
     }
 
     private static void EnsureFolder(string path)

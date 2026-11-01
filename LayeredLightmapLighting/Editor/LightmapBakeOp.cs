@@ -5,25 +5,27 @@ using Meenphie.Commons;
 public class LightmapBakeOp : IBakeOperation
 {
     public string DisplayName => "Lightmaps + Cookies";
-    public bool   IsBaked     => AssetDatabase.LoadAssetAtPath<Texture2DArray>(
-                                    BakePaths.Lightmaps + "LightmapLayerArray_PC.asset") != null;
+    private Texture2DArray _cachedAsset; // Add this cache field
+
+    public bool IsBaked => _cachedAsset != null || AssetDatabase.LoadAssetAtPath<Texture2DArray>(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset") != null;
 
     public string GetStatus()
     {
-        if (!IsBaked) return "Not baked";
-        var arr = AssetDatabase.LoadAssetAtPath<Texture2DArray>(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset");
-        return $"{arr.depth} slices · {arr.width}px · {BakeUtil.SizeOnDisk(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset")}";
+        if (_cachedAsset == null) _cachedAsset = AssetDatabase.LoadAssetAtPath<Texture2DArray>(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset");
+
+        if (_cachedAsset == null) return "Not baked";
+        return $"{_cachedAsset.depth} slices · {_cachedAsset.width}px · {BakeUtil.SizeOnDisk(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset")}";
     }
 
     public (int count, bool warn) GetSliceInfo()
     {
-        if (!IsBaked) return (0, false);
-        var arr = AssetDatabase.LoadAssetAtPath<Texture2DArray>(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset");
-        return (arr.depth, arr.depth > 32);
+        if (_cachedAsset == null) _cachedAsset = AssetDatabase.LoadAssetAtPath<Texture2DArray>(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset");
+
+        if (_cachedAsset == null) return (0, false);
+        return (_cachedAsset.depth, _cachedAsset.depth > 32);
     }
 
-    public void Bake()   => LightmapArrayBuilder.AutoAssignLightLayers();
-
+    public void Bake() => LightmapArrayBuilder.AutoAssignLightLayers();
     public void Delete()
     {
         AssetDatabase.DeleteAsset(BakePaths.Lightmaps + "LightmapLayerArray_PC.asset");
@@ -34,9 +36,9 @@ public class LightmapBakeOp : IBakeOperation
         if (mgr != null)
         {
             Undo.RecordObject(mgr, "Delete Lightmap Bake");
-            mgr.lightLayerArrayPC    = null;
+            mgr.lightLayerArrayPC = null;
             mgr.lightLayerArrayQuest = null;
-            mgr.cookieArray          = null;
+            mgr.cookieArray = null;
             EditorUtility.SetDirty(mgr);
         }
         Shader.SetGlobalTexture("_UdonLightLayerArray", null);

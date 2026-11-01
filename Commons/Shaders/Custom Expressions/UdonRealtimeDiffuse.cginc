@@ -1,26 +1,24 @@
+// Color map stores the nearest opaque/cutout caster's normalized depth in R.
 #ifndef UDON_REALTIME_DIFFUSE
 #define UDON_REALTIME_DIFFUSE
 
-uniform float4 _UdonLightData[257];
+uniform float4 _UdonLightData[513];
 uniform float  _UdonDiffuseRealtimeEnabled;
+uniform float  _UdonRealtimeShadowsEnabled;
 
 // Variables globales venant du script C#
-// Une seule shadow map maintenant : opaque ET translucide (dithering) y écrivent
-// leur depth, plus besoin de _UdonShadowAlphaMap / 2e RenderTexture.
+// Shadow globals supplied by ShadowAtlasCaster.
 uniform sampler2D _UdonShadowMap;
-uniform float4    _UdonShadowMap_TexelSize; // auto-rempli par Unity (x=1/width, y=1/height)
-uniform float4x4  _UdonShadowMatrixVP;   // Matrice de la lumière
+uniform float4x4  _UdonShadowViewMatrix;
+uniform float4x4  _UdonShadowProjectionMatrix;
+uniform float     _Udon_LightNear;
+uniform float     _Udon_LightFar;
 
 #ifndef UDON_SHADOW_COMMON
     #define UDON_SHADOW_COMMON
     uniform float _UdonShadowRaySteps;
     uniform float _UdonShadowNearCasterExclude;
 #endif
-
-static const float _RTShadowMaxDist    = 10.0;
-static const float _RTShadowMinDist    = 0.05;
-static const float _RTShadowBiasEye    = 0.05;
-static const float _RTShadowNormalBias = 0.02;
 
 static const float _MaxDynamicDiffuseRange   = 10.0;
 static const float _MaxDynamicDiffuseRangeSq = _MaxDynamicDiffuseRange * _MaxDynamicDiffuseRange;
@@ -38,57 +36,30 @@ float _UdonRTAreaMask(float3 L_norm, float3 lightFwd) {
     return saturate(dot(-L_norm, lightFwd) * 4.0);
 }
 
-// Fonction de base : Screen Space Shadow (Ombres de contact)
-float _UdonRTComputeScreenSpaceShadow(float3 WorldPos, float3 lightPos, float3 N, bool wantsShadow) {
-    if (!wantsShadow) return 1.0;
-
-    float3 toLight = lightPos - WorldPos;
-    float  lightDist = length(toLight);
-    if (lightDist > _RTShadowMaxDist || lightDist < _RTShadowMinDist) return 1.0;
-
-    // Simplification : Retourner 1.0 par défaut pour laisser agir la Shadow Map
-    return 1.0;
-}
-
-// Lecture de la shadow map unique (opaque + translucide/dithering confondus).
-// Un seul tap donnerait un résultat 0/1 net sur les objets opaques mais du
-// "bruit" binaire sur les objets translucides ditherés (pas de dégradé).
-// Un petit PCF 2x2 moyenne ce bruit spatial en une atténuation continue,
-// ce qui redonne une pénombre douce aux ombres de fumée/vitres sans
-// avoir besoin d'une texture de transmittance séparée.
+// Matches ShadowAtlasCaster and the shared layered-lighting shadow projection/depth convention.
 float _UdonRTComputeShadowMapAtten(float3 WorldPos, bool wantsShadow)
 {
-    if (!wantsShadow) return 1.0;
+    if (!wantsShadow || _UdonRealtimeShadowsEnabled < 0.5) return 1.0;
 
-    float4 shadowClip = mul(_UdonShadowMatrixVP, float4(WorldPos, 1.0));
+    float3 lightView = mul(_UdonShadowViewMatrix, float4(WorldPos, 1.0)).xyz;
+    float viewDepth = -lightView.z;
+    if (viewDepth < _Udon_LightNear || viewDepth > _Udon_LightFar) return 1.0;
+
+    float4 shadowClip = mul(_UdonShadowProjectionMatrix, float4(lightView, 1.0));
     if (shadowClip.w <= 1e-5) return 1.0;
     float3 shadowNDC = shadowClip.xyz / shadowClip.w;
     float2 shadowUV = shadowNDC.xy * 0.5 + 0.5;
 
-    #if UNITY_UV_STARTS_AT_TOP
-        shadowUV.y = 1.0 - shadowUV.y;
-    #endif
+    float2 edgeDist2 = min(shadowUV, 1.0 - shadowUV);
+    float edgeDist = min(edgeDist2.x, edgeDist2.y);
+    if (edgeDist <= 0.0) return 1.0;
 
-    if (shadowUV.x < 0.0 || shadowUV.x > 1.0 || shadowUV.y < 0.0 || shadowUV.y > 1.0)
-        return 1.0;
+    float receiverDepth = saturate((viewDepth - _Udon_LightNear) / max(_Udon_LightFar - _Udon_LightNear, 1e-5));
+    float shadowDepth = tex2Dlod(_UdonShadowMap, float4(shadowUV, 0.0, 0.0)).r;
+    float atten = (receiverDepth <= shadowDepth + 0.0005) ? 1.0 : 0.0;
 
-    float myDepth = shadowNDC.z;
-    float bias = 0.005; // ajuste si tu as des artefacts (shadow acne)
-
-    float2 texel = _UdonShadowMap_TexelSize.xy;
-    float atten = 0.0;
-    [unroll]
-    for (int y = 0; y <= 1; y++)
-    {
-        [unroll]
-        for (int x = 0; x <= 1; x++)
-        {
-            float2 uv = shadowUV + (float2(x, y) - 0.5) * texel;
-            float storedDepth = tex2D(_UdonShadowMap, uv).r;
-            atten += (myDepth > storedDepth + bias) ? 0.0 : 1.0;
-        }
-    }
-    return atten * 0.25;
+    float edgeBlend = smoothstep(0.0, 0.05, edgeDist);
+    return lerp(1.0, atten, edgeBlend);
 }
 
 float3 UdonRealtimeDiffuse(float3 WorldPos, float3 WorldNormal)
@@ -134,11 +105,8 @@ float3 UdonRealtimeDiffuse(float3 WorldPos, float3 WorldNormal)
         float windowFalloff = _UdonRTSq(saturate(1.0 - _UdonRTSq(distSq * rcp(_MaxDynamicDiffuseRangeSq))));
         falloff *= windowFalloff;
 
-        bool wantsShadow = rangesAndType.y > 0.5;
-
-        float ssShadow = _UdonRTComputeScreenSpaceShadow(WorldPos, lightPos, N, wantsShadow);
-        float mapShadow = _UdonRTComputeShadowMapAtten(WorldPos, wantsShadow);
-        float shadowAtten = min(ssShadow, mapShadow);
+        bool wantsShadow = rangesAndType.y >= 0.0;
+        float shadowAtten = _UdonRTComputeShadowMapAtten(WorldPos, wantsShadow);
 
         diffuse += currentCol * _DynamicDiffuseBoost * nDotL * dirMask * falloff * shadowAtten;
     }

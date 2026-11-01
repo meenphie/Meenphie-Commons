@@ -47,6 +47,17 @@ namespace Meenphie.Commons
             _initialized = true;
 
             shadowCamera.depth = -100f;
+            shadowCamera.clearFlags = CameraClearFlags.SolidColor;
+            shadowCamera.backgroundColor = Color.white;
+            shadowCamera.depthTextureMode = DepthTextureMode.None;
+            shadowMap.Release();
+            shadowMap.format = RenderTextureFormat.RHalf;
+            shadowMap.depth = 24;
+            shadowMap.useMipMap = false;
+            shadowMap.autoGenerateMips = false;
+            shadowMap.filterMode = FilterMode.Bilinear;
+            shadowMap.wrapMode = TextureWrapMode.Clamp;
+            shadowMap.Create();
             shadowCamera.SetReplacementShader(shadowCasterShader, "RenderType");
 
             shadowCamera.targetTexture = shadowMap;

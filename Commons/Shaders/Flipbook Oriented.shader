@@ -1,4 +1,4 @@
-// Made with Amplify Shader Editor v1.9.9.12
+// Made with Amplify Shader Editor v1.9.9.14
 // Available at the Unity Asset Store - http://u3d.as/y3X 
 Shader "Meenphie/Sprite/Flipbook Oriented"
 {
@@ -30,7 +30,7 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 			Pass {
 
 				CGPROGRAM
-				#define ASE_VERSION 19912
+				#define ASE_VERSION 19914
 
 				#ifndef UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX
 				#define UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input)
@@ -92,19 +92,19 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 				uniform sampler2D _BaseColor;
 				float3 LocalSprite31( float3 InPos )
 				{
-					    // 1. Caméra en espace local
-					    float3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz;
-					    // 2. Direction caméra projetée sur le plan XZ local
-					    //    Epsilon propre : si la caméra est pile au-dessus (XZ ≈ 0), on garde une direction fixe
-					    //    plutôt que de normaliser un vecteur quasi nul (qui sautait dans toutes les directions)
-					    float3 toCamXZ = float3(localCamPos.x, 0, localCamPos.z);
-					    float len = length(toCamXZ);
-					    float3 forward = (len > 0.001) ? toCamXZ / len : float3(0, 0, 1);
-					    // 3. Vecteur Right perpendiculaire
-					    float3 up = float3(0, 1, 0);
-					    float3 right = cross(up, forward);
-					    // 4. Rotation pure autour de l'origine (pivot = origine du mesh)
-					    return InPos.x * right + InPos.y * up + InPos.z * forward - InPos;
+					// 1. Caméra en espace local
+					float3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz;
+					// 2. Direction caméra projetée sur le plan XZ local
+					//    Epsilon propre : si la caméra est pile au-dessus (XZ ≈ 0), on garde une direction fixe
+					//    plutôt que de normaliser un vecteur quasi nul (qui sautait dans toutes les directions)
+					float3 toCamXZ = float3(localCamPos.x, 0, localCamPos.z);
+					float len = length(toCamXZ);
+					float3 forward = (len > 0.001) ? toCamXZ / len : float3(0, 0, 1);
+					// 3. Vecteur Right perpendiculaire
+					float3 up = float3(0, 1, 0);
+					float3 right = cross(up, forward);
+					// 4. Rotation pure autour de l'origine (pivot = origine du mesh)
+					return InPos.x * right + InPos.y * up + InPos.z * forward - InPos;
 				}
 				
 
@@ -188,10 +188,9 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 					float2 fbuv7 = texCoord8 * fbtiling7 + fboffset7;
 					// *** END Flipbook UV Animation vars ***
 					int flipbookFrame7 = ( ( int )fbcurrenttileindex7);
-					float4 tex2DNode1 = tex2D( _BaseColor, fbuv7 );
 					
 
-					fixed4 col = ( float4( localUdonRealtimeDiffuse59 , 0.0 ) + ( _TintColor * tex2DNode1.r ) );
+					fixed4 col = ( float4( localUdonRealtimeDiffuse59 , 0.0 ) + ( _TintColor * tex2D( _BaseColor, fbuv7 ).r ) );
 					UNITY_APPLY_FOG(i.fogCoord, col);
 					return col;
 				}
@@ -204,8 +203,8 @@ Shader "Meenphie/Sprite/Flipbook Oriented"
 	Fallback Off
 }
 /*ASEBEGIN
-Version=19912
-{"type":"AmplifyShaderEditor.TextureCoordinatesNode, AmplifyShaderEditor","id":8,"pos":[-992,0],"params":["Inherit","False","0","-1","2","3","2","SAMPLER2D","","False","0","FLOAT2","1,1","False","1","FLOAT2","0,0","False","5","FLOAT2","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4"]}
+Version=19914
+{"type":"AmplifyShaderEditor.TextureCoordinatesNode, AmplifyShaderEditor","id":8,"pos":[-992,0],"params":["Inherit","False","0","-1","2","","3","2","SAMPLER2D","","False","0","FLOAT2","1,1","False","1","FLOAT2","0,0","False","5","FLOAT2","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4"]}
 {"type":"AmplifyShaderEditor.TFHCFlipBookUVAnimation, AmplifyShaderEditor","id":7,"pos":[-672,0],"params":["Inherit","False","0","0","7","0","FLOAT2","0,0","False","1","FLOAT","16","False","2","FLOAT","21","False","3","FLOAT","30","False","4","FLOAT","0","False","5","FLOAT","0","False","6","FLOAT","330","False","4","FLOAT2","0","FLOAT","1","FLOAT","2","INT","3"]}
 {"type":"AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor","id":1,"pos":[-320,0],"params":["Inherit","True","Property","_BaseColor","Base Color","0","2","[NoScaleOffset]","[SingleLineTexture]","Create","False","0","0","0","False","0","False","","-1","None","ca98fe8f84b89108c9fbdd459d36e9a6","True","0","False","white","Auto","False","Object","-1","Auto","Texture2D","False","8","0","SAMPLER2D","","False","1","FLOAT2","0,0","False","2","FLOAT","0","False","3","FLOAT2","0,0","False","4","FLOAT2","0,0","False","5","FLOAT","1","False","6","FLOAT","0","False","7","SAMPLERSTATE","","False","6","COLOR","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4","FLOAT3","5"]}
 {"type":"AmplifyShaderEditor.WorldPosInputsNode, AmplifyShaderEditor","id":60,"pos":[720,-352],"params":["Inherit","False","0","4","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3"]}
@@ -215,8 +214,8 @@ Version=19912
 {"type":"AmplifyShaderEditor.PosVertexDataNode, AmplifyShaderEditor","id":34,"pos":[1096,280],"params":["Inherit","False","0","0","5","FLOAT3","0","FLOAT","1","FLOAT","2","FLOAT","3","FLOAT","4"]}
 {"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":59,"pos":[960,-312],"params":["Inherit","False"," ","3","File","2","True","WorldPos","FLOAT3","0,0,0","In","","Inherit","False","True","WorldNormal","FLOAT3","0,0,0","In","","Inherit","False","UdonRealtimeDiffuse","False","False","0","54ddc4aed38557dc289bde418c430205","False","2","0","FLOAT3","0,0,0","False","1","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
 {"type":"AmplifyShaderEditor.SimpleAddOpNode, AmplifyShaderEditor","id":66,"pos":[1318.767,-203.0029],"params":["Inherit","False","2","2","0","FLOAT3","0,0,0","False","1","COLOR","0,0,0,0","False","1","COLOR","0"]}
-{"type":"AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor","id":55,"pos":[256,128],"params":["Inherit","False","LUT","1","","35","4f182fda2cc1d189990007472f6485a5","0","1","35","FLOAT4","0,0,0,0","False","1","FLOAT4","0"]}
-{"type":"AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor","id":40,"pos":[640,184],"params":["Inherit","False","Property","SHADER_API_MOBILE","SHADER_API_MOBILE","1","0","Create","False","0","0","0","False","0","False","","0","0","0","False","SHADER_API_MOBILE","Toggle","2","Key0","Key1","Fetch","False","False","All","9","1","FLOAT4","0,0,0,0","False","0","FLOAT4","0,0,0,0","False","2","FLOAT4","0,0,0,0","False","3","FLOAT4","0,0,0,0","False","4","FLOAT4","0,0,0,0","False","5","FLOAT4","0,0,0,0","False","6","FLOAT4","0,0,0,0","False","7","FLOAT4","0,0,0,0","False","8","FLOAT4","0,0,0,0","False","1","FLOAT4","0"]}
+{"type":"AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor","id":55,"pos":[256,128],"params":["Inherit","False","LUT","1","","35","4f182fda2cc1d189990007472f6485a5","0","1","35","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
+{"type":"AmplifyShaderEditor.StaticSwitch, AmplifyShaderEditor","id":40,"pos":[640,184],"params":["Inherit","False","Property","SHADER_API_MOBILE","SHADER_API_MOBILE","1","0","Create","False","0","0","0","False","0","False","","0","0","0","False","SHADER_API_MOBILE","Toggle","2","Key0","Key1","Fetch","False","False","All","False","False","True","9","1","FLOAT3","0,0,0","False","0","FLOAT3","0,0,0","False","2","FLOAT3","0,0,0","False","3","FLOAT3","0,0,0","False","4","FLOAT3","0,0,0","False","5","FLOAT3","0,0,0","False","6","FLOAT3","0,0,0","False","7","FLOAT3","0,0,0","False","8","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
 {"type":"AmplifyShaderEditor.CustomExpressionNode, AmplifyShaderEditor","id":31,"pos":[1392,280],"params":["Inherit","False","    // 1. Caméra en espace local\n    float3 localCamPos = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1.0)).xyz;\n\n    // 2. Direction caméra projetée sur le plan XZ local\n    //    Epsilon propre : si la caméra est pile au-dessus (XZ ≈ 0), on garde une direction fixe\n    //    plutôt que de normaliser un vecteur quasi nul (qui sautait dans toutes les directions)\n    float3 toCamXZ = float3(localCamPos.x, 0, localCamPos.z);\n    float len = length(toCamXZ);\n    float3 forward = (len > 0.001) ? toCamXZ / len : float3(0, 0, 1);\n\n    // 3. Vecteur Right perpendiculaire\n    float3 up = float3(0, 1, 0);\n    float3 right = cross(up, forward);\n\n    // 4. Rotation pure autour de l'origine (pivot = origine du mesh)\n    return InPos.x * right + InPos.y * up + InPos.z * forward - InPos;","3","Create","1","True","InPos","FLOAT3","0,0,0","In","","Inherit","False","Local Sprite","True","False","0","","False","1","0","FLOAT3","0,0,0","False","1","FLOAT3","0"]}
 {"type":"AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor","id":72,"pos":[1656,0],"params":["Float","False","True","-1","3","AmplifyShaderEditor.MaterialInspector","0","5","Meenphie/Sprite/Flipbook Oriented","0b6a9f8b4f707c74ca64c0be8e590de0","True","SubShader 0 Pass 0","0","0","SubShader 0 Pass 0","2","True","True","2","5","False","","10","False","","0","1","False","","0","False","","False","False","False","False","False","False","False","False","False","False","False","False","True","2","False","","True","True","True","True","True","False","0","False","","False","False","False","False","False","False","False","False","True","True","2","False","","True","3","False","","False","False","True","4","Queue=Transparent=Queue=0","IgnoreProjector=True","RenderType=Transparent=RenderType","PreviewType=Plane","False","False","0","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","False","True","3","False","0","","0","0","Standard","0","0","1","True","False","","False","0"]}
 {"wire":[7,0,8,0]}
@@ -234,4 +233,4 @@ Version=19912
 {"wire":[72,0,66,0]}
 {"wire":[72,1,31,0]}
 ASEEND*/
-//CHKSM=E97B04B65FE705A5D4810EA291109610875DE4A9
+//CHKSM=BD1056EF14FADF06F01C22E4B65275A1F5A1171A
