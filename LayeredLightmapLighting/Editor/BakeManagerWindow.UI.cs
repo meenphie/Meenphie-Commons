@@ -166,7 +166,7 @@ public partial class BakeManagerWindow
         {
             case "other shader": return "Other shader (not a bake target)";
             case "dynamic mesh": return "Dynamic mesh (_IsDynamicMesh)";
-            case "null material": return "Missing material";
+case "null material": return "Missing material";
             case "fewer materials than submeshes": return "Fewer materials than submeshes";
             case "non-triangle topology": return "Non-triangle topology";
             case "baked mesh without registry entry": return "Baked mesh without registry entry (restore or rebake)";
@@ -174,7 +174,7 @@ public partial class BakeManagerWindow
         }
     }
 
-    private static void SelectRenderers(IEnumerable<MeshRenderer> renderers)
+    private static void SelectRenderers(IEnumerable<Renderer> renderers)
     {
         var objects = renderers.Where(r => r != null).Select(r => (Object)r.gameObject).ToArray();
         if (objects.Length == 0) return;

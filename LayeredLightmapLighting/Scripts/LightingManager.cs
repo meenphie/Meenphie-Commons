@@ -31,7 +31,7 @@ namespace Meenphie.Commons
         // =================================================================
         //  CONSTANTES
         // =================================================================
-        private const int MAX_LIGHTS = 64;          // doit rester cohérent avec _UdonLightData[MAX_LIGHTS * 8 + 1] côté shader
+        private const int MAX_LIGHTS = 32;          // doit rester cohérent avec _UdonLightData[MAX_LIGHTS * 8 + 1] côté shader
         private const int SLOT_STRIDE = 8;
         private const int MAX_SHADOW_SLOTS = 1;
 
@@ -53,20 +53,47 @@ namespace Meenphie.Commons
         // =================================================================
         //  INSPECTOR
         // =================================================================
-        [Range(1, MAX_LIGHTS)] public int activeSpecularCount = MAX_LIGHTS; // pas lu dans ce script (gardé pour la sérialisation)
-        [Tooltip("Global culling distance – lights beyond this are skipped on the CPU.")]
+        [Header("1. Paramètres Globaux (Distance & Perf)")]
+        [Tooltip("Distance globale (m) de chargement des lumières autour du joueur.")]
         public float rangeScale = 50f;
+        [Tooltip("Intervalle (s) entre deux vérifications des lumières. 0 = chaque frame.")]
+        public float enabledPollInterval = 0.1f;
+        [Tooltip("Distance minimum avant d'appliquer le culling par angle (évite de faire disparaître les lumières trop proches).")]
+        public float coneCullMinDistance = 15f;
 
+        [Header("2. Culling Diffus (Lumière / Ombres)")]
+        [Tooltip("Angle de vue (degrés) pour garder les lumières qui font du DIFFUS. 360 = pas de culling.")]
+        public float fovCullAngle = 240f;
+
+        [Header("3. Culling Spéculaire (Reflets)")]
+        [Tooltip("Limite max de slots pour le spéculaire.")]
+        [Range(1, MAX_LIGHTS)] public int activeSpecularCount = MAX_LIGHTS;
+        [Tooltip("Distance max (m) où le reflet spéculaire est calculé par le GPU.")]
+        public float specCameraFadeEnd = 20f;
+        [Tooltip("Marge de sécurité CPU (m) pour éviter que le reflet ne clignote (popping) quand le joueur recule.")]
+        public float specCullMargin = 0f;
+        [Tooltip("Angle de vue (degrés) pour garder les lumières qui ne font QUE du SPÉCULAIRE. Attention : trop bas crée du popping quand on tourne la tête.")]
+        public float specularFovCullAngle = 90f;
+
+        [Header("4. Lightmaps & Mesh Data")]
+        public Texture2D materialTable;
+        public int lightmapGroupCount = 0;
+        [Range(0f, 50f)] public float lodDistanceNear = 5f;
+        [Range(0f, 80f)] public float lodDistanceFar = 35f;
+        [Range(0f, 9f)] public float lodAtFar = 2f;
+
+
+        [Header("5. Platform Texture Arrays")]
 #if UNITY_ANDROID && !UNITY_EDITOR
         public Texture2DArray lightLayerArrayQuest;
-        public Texture2DArray albedoArrayQuest;
+        public Texture2DArray diffuseArrayQuest;
         public Texture2DArray normalArrayQuest;
         public Texture2DArray metallicArrayQuest;
         public Texture2DArray roughnessArrayQuest;
         public Texture2DArray emissionArrayQuest;
 #elif !UNITY_ANDROID && !UNITY_EDITOR
         public Texture2DArray lightLayerArrayPC;
-        public Texture2DArray albedoArrayPC;
+        public Texture2DArray diffuseArrayPC;
         public Texture2DArray normalArrayPC;
         public Texture2DArray metallicArrayPC;
         public Texture2DArray roughnessArrayPC;
@@ -74,8 +101,8 @@ namespace Meenphie.Commons
 #else
         public Texture2DArray lightLayerArrayPC;
         public Texture2DArray lightLayerArrayQuest;
-        public Texture2DArray albedoArrayPC;
-        public Texture2DArray albedoArrayQuest;
+        public Texture2DArray diffuseArrayPC;
+        public Texture2DArray diffuseArrayQuest;
         public Texture2DArray normalArrayPC;
         public Texture2DArray normalArrayQuest;
         public Texture2DArray metallicArrayPC;
@@ -86,16 +113,7 @@ namespace Meenphie.Commons
         public Texture2DArray emissionArrayQuest;
 #endif
 
-        [Header("Mesh Arrays (auto-filled by MeshArrayBaker)")]
-        public Texture2D materialTable;
-
-        public int lightmapGroupCount = 0;
-
-        [Range(0f, 50f)] public float lodDistanceNear = 5f;
-        [Range(0f, 80f)] public float lodDistanceFar = 35f;
-        [Range(0f, 9f)] public float lodAtFar = 2f;
-
-        [Header("Cookies")]
+        [Header("6. Cookies & Reflections")]
         public Texture2DArray cookieArray;
         [HideInInspector] public Texture2D[] childLightCookieTexture;
         [HideInInspector] public int[] childLightCookieSlice;
@@ -109,45 +127,29 @@ namespace Meenphie.Commons
         public CubemapArray reflectionProbeArrayPC;
         public Texture2DArray reflectionProbeArrayQuest;
 #endif
-
         [HideInInspector] public Vector4[] reflectionProbeData;
         [HideInInspector] public Vector4[] reflectionProbeHDR;
         public int reflectionProbeCount;
-        // Plus haut mip valide du tableau de probes (écrit par ReflectionProbeArrayBuilder au bake).
-        // Sert au calcul roughness -> mip dans le shader.
         [HideInInspector] public float reflectionProbeMaxMip;
 
-        [Header("Animation – Audio Clips")]
-        public AudioClip faultAudioClip;
-        [Range(0f, 1f)] public float audioMasterVolume = 1.0f;
-
-        [Header("Performance")]
-        [Tooltip("Intervalle (s) entre deux vérifications enabled des lights. 0 = chaque frame. 1/30 réduit le coût par frame ; OnLightsChanged() reste instantané.")]
-        public float enabledPollInterval = 0f;
-        public float specCameraFadeEnd = 20f;
-        public float specCullMargin = 0f;
-
-        [Header("View Cone Culling")]
-        public float fovCullAngle = 240;
-        public float specularFovCullAngle = 90f;
-        public float coneCullMinDistance = 15f;
-
+        [Header("7. Shadows")]
         public ShadowAtlasCaster shadowAtlasCaster;
-        [Header("Shadow Map Atlas")]
-        [Range(0, MAX_SHADOW_SLOTS)] public int activeShadowSlots = 1; // pas lu dans AssignShadowSlots (un seul slot pour l'instant)
-        // slot -> merged qui l'occupe cette frame (-1 = vide)
+        [Range(0, MAX_SHADOW_SLOTS)] public int activeShadowSlots = 1;
         [HideInInspector] public int[] shadowSlotToMerged = new int[MAX_SHADOW_SLOTS];
-        // merged -> slot qu'il occupe (-1 = aucun)
         [HideInInspector] public int[] mergedToShadowSlot;
         [HideInInspector] public int activeShadowChildIndex = -1;
 
-        [Header("Performance Metrics")]
-        [Tooltip("Décocher pour couper les mesures (quelques appels par frame) une fois le réglage terminé.")]
+        [Header("8. Animation & Audio")]
+        public AudioClip faultAudioClip;
+        [Range(0f, 1f)] public float audioMasterVolume = 1.0f;
+
+        [Header("9. Performance Metrics")]
+        [Tooltip("Décocher pour couper les mesures une fois le réglage terminé.")]
         public bool collectMetrics = true;
         public float avgShaderUpdatesPerSecond;
         public float avgUdonMsPerFrame;
 
-        [Header("Light Sources (auto-filled)")]
+        [Header("10. Light Sources (Auto-filled)")]
         public Light[] childLights;
 
         [HideInInspector] public Vector2[] childLightHalfExtents;
@@ -162,6 +164,7 @@ namespace Meenphie.Commons
         [HideInInspector] public int[] childLightGroupIndex;
         [HideInInspector] public AudioClip[] childLightAudioClipOverride;
 
+        // Paramètres d'animation (Broken / Panic)
         [HideInInspector] public float[] childLightBrokenOnMin;
         [HideInInspector] public float[] childLightBrokenOnMax;
         [HideInInspector] public float[] childLightBrokenOffMin;
@@ -174,11 +177,11 @@ namespace Meenphie.Commons
         [HideInInspector] public float[] childLightPanicSpeed;
         [HideInInspector] public float[] childLightPanicIntensityMin;
         [HideInInspector] public float[] childLightPanicIntensityMax;
-
         [HideInInspector] public float[] childLightPanicNoiseAmount;
         [HideInInspector] public float[] childLightPanicGhostRate;
         [HideInInspector] public float[] childLightPanicEmber;
 
+        [Header("10. Merged & Internal States")]
         [HideInInspector] public Vector4[] mergedPos;
         [HideInInspector] public Vector4[] mergedCol;
         [HideInInspector] public Vector4[] mergedRight;
@@ -193,10 +196,8 @@ namespace Meenphie.Commons
         [HideInInspector] public int mergedCount;
         [HideInInspector] public float[] mergedCosInner;
         [HideInInspector] public bool[] mergedCastShadow;
+        [HideInInspector] public float[] _faultIntensity;
 
-        [HideInInspector] public float[] _faultIntensity;   // par child, lu par d'autres scripts
-
-        // État de référence des lights realtime (détection de changement dans UpdateLiveData)
         [HideInInspector] public Vector3[] lastLightPositions;
         [HideInInspector] public Quaternion[] lastLightRotations;
         [HideInInspector] public float[] lastLightIntensities;
@@ -204,13 +205,14 @@ namespace Meenphie.Commons
         [HideInInspector] public Vector3 lastViewerPos = new Vector3(float.MaxValue, 0, 0);
 
 #if UNITY_EDITOR
-        [Header("Debug (Editor only)")]
+        [Header("11. Debug (Editor only)")]
         public int currentStaticLights;
         public int currentDynamicLights;
         public int currentAnimatedLights;
         public int currentSpecularsCount;
         public int sampledLightmapsCount;
         public int currentSlicesCount;
+        public int currentProbesCount;
         public bool shaderWasUpdated;
         public int shaderUpdatesThisFrame;
         public int totalShaderUpdates;
@@ -220,7 +222,7 @@ namespace Meenphie.Commons
 #endif
 
         // =================================================================
-        //  ÉTAT INTERNE
+        //  ÉTAT INTERNE  <--- C'EST ICI QU'IL FAUT LE COLLER
         // =================================================================
         // ----- cache par child (rempli une fois dans Start) -----
         private int _childCount;
@@ -306,6 +308,7 @@ namespace Meenphie.Commons
         private float _lastRateUpdateTime;
         private int _shaderUpdateCounter;
 
+
         // =================================================================
         //  INITIALISATION
         // =================================================================
@@ -378,7 +381,7 @@ namespace Meenphie.Commons
         // Globals qui ne changent pas pendant la partie (envoyés une seule fois)
         private void UploadStaticGlobals()
         {
-            int layerArrayID = VRCShader.PropertyToID("_UdonLightLayerArray");
+            int layerArrayID = VRCShader.PropertyToID("_UdonLightmapArray");
             int cookieArrayID = VRCShader.PropertyToID("_UdonCookieArray");
             int reflectionArrayID = VRCShader.PropertyToID("_UdonReflectionProbeArray");
             int reflectionValidID = VRCShader.PropertyToID("_UdonReflectionArrayValid");
@@ -389,8 +392,13 @@ namespace Meenphie.Commons
             Texture2DArray layerArray = lightLayerArrayPC;
 #endif
             _forceAllLightsRealtime = layerArray == null;
-            if (layerArray != null) VRCShader.SetGlobalTexture(layerArrayID, layerArray);
-            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightLayerArrayValid"), layerArray != null ? 1f : 0f);
+            if (layerArray != null)
+            {
+                VRCShader.SetGlobalTexture(layerArrayID, layerArray);
+                VRCShader.SetGlobalVector(VRCShader.PropertyToID("_UdonLightmapArray_TexelSize"),
+                    new Vector4(1f / layerArray.width, 1f / layerArray.height, layerArray.width, layerArray.height));
+            }
+            VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightmapArrayValid"), layerArray != null ? 1f : 0f);
 
             if (cookieArray != null) VRCShader.SetGlobalTexture(cookieArrayID, cookieArray);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonCookieArrayValid"), cookieArray != null ? 1f : 0f);
@@ -407,6 +415,9 @@ namespace Meenphie.Commons
             if (reflectionProbeHDR != null && reflectionProbeHDR.Length > 0)
                 VRCShader.SetGlobalVectorArray(VRCShader.PropertyToID("_UdonReflectionProbeHDR"), reflectionProbeHDR);
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonReflectionProbeCount"), (float)reflectionProbeCount);
+#if UNITY_EDITOR
+            currentProbesCount = reflectionProbeCount;
+#endif
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonReflectionProbeMaxMip"), reflectionProbeMaxMip);
 
             VRCShader.SetGlobalFloat(VRCShader.PropertyToID("_UdonLightmapSliceOffset"), (float)lightmapGroupCount);
@@ -433,19 +444,27 @@ namespace Meenphie.Commons
         private void PushMeshArrayGlobals()
         {
 #if UNITY_ANDROID
-            Texture2DArray meshAlbedo    = albedoArrayQuest;
-            Texture2DArray meshNormal    = normalArrayQuest;
-            Texture2DArray meshMetallic  = metallicArrayQuest;
-            Texture2DArray meshRoughness = roughnessArrayQuest;
-            Texture2DArray meshEmission  = emissionArrayQuest;
+    Texture2DArray meshDiffuse    = diffuseArrayQuest;
+    Texture2DArray meshNormal    = normalArrayQuest;
+    Texture2DArray meshMetallic  = metallicArrayQuest;
+    Texture2DArray meshRoughness = roughnessArrayQuest;
+    Texture2DArray meshEmission  = emissionArrayQuest;
 #else
-            Texture2DArray meshAlbedo = albedoArrayPC;
+            Texture2DArray meshDiffuse = diffuseArrayPC;
             Texture2DArray meshNormal = normalArrayPC;
             Texture2DArray meshMetallic = metallicArrayPC;
             Texture2DArray meshRoughness = roughnessArrayPC;
             Texture2DArray meshEmission = emissionArrayPC;
 #endif
-            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonAlbedoArray"), meshAlbedo);
+
+            Debug.Log($"[ID] Diffuse={VRCShader.PropertyToID("_UdonDiffuseArray")} " +
+                      $"Normal={VRCShader.PropertyToID("_UdonNormalArray")} " +
+                      $"Metallic={VRCShader.PropertyToID("_UdonMetallicArray")} " +
+                      $"Roughness={VRCShader.PropertyToID("_UdonRoughnessArray")} " +
+                      $"Emission={VRCShader.PropertyToID("_UdonEmissionArray")} " +
+                      $"Table={VRCShader.PropertyToID("_UdonMaterialTable")}");
+
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonDiffuseArray"), meshDiffuse);
             VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonNormalArray"), meshNormal);
             VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonMetallicArray"), meshMetallic);
             VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonRoughnessArray"), meshRoughness);
@@ -459,7 +478,7 @@ namespace Meenphie.Commons
 
         private void ClearMeshArrayGlobals()
         {
-            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonAlbedoArray"), null);
+            VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonDiffuseArray"), null);
             VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonNormalArray"), null);
             VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonMetallicArray"), null);
             VRCShader.SetGlobalTexture(VRCShader.PropertyToID("_UdonRoughnessArray"), null);
@@ -943,6 +962,7 @@ namespace Meenphie.Commons
             if (mergedRebuilt || _animCount > 0 || _audioPlayingCount > 0) TickAudio();
 
             if (isDirty || animated || liveChanged) UploadLightData();
+
             _lastFinalCount = finalCount;
         }
 
@@ -1699,6 +1719,9 @@ namespace Meenphie.Commons
 
             Debug.Log("[LightingManager] " + _childCount + " lights (" + realtime + " realtime, " + baked
                       + " baked) - Light Layer Array " + platform + " : " + (layerArrayOk ? "OK" : "MANQUANTE"));
+            Debug.Log("[LightingManager] " + reflectionProbeCount + " probe(s) réflexion envoyée(s) au shader.");
+            if (reflectionProbeCount == 0)
+                Debug.LogWarning("[LightingManager] Aucune reflection probe envoyée au shader : les reflets seront noirs.");
             if (_forceAllLightsRealtime)
                 Debug.LogWarning("[LightingManager] Aucune Light Layer Array pour " + platform
                                  + " : toutes les lights sont traitées comme realtime jusqu'au prochain bake.");
@@ -1824,8 +1847,11 @@ namespace Meenphie.Commons
                                      + ", le diffus baké restera noir.");
             }
 
-            Shader.SetGlobalTexture("_UdonLightLayerArray", layerArray);
-            Shader.SetGlobalFloat("_UdonLightLayerArrayValid", layerArray != null ? 1f : 0f);
+            Shader.SetGlobalTexture("_UdonLightmapArray", layerArray);
+            if (layerArray != null)
+                Shader.SetGlobalVector("_UdonLightmapArray_TexelSize",
+                    new Vector4(1f / layerArray.width, 1f / layerArray.height, layerArray.width, layerArray.height));
+            Shader.SetGlobalFloat("_UdonLightmapArrayValid", layerArray != null ? 1f : 0f);
             Shader.SetGlobalFloat("_UdonLightmapSliceOffset", (float)lightmapGroupCount);
 
             Shader.SetGlobalTexture("_UdonCookieArray", cookieArray);

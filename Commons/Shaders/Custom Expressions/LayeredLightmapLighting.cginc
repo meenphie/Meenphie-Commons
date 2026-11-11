@@ -2,7 +2,7 @@
     #define LAYERED_LIGHTMAP_LIGHTING
 
     // Textures & buffers globaux
-    uniform float4 _UdonLightData[513];
+    uniform float4 _UdonLightData[257];
     static const int MAX_PROBES = 16;
 
     #if defined(SHADER_API_MOBILE)
@@ -11,12 +11,22 @@
         UNITY_DECLARE_TEXCUBEARRAY(_UdonReflectionProbeArray);
     #endif
 
-    UNITY_DECLARE_TEX2DARRAY(_UdonLightLayerArray);
-    UNITY_DECLARE_TEX2DARRAY(_UdonCookieArray);
-    UNITY_DECLARE_TEX2D(_UdonShadowMap);
+    // Lightmaps
+    UNITY_DECLARE_TEX2DARRAY(_UdonLightmapArray);
+
+    // Maps
+    UNITY_DECLARE_TEX2DARRAY(_UdonDiffuseArray);
+    UNITY_DECLARE_TEX2DARRAY(_UdonNormalArray);
+    UNITY_DECLARE_TEX2DARRAY(_UdonMetallicArray);
+    UNITY_DECLARE_TEX2DARRAY(_UdonRoughnessArray);
+    UNITY_DECLARE_TEX2DARRAY(_UdonEmissionArray);
     UNITY_DECLARE_TEX2D(_UdonMaterialTable);
 
-    // Uniforms globaux
+    // Realtime Lighting
+    UNITY_DECLARE_TEX2DARRAY(_UdonCookieArray);
+    UNITY_DECLARE_TEX2D(_UdonShadowMap);
+    
+
     uniform float _UdonReflectionArrayValid;
     uniform float _UdonLightmapSliceOffset;
     uniform float _UdonReflectionProbeCount;
@@ -26,7 +36,7 @@
     uniform float _UdonReflectionProbePreviewEnabled;
     uniform float _UdonReflectionProbePreviewAssignment;
     uniform float _UdonCookieArrayValid;
-    uniform float _UdonLightLayerArrayValid;
+    uniform float _UdonLightmapArrayValid;
 
     uniform float _UdonDirectionalEnabled;
     uniform float _UdonDiffuseStaticEnabled;
@@ -52,12 +62,12 @@
     static const float _StaticDiffuseSmoothing     = 0.5;
 
     // Dynamic
-    static const float _MaxDynamicDiffuseRange     = 15.0;
+    static const float _MaxDynamicDiffuseRange     = 10.0;
     static const float _MaxDynamicDiffuseRangeSq   = _MaxDynamicDiffuseRange * _MaxDynamicDiffuseRange;
-    static const half  _DynamicDiffuseBoost        = 0.25h;
-    static const float _DynamicDiffuseSmoothing    = 0.1;
+    static const half  _DynamicDiffuseBoost        = 0.5h;
+    static const float _DynamicDiffuseSmoothing    = 0.5;
     static const float _MinLightRadius             = 1.0;
-    static const float _UdonRealtimeDiffuseWrap    = 3.0;
+    static const float _UdonRealtimeDiffuseWrap    = 1.0;
 
     static const half  _AreaIndirectBoost          = 0.02h;
     static const half  _AreaMaskTransitionWidth    = 0.1h;
@@ -68,24 +78,32 @@
     static const half  _SSSAmbient                 = 0.0h;  // plancher constant additionnel, 0 = désactivé
 
     // Specular
-    static const float _MaxSpecularRange     = 20.0;
+    static const float _MaxSpecularRange     = 15.0;
     static const float _MaxSpecularRangeSq   = _MaxSpecularRange * _MaxSpecularRange;
-    static const half  _SpecBoost            = 0.05h;
+    static const half  _SpecBoostStatic      = 0.01h;
+    static const half  _SpecBoostDynamic     = 0.001h;
     static const half  _MaxSpecIntensity     = 10.0h;
     static const float _AreaSpecThin         = 0.5;
+    static const half  _SpecVisibilityRatio  = 0.05h;     // Ratio de visibilité : en dessous de 1% du boost, le reflet est invisible
+
+    // Anisotropie : plancher de rugosité (alpha) sur chaque axe, évite la division par ~0 quand Anisotropy = ±1
+    static const float _AnisoAlphaFloor      = 0.002;
 
     // GeometricAA (dérivées d'écran)
-    static const float _SpecAAVariance                  = 0.15915494; // force : 0 = off, monte (0.3 à 0.5) si ça scintille encore
-    static const float _SpecAAThreshold                 = 0.18;       // plafond de l'élargissement
+    static const float _SpecAAVariance                  = 0.2; 
+    static const float _SpecAAThreshold                 = 0.2; 
 
     // Reflection
-    static const half  _StaticReflectionBoost           = 1.0h;
-    static const half  _DynamicReflectionBoost          = 1.0h;
-    static const float _DynamicReflectionSmoothing      = 1.0;
-    static const float _UdonSpecCubeLodSteps            = 6.0;   
-    static const float _ReflectionOcclusionMin          = 0.3;
-    static const float _ReflectionOcclusionMax          = 1.0;
-    static const float _ReflectionOcclusionSmoothing    = 0.3;
+    static const half  _StaticReflectionBoost               = 1.0h;
+    static const half  _DynamicReflectionBoost              = 1.0h;
+    static const float _DynamicReflectionSmoothing          = 1.0;
+    static const float _DynamicReflectionOcclusionMin       = 0.3;
+    static const float _DynamicReflectionOcclusionSmoothing = 0.1;
+    static const float _UdonSpecCubeLodSteps                = 6.0;   
+    static const float _ReflectionOcclusionMin              = 0.3;
+    static const float _ReflectionOcclusionMax              = 1.0;
+    static const half  _ReflectionOcclusionCutoff           = (half)(_ReflectionOcclusionMin * 0.33); //33% de Min
+    static const float _ReflectionOcclusionSmoothing        = 0.3;
 
     // Shadow
     static const float _UdonShadowBackfaceFadeStart  = -0.333; // début du fondu (N·L)
@@ -100,19 +118,14 @@
 
     static const half3 LUM = half3(1.0h, 1.0h, 1.0h);
 
-    // Material table : constantes par-matériau source, une colonne par matériau.
-    // Layout (cf. MeshArrayBaker.ReadParams) :
-    //   row 0 = _Color RGBA
-    //   row 1 = subsurface.rgb + thickness (.a)
-    //   row 2 = emission.rgb + intensity (.a)
-    //   row 3 = metallic (.r), roughness (.g), metallic-map flag (.b), roughness-map flag (.a)
-    // column = UV2.y (écrit dans le mesh baké)
+    
     half4 _UdonMaterialRow(float column, float row)
     {
         float2 uv = float2((column + 0.5) * _UdonMaterialTable_TexelSize.x,
-        (row + 0.5) * 0.25);
+        (row + 0.5) * _UdonMaterialTable_TexelSize.y);
         return UNITY_SAMPLE_TEX2D(_UdonMaterialTable, uv);
     }
+
 
     // Plus la normale varie d'un pixel à l'autre (normal map minifiée, courbure, distance),
     // plus on élargit la rugosité pour éviter le scintillement. Retourne une rugosité perceptuelle.
@@ -121,6 +134,7 @@
         float3 Nf   = (float3)N;
         float3 dndx = ddx(Nf);
         float3 dndy = ddy(Nf);
+
         float variance = _SpecAAVariance * (dot(dndx, dndx) + dot(dndy, dndy));
         float kernel   = min(2.0 * variance, _SpecAAThreshold);
 
@@ -247,14 +261,14 @@
     bool isDynamicMesh, half occlusionFactor, float assignedProbe)
     {
         float effectiveAssignedProbe = _UdonReflectionProbePreviewEnabled > 0.5
-            ? _UdonReflectionProbePreviewAssignment
-            : assignedProbe;
+        ? _UdonReflectionProbePreviewAssignment
+        : assignedProbe;
         if (effectiveAssignedProbe < 0.5)
-            return (half3)0;
+        return (half3)0;
 
         int idxA = (int)round(effectiveAssignedProbe) - 1;
         if (idxA < 0 || idxA >= (int)_UdonReflectionProbeCount || idxA >= MAX_PROBES)
-            return (half3)0;
+        return (half3)0;
 
         // Unity convolue ses probes sur UNITY_SPECCUBE_LOD_STEPS (6) niveaux, pas sur toute la chaîne de mips.
         float maxMip   = (_UdonReflectionProbeMaxMip > 0.0) ? min(_UdonReflectionProbeMaxMip, _UdonSpecCubeLodSteps) : _MaxReflectionMipFallback;
@@ -343,7 +357,7 @@
 
     half3 SampleLayerSlice(float2 uv, float sliceIndex, float lodBias)
     {
-        return (half3)UNITY_SAMPLE_TEX2DARRAY_LOD(_UdonLightLayerArray, float3(uv, sliceIndex), lodBias).rgb;
+        return (half3)UNITY_SAMPLE_TEX2DARRAY_LOD(_UdonLightmapArray, float3(uv, sliceIndex), lodBias).rgb;
     }
 
     // Adaptation de la projection à la plateforme
@@ -383,12 +397,16 @@
     // Les valeurs par pixel (a2, lambdaV, alignThreshold, camFade) sont calculées une seule fois
     // dans LayeredLightmapLighting et passées ici, au lieu d'être recalculées à chaque lumière.
     // specPixelOn = specularGlobalEnabled && pixel dans la portée caméra du spéculaire.
+    //
+    // Anisotropie : Tw / Bw = tangente et bitangente monde orthonormalisées avec N.
+    // anisoP = (alphaT, alphaB, longueur(alphaT*ToV, alphaB*BoV, NoV), actif 0/1), précalculé par pixel.
     void _UdonAccumulateLight(
     int    baseIdx,
     float3 WorldPos, half3 N, half3 defaultN, half3 R, half3 vDir,
     float  effectiveLod,
     half3 F0,
     half  a2, half lambdaV, half camFade,
+    float3 Tw, float3 Bw, float4 anisoP,
     half Thickness, half3 SubsurfaceColor,
     float2 MainUV, float2 LightmapUV,
     bool   isDynamicMesh,
@@ -402,6 +420,8 @@
     {
         diffOut = (half3)0;
         specOut = (half3)0;
+        half currentSpecBoost = isDynamicMesh ? _SpecBoostDynamic : _SpecBoostStatic;
+        half specVisibilityCutoff = currentSpecBoost * _SpecVisibilityRatio;
 
         float4 layerSliceAndFlags = _UdonLightData[baseIdx + 6];
         int lightGroupMask = (int)round(layerSliceAndFlags.w);
@@ -493,7 +513,7 @@
         bool  cookieNeeded = (!isBaked) || canSpecularBase;
 
         if (wantsShadow)
-                shadowAtten = _UdonComputeShadowMapShadow(WorldPos, true);
+        shadowAtten = _UdonComputeShadowMapShadow(WorldPos, true);
 
         if (cookieNeeded)
         {
@@ -658,15 +678,23 @@
 
         half3 lDir = (half3)(repDiff * rsqrt(repDistSq));
 
-        // --- Early-out : borne haute de l'intensité, pic GGX compris ---
-        half specEstimate = _SpecBoost * max(currentCol.r, max(currentCol.g, currentCol.b))
-        * specFalloff * specDirMask * camFade * cookieAtten * shadowAtten;
-        half Dpeak = min(rcp(3.14159265h * a2 + 1e-7h), 256.0h);
-        if (specEstimate * Dpeak <= 0.001h) return;
+        bool anisoOn = anisoP.w > 0.5; 
 
-        // --- Test de lobe : angle R/lumière vs 2·θh, avec coupure à tan(θh) = 6·alpha ---
-        half k2 = 36.0h * a2;
-        if (dot(R, lDir) < (1.0h - k2) * rcp(1.0h + k2)) return;
+        // --- Test de lobe en PREMIER ---
+        half lobeThreshold = a2 < 0.25h
+        ? 1.0h - 2.0h * a2
+        : (1.0h - a2) * rcp(1.0h + a2);
+        if (dot(R, lDir) < lobeThreshold) return;
+
+        // --- Early-out intensité (calculé seulement si on est dans le lobe) ---
+        half specEstimate = currentSpecBoost * max(currentCol.r, max(currentCol.g, currentCol.b))
+        * specFalloff * specDirMask * camFade * cookieAtten * shadowAtten;
+
+        half Dpeak = anisoOn
+        ? (half)min(rcp(3.14159265 * anisoP.x * anisoP.y), 256.0)
+        : (half)min(rcp(3.14159265h * a2 + 1e-7h), 256.0h);
+
+        if (specEstimate * Dpeak <= specVisibilityCutoff) return;
 
         // --- BRDF GGX ---
         half3 H = lDir + vDir;
@@ -675,10 +703,41 @@
         half nDotL_spec = saturate(dot(N, lDir));
         if (nDotL_spec <= 0.0h) return;
 
-        half ggxDenom = max(nDotH * nDotH * (a2 - 1.0h) + 1.0h, 1e-7h);
-        half D = a2 / (3.14159265h * ggxDenom * ggxDenom);
-        half lambdaL = nDotL_spec * sqrt(a2 + (1.0h - a2) * nDotL_spec * nDotL_spec);
-        half Vis = 0.5h * rcp(max(lambdaV + lambdaL, 1e-5h));
+        half D;
+        half Vis;
+        if (anisoOn)
+        {
+            // GGX anisotrope (Filament / HDRP) : D et V corrélé avec rugosité séparée tangente/bitangente.
+            float  at = anisoP.x;
+            float  ab = anisoP.y;
+            float3 Hf = (float3)H;
+            float3 Lf = (float3)lDir;
+            float  NoH = (float)nDotH;
+            float  NoL = (float)nDotL_spec;
+            float  NoV = max(dot((float3)N, (float3)vDir), (float)_NDotVFloor);
+
+            float ToH = dot(Tw, Hf);
+            float BoH = dot(Bw, Hf);
+            float a2a = at * ab;
+            float3 dd = float3(ab * ToH, at * BoH, a2a * NoH);
+            float  d2 = max(dot(dd, dd), 1e-12);
+            float  b2 = a2a / d2;
+            float  Df = a2a * b2 * b2 * 0.31830989; // 1/pi
+            D = (half)min(Df, 60000.0);
+
+            float ToL = dot(Tw, Lf);
+            float BoL = dot(Bw, Lf);
+            float lambdaVa = NoL * anisoP.z;
+            float lambdaLa = NoV * length(float3(at * ToL, ab * BoL, NoL));
+            Vis = (half)(0.5 * rcp(max(lambdaVa + lambdaLa, 1e-5)));
+        }
+        else
+        {
+            half ggxDenom = max(nDotH * nDotH * (a2 - 1.0h) + 1.0h, 1e-7h);
+            D = a2 / (3.14159265h * ggxDenom * ggxDenom);
+            half lambdaL = nDotL_spec * sqrt(a2 + (1.0h - a2) * nDotL_spec * nDotL_spec);
+            Vis = 0.5h * rcp(max(lambdaV + lambdaL, 1e-5h));
+        }
 
         // --- Fresnel (inchangé) ---
         half hDotV = saturate(dot(H, vDir));
@@ -690,36 +749,66 @@
         half horizonFade = saturate(nDotL_spec * 4.0h);
 
         half3 spec = currentCol * fresnel
-        * (D * Vis * specDirMask * specFalloff * camFade * _SpecBoost
+        * (D * Vis * specDirMask * specFalloff * camFade * currentSpecBoost
         * cookieAtten * shadowAtten * horizonFade);
         specOut = min(spec, (half3)_MaxSpecIntensity);
     }
 
+    // Inputs ajoutés en fin de liste (avant les out) pour ne pas casser les connexions ASE existantes :
+    //   float  Anisotropy   : -1..1, 0 = désactivé. Signe = sens d'étirement du highlight.
+    //   float3 WorldTangent : tangente monde (nœud "World Tangent"). Non connecté (0,0,0) = désactivé.
     float3 LayeredLightmapLighting(
-    float4 AlbedoColor,
-    float4 Albedo,
-    float Metallic,
-    float Roughness,
+    // Diffuse
+    float4 DiffuseColor,
+    float4 DiffuseMap,
+    float  DiffuseIndex,
+
+    // Normal
+    float3 WorldTangent,
+    float3 DefaultNormal,
+    float2  Normal,
+    float NormalIndex,
+
+    // Metallic
+    float  Metallic,
+    float  MetallicIndex,
+
+    // Roughness
+    float  Roughness,
+    float  RoughnessIndex,
+
+    // Anisotropy
+    float  Anisotropy,
+
+    // Emission
     float3 EmissionColor,
     float3 Emission,
     float3 EmissionIntensity,
+    float EmissionIndex,
+
+    // Subsurface
+    float3 SubsurfaceColor,
+    float  Thickness,
+
+    // View / Position
     float3 ViewDir,
     float3 WorldPos,
-    float3 DefaultNormal,
-    float3 WorldNormal,
-    float3 SubsurfaceColor,
-    float Thickness,
+
+    // UV
     float2 MainUV,
     float2 LightmapUV,
-    float LightGroupMask,
-    float IsDynamicMesh,
-    float MaterialColumn,
-    float ReflectionProbeAssignment,
+
+    // Material parameters
+    float  LightGroupMask,
+    float  IsDynamicMesh,
+    float  MaterialColumn,
+    float  ReflectionProbeAssignment,
+
     out float3 Diffuse,
     out float3 Specular,
     out float3 Reflection,
     out float3 EmissionOut,
-    out float AlphaOut)
+    out float  AlphaOut)
     {
         Diffuse = 0;
         Specular = 0;
@@ -727,29 +816,113 @@
         EmissionOut = 0;
         AlphaOut = 1;
 
-        // Teinte / alpha / PBR par matériau
-        float3 tint = AlbedoColor.rgb;
-        float alpha = Albedo.a * AlbedoColor.a;
+        float2 nrg = Normal;
+        float3 WorldNormal = DefaultNormal;
+
+        float4 diffuseSample;
+        float3 tint = DiffuseColor.rgb;
+        float alpha;
 
         #if defined(_UDON_MESH_ARRAYS_ON)
-            {
-                half4 row0 = _UdonMaterialRow(MaterialColumn, 0.0);
-                half4 row1 = _UdonMaterialRow(MaterialColumn, 1.0);
-                half4 row2 = _UdonMaterialRow(MaterialColumn, 2.0);
-                half4 row3 = _UdonMaterialRow(MaterialColumn, 3.0);
 
-                tint              = (float3)row0.rgb;
-                alpha            *= (float)row0.a;
-                EmissionColor     = (float3)row2.rgb;
-                EmissionIntensity = (float3)row2.a;
-                Metallic          = saturate(row3.b > 0.5h ? Metallic : (float)row3.r);
-                Roughness         = saturate(row3.a > 0.5h ? Roughness : (float)row3.g);
-                SubsurfaceColor   = (float3)row1.rgb;
-                Thickness         = (float)row1.a;
+            half4 row0 = _UdonMaterialRow(MaterialColumn, 0.0);
+            half4 row1 = _UdonMaterialRow(MaterialColumn, 1.0);
+            half4 row2 = _UdonMaterialRow(MaterialColumn, 2.0);
+            half4 row3 = _UdonMaterialRow(MaterialColumn, 3.0);
+            half4 row4 = _UdonMaterialRow(MaterialColumn, 4.0);
+
+            // Diffuse
+            diffuseSample = 1.0;
+
+            if (row4.a > 0.5h)
+            {
+                diffuseSample = UNITY_SAMPLE_TEX2DARRAY(
+                _UdonDiffuseArray,
+                float3(MainUV, DiffuseIndex)
+                );
             }
+
+            tint = (float3)row0.rgb;
+            alpha = diffuseSample.a * DiffuseColor.a * row0.a;
+
+            // Subsurface
+            SubsurfaceColor = (float3)row1.rgb;
+            Thickness = (float)row1.a;
+
+            // Emission
+            EmissionColor = (float3)row2.rgb;
+            EmissionIntensity = (float3)row2.a;
+
+            Emission = 1.0;
+
+            if (row4.b > 0.5h)
+            {
+                Emission = UNITY_SAMPLE_TEX2DARRAY(
+                _UdonEmissionArray,
+                float3(MainUV, round(EmissionIndex))
+                ).rgb;
+            }
+
+            // Anisotropy
+            Anisotropy = (float)row4.r;
+
+            // Normal
+            nrg = 0.0;
+
+            if (row4.g > 0.5h)
+            {
+                nrg = UNITY_SAMPLE_TEX2DARRAY(
+                _UdonNormalArray,
+                float3(MainUV, round(NormalIndex))
+                ).rg * 2.0 - 1.0;
+            }
+
+            // Metallic
+            Metallic = row3.r;
+
+            if (row3.b > 0.5h)
+            {
+                Metallic = UNITY_SAMPLE_TEX2DARRAY(
+                _UdonMetallicArray,
+                float3(MainUV, round(MetallicIndex))
+                ).r;
+            }
+
+            Metallic = saturate(Metallic);
+
+            // Roughness
+            Roughness = row3.g;
+
+            if (row3.a > 0.5h)
+            {
+                Roughness = UNITY_SAMPLE_TEX2DARRAY(
+                _UdonRoughnessArray,
+                float3(MainUV, round(RoughnessIndex))
+                ).r;
+            }
+
+            Roughness = saturate(Roughness);
+
+        #else
+
+            diffuseSample = DiffuseMap;
+            alpha = diffuseSample.a * DiffuseColor.a;
+
         #endif
 
-        float3 surfaceAlbedo = Albedo.rgb * tint;
+        float3 nTS = float3(nrg, sqrt(saturate(1.0 - dot(nrg, nrg))));
+        float3 Ng  = normalize(DefaultNormal);
+        float3 Tg  = WorldTangent - Ng * dot(WorldTangent, Ng);
+        float  tgL = dot(Tg, Tg);
+        
+        if (tgL > 1e-6)
+        {
+            Tg *= rsqrt(tgL);
+            float3 Bg = cross(Ng, Tg) * unity_WorldTransformParams.w;
+            WorldNormal = normalize(Tg * nTS.x + Bg * nTS.y + Ng * nTS.z);
+        }
+
+        float3 surfaceDiffuse = diffuseSample.rgb * tint;
 
         alpha = saturate(alpha);
         AlphaOut = alpha;
@@ -774,7 +947,7 @@
         bool diffuseStaticEnabled = _UdonDiffuseStaticEnabled > 0.5;
         bool diffuseRealtimeEnabled = _UdonDiffuseRealtimeEnabled > 0.5;
         bool diffuseAnyEnabled = diffuseStaticEnabled || diffuseRealtimeEnabled;
-        bool arrayValid = _UdonLightLayerArrayValid > 0.5;
+        bool arrayValid = _UdonLightmapArrayValid > 0.5;
 
         if (loopCount < 1) return 0;
 
@@ -782,6 +955,15 @@
         half3 defaultN = (half3)normalize(DefaultNormal);
         half3 vDir = (half3)normalize(ViewDir);
         half3 R = reflect(-vDir, N);
+
+        // --- Anisotropie : repère tangent/bitangent orthonormalisé avec la normale ---
+        float  aniso  = clamp(Anisotropy, -1.0, 1.0);
+        float3 Nf     = (float3)N;
+        float3 Tf     = WorldTangent - Nf * dot(WorldTangent, Nf);
+        float  tLenSq = dot(Tf, Tf);
+        bool   anisoActive = (abs(aniso) > 0.001) && (tLenSq > 1e-6);
+        Tf *= rsqrt(max(tLenSq, 1e-8));
+        float3 Bf = cross(Nf, Tf);
 
         float camDist = distance(_WorldSpaceCameraPos, WorldPos);
         half nDotV = max(dot(N, vDir), _NDotVFloor);
@@ -795,17 +977,14 @@
 
         bool specPixelOn = specularGlobalEnabled && specInRange;
 
-        half3 F0 = lerp(
-        half3(0.04h, 0.04h, 0.04h),
-        (half3)surfaceAlbedo,
-        (half)Metallic
-        );
+        half3 F0 = lerp(half3(0.04h, 0.04h, 0.04h), (half3)surfaceDiffuse,(half)Metallic);
 
         int materialMask = (int)round(LightGroupMask);
 
         half a2 = 0.0h;
         half lambdaV = 0.0h;
         half camFade = 0.0h;
+        float4 anisoP = float4(0.0, 0.0, 0.0, 0.0);
 
         if (specPixelOn)
         {
@@ -813,6 +992,17 @@
             a2 = specAlpha * specAlpha;
             lambdaV = nDotV * sqrt(a2 + (1.0h - a2) * nDotV * nDotV);
             camFade = 1.0h - (half)smoothstep(specFadeEnd * 0.5, specFadeEnd, camDist);
+
+            if (anisoActive)
+            {
+                // Rugosité étirée : aniso > 0 => plus rugueux sur T, plus lisse sur B (inverse si < 0).
+                float alphaF = (float)specAlpha;
+                float at = max(alphaF * (1.0 + aniso), _AnisoAlphaFloor);
+                float ab = max(alphaF * (1.0 - aniso), _AnisoAlphaFloor);
+                float3 vF = (float3)vDir;
+                float lenV = length(float3(at * dot(Tf, vF), ab * dot(Bf, vF), (float)nDotV));
+                anisoP = float4(at, ab, lenV, 1.0);
+            }
         }
 
         half3 diffAcc = half3(0, 0, 0);
@@ -828,6 +1018,7 @@
             baseIdx, WorldPos, N, defaultN, R, vDir, effectiveLod,
             F0,
             a2, lambdaV, camFade,
+            Tf, Bf, anisoP,
             (half)Thickness, (half3)SubsurfaceColor,
             MainUV, LightmapUV,
             isDynamicMesh, arrayValid, specPixelOn,
@@ -839,20 +1030,34 @@
             specAcc += specC;
         }
 
+        // Irradiance des light probes : calculée une fois, sert à l'occlusion ET au diffus des dynamiques.
+        // max(0) : les harmoniques sphériques d'ordre 2 peuvent donner de légères valeurs négatives.
+        half3 lightProbeIrradiance = (half3)0;
+        if (isDynamicMesh)
+        lightProbeIrradiance = max(_UdonSampleLightProbes((float3)N), (half3)0);
+
         half rawDiffLum = dot(diffAcc, LUM);
         half occlusionFactor = 1.0h;
 
         #if defined(_DIFFUSE_ON)
-            if (diffuseAnyEnabled && !isDynamicMesh)
+            if (diffuseAnyEnabled)
             {
-                half occRaw = saturate(rawDiffLum);
+                // Dynamique : lumières realtime + ambiant des probes (éclairage entrant, avant Diffuse,
+                // comme le lightmap côté statique). Statique : inchangé.
+                half occRaw = isDynamicMesh
+                ? rawDiffLum + dot(lightProbeIrradiance, LUM)
+                : rawDiffLum;
+                occRaw = saturate(occRaw);
+
+                half occMin    = isDynamicMesh ? (half)_DynamicReflectionOcclusionMin       : (half)_ReflectionOcclusionMin;
+                half occSmooth = isDynamicMesh ? (half)_DynamicReflectionOcclusionSmoothing : (half)_ReflectionOcclusionSmoothing;
 
                 occlusionFactor = _UdonComputeOcclusionFactor(
                 occRaw,
-                (half)_ReflectionOcclusionMin,
+                occMin,
                 (half)_ReflectionOcclusionMax,
-                (half)_ReflectionOcclusionSmoothing,
-                (half)_ReflectionOcclusionSmoothing,
+                occSmooth,
+                occSmooth,
                 1.0h,
                 1.0h
                 );
@@ -861,44 +1066,47 @@
 
         half3 refl = 0;
 
-        if (Metallic >= 0.999h && reflectionGlobalEnabled && _UdonReflectionArrayValid > 0.5)
+        if (reflectionGlobalEnabled && _UdonReflectionArrayValid > 0.5)
         {
-            refl = _UdonComputeReflectionArray(
-            WorldPos, N, vDir, R,
-            nDotV, (half)Metallic, specularAARoughness,
-            F0, isDynamicMesh, occlusionFactor, ReflectionProbeAssignment
-            );
+            if (occlusionFactor > _ReflectionOcclusionCutoff) 
+            {
+                half3 Rrefl = R;
+                if (anisoActive)
+                {
+                    float3 vF   = (float3)vDir;
+                    float3 aDir = (aniso >= 0.0) ? Bf : Tf;
+                    float3 aT   = cross(aDir, vF);
+                    float3 aN   = cross(aT, aDir);
+                    float3 bent = lerp(Nf, aN, abs(aniso));
+                    float  bLenSq = dot(bent, bent);
+                    bent = (bLenSq > 1e-6) ? bent * rsqrt(bLenSq) : Nf;
+                    Rrefl = (half3)reflect(-vF, bent);
+                }
 
-            half roughnessFade = 1.0h - smoothstep(0.9h, 0.99h, (half)Roughness);
-            refl *= roughnessFade;
+                refl = _UdonComputeReflectionArray(
+                WorldPos, N, vDir, Rrefl,
+                nDotV, (half)Metallic, specularAARoughness,
+                F0, isDynamicMesh, occlusionFactor, ReflectionProbeAssignment
+                );
+
+                half roughnessFade = 1.0h - smoothstep(0.9h, 0.99h, (half)Roughness);
+                refl *= roughnessFade;
+            }
         }
 
         if (diffuseAnyEnabled)
         {
-            half3 dielectricDiffuse =
-            diffAcc * (half3)surfaceAlbedo * (1.0h - (half)Metallic);
-
-            half metalScatterAmount =
-            (half)Metallic * (half)Roughness * (half)Roughness * (half)Roughness;
-
+            half3 dielectricDiffuse = diffAcc * (half3)surfaceDiffuse * (1.0h - (half)Metallic);
+            half metalScatterAmount = (half)Metallic * (half)Roughness * (half)Roughness * (half)Roughness;
             half3 metalScatter = diffAcc * F0 * metalScatterAmount;
 
             Diffuse.rgb = dielectricDiffuse + metalScatter;
 
             if (isDynamicMesh)
-            {
-                half3 lightProbeIrradiance = _UdonSampleLightProbes((float3)N);
-
-                Diffuse.rgb += (float3)(
-                lightProbeIrradiance *
-                (half3)surfaceAlbedo *
-                (1.0h - (half)Metallic)
-                );
-            }
+            Diffuse.rgb += (float3)(lightProbeIrradiance * (half3)surfaceDiffuse * (1.0h - (half)Metallic));
 
             Specular = (float3)specAcc;
             Reflection = (float3)refl;
-
             return Diffuse.rgb + Specular + Reflection;
         }
         else
@@ -906,19 +1114,10 @@
             Diffuse.rgb = 0;
 
             if (isDynamicMesh)
-            {
-                half3 lightProbeIrradiance = _UdonSampleLightProbes((float3)N);
-
-                Diffuse.rgb = (float3)(
-                lightProbeIrradiance *
-                (half3)surfaceAlbedo *
-                (1.0h - (half)Metallic)
-                );
-            }
+            Diffuse.rgb = (float3)(lightProbeIrradiance * (half3)surfaceDiffuse * (1.0h - (half)Metallic));
 
             Specular = (float3)specAcc;
             Reflection = (float3)refl;
-
             return Diffuse.rgb + Specular + Reflection;
         }
     }

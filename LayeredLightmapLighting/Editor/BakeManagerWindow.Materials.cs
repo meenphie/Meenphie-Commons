@@ -161,7 +161,7 @@ public partial class BakeManagerWindow
             var mr = EditorGUILayout.GetControlRect(false, RowH);
             var cols = Cols(new Rect(mr.x + 12, mr.y, mr.width - 12, mr.height), 190f, 96f);
 
-            var c = m.HasProperty("_AlbedoColor") ? m.GetColor("_AlbedoColor") : m.HasProperty("_Color") ? m.GetColor("_Color") : Color.white;
+            var c = m.HasProperty("_DiffuseColor") ? m.GetColor("_DiffuseColor") : m.HasProperty("_Color") ? m.GetColor("_Color") : Color.white;
             c.a = 1f;
             EditorGUI.DrawRect(new Rect(cols[0].x, mr.y + 5, 14, 14), c);
             AssetLink(new Rect(cols[0].x + 20, mr.y, cols[0].width - 20, mr.height), m.name, m, AssetDatabase.GetAssetPath(m));

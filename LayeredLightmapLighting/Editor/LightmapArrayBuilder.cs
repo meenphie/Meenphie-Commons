@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using Meenphie.Commons;
 using Meenphie.Lighting;
+using UnityEngine.Experimental.Rendering;
 
 public static class LightmapArrayBuilder
 {
@@ -223,13 +224,15 @@ public static class LightmapArrayBuilder
 
 
     private static bool WriteTextureIntoArraySlice(Texture2DArray target, Texture2D src,
-        int sliceIndex, int sizeX, int sizeY)
+    int sliceIndex, int sizeX, int sizeY)
     {
         EnsureBlitMat();
         if (_blitCopyMat == null) return false;
         if (src == null) src = CreateBlackPlaceholder(sizeX, sizeY);
 
-        bool isCompressed = !UncompressedFormats.Contains(ARRAY_FORMAT);
+        // On lit le format directement depuis le tableau cible !
+        TextureFormat targetFormat = target.format;
+        bool isCompressed = !UncompressedFormats.Contains(targetFormat);
 
         RenderTexture cache = RenderTexture.active;
         var rt = new RenderTexture(sizeX, sizeY, 0, RenderTextureFormat.ARGBFloat,
@@ -243,13 +246,13 @@ public static class LightmapArrayBuilder
         Graphics.Blit(src, rt, _blitCopyMat);
         GL.sRGBWrite = cachedSrgb;
 
-        TextureFormat readFmt = isCompressed ? TextureFormat.RGBAFloat : ARRAY_FORMAT;
+        TextureFormat readFmt = isCompressed ? TextureFormat.RGBAFloat : targetFormat;
         var t2d = new Texture2D(sizeX, sizeY, readFmt, MIPMAPS, LINEAR);
         t2d.ReadPixels(new Rect(0, 0, sizeX, sizeY), 0, 0, MIPMAPS);
         RenderTexture.active = null;
 
         if (isCompressed)
-            EditorUtility.CompressTexture(t2d, ARRAY_FORMAT, QUALITY);
+            EditorUtility.CompressTexture(t2d, targetFormat, QUALITY);
         t2d.Apply(false);
 
         int numLevels = MIPMAPS
@@ -550,7 +553,7 @@ public static class LightmapArrayBuilder
             finalTextureListPC.AddRange(maskTextures);
             finalTextureListPC.AddRange(orderedTextures);
 
-            Texture2DArray builtArrayPC = BuildArray(finalTextureListPC, sizeX, sizeY, report);
+            Texture2DArray builtArrayPC = BuildArray(finalTextureListPC, sizeX, sizeY, report, false);
             if (builtArrayPC == null)
             {
                 Debug.LogError("[Layered Lighting] PC texture array build failed.\n" + report);
@@ -571,7 +574,7 @@ public static class LightmapArrayBuilder
                 questTextures.Add(resized);
             }
 
-            Texture2DArray builtArrayQuest = BuildArray(questTextures, questSizeX, questSizeY, report);
+            Texture2DArray builtArrayQuest = BuildArray(questTextures, questSizeX, questSizeY, report, true);
             if (builtArrayQuest == null)
             {
                 Debug.LogError("[Layered Lighting] Quest texture array build failed.\n" + report);
@@ -781,8 +784,6 @@ public static class LightmapArrayBuilder
 
         EditorUtility.DisplayProgressBar("Layered Lighting",
             "Compressing mask to BC6H…", 0.0f);
-        EditorUtility.CompressTexture(mask, TextureFormat.BC6H, 100);
-        mask.Apply(false);
 
         // NOTE: each light now contributes exactly 1 texture to this sum instead
         // of 3 (X+Y+Z RNM basis), so the accumulated magnitude here is roughly
@@ -796,17 +797,65 @@ public static class LightmapArrayBuilder
     }
 
     // ── Texture2DArray construction ───────────────────────────────────────────
-    private static Texture2DArray BuildArray(List<Texture2D> textures,
-        int sizeX, int sizeY, System.Text.StringBuilder report)
+    private static Texture2DArray BuildArray(List<Texture2D> textures, int sizeX, int sizeY, System.Text.StringBuilder report, bool isQuest)
     {
         if (textures.Count == 0) return null;
 
         EnsureBlitMat();
         if (_blitCopyMat == null) return null;
 
-        bool isCompressed = !UncompressedFormats.Contains(ARRAY_FORMAT);
+        TextureFormat currentFormat = TextureFormat.RGBAHalf;
+        bool supported = false;
+
+        if (isQuest)
+        {
+            // On vérifie si on peut CRÉER et LIRE l'ASTC HDR
+            if (SystemInfo.SupportsTextureFormat(TextureFormat.ASTC_HDR_6x6) &&
+                SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.ASTC_HDR_6x6, true), FormatUsage.Sample))
+            {
+                currentFormat = TextureFormat.ASTC_HDR_6x6;
+                supported = true;
+            }
+            // Sinon on teste l'ASTC normal
+            else if (SystemInfo.SupportsTextureFormat(TextureFormat.ASTC_6x6) &&
+                     SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.ASTC_6x6, true), FormatUsage.Sample))
+            {
+                currentFormat = TextureFormat.ASTC_6x6;
+                supported = true;
+            }
+
+            if (supported)
+            {
+                report.AppendLine("  [format] Quest: ASTC (supported)");
+            }
+            else
+            {
+                currentFormat = TextureFormat.RGBAHalf;
+                report.AppendLine("  [format] Quest: RGBAHalf (ASTC fallback)");
+                Debug.LogWarning("[Layered Lighting] L'éditeur ne peut pas lire l'ASTC. Le tableau Quest est généré en RGBAHalf pour éviter un crash.");
+            }
+        }
+        else
+        {
+            // PC : BC6H
+            if (SystemInfo.SupportsTextureFormat(TextureFormat.BC6H) &&
+                SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.BC6H, true), FormatUsage.Sample))
+            {
+                currentFormat = TextureFormat.BC6H;
+                report.AppendLine("  [format] PC: BC6H (supported)");
+            }
+            else
+            {
+                currentFormat = TextureFormat.RGBAHalf;
+                report.AppendLine("  [format] PC: RGBAHalf (BC6H fallback)");
+                Debug.LogWarning("[Layered Lighting] L'éditeur ne peut pas lire le BC6H. Le tableau PC est généré en RGBAHalf pour éviter un crash.");
+            }
+        }
+
+        bool isCompressed = !UncompressedFormats.Contains(currentFormat);
+
         var textureArray = new Texture2DArray(sizeX, sizeY, textures.Count,
-            ARRAY_FORMAT, MIPMAPS, LINEAR)
+            currentFormat, MIPMAPS, LINEAR)
         {
             wrapMode = WRAP,
             filterMode = FILTER,
@@ -839,13 +888,13 @@ public static class LightmapArrayBuilder
             Graphics.Blit(src, rt, _blitCopyMat);
             GL.sRGBWrite = cachedSrgb;
 
-            TextureFormat readFmt = isCompressed ? TextureFormat.RGBAFloat : ARRAY_FORMAT;
+            TextureFormat readFmt = isCompressed ? TextureFormat.RGBAFloat : currentFormat;
             var t2d = new Texture2D(sizeX, sizeY, readFmt, MIPMAPS, LINEAR);
             t2d.ReadPixels(new Rect(0, 0, sizeX, sizeY), 0, 0, MIPMAPS);
             RenderTexture.active = null;
 
             if (isCompressed)
-                EditorUtility.CompressTexture(t2d, ARRAY_FORMAT, QUALITY);
+                EditorUtility.CompressTexture(t2d, currentFormat, QUALITY);
             t2d.Apply(false);
 
             int numLevels = MIPMAPS

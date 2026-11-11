@@ -29,7 +29,7 @@ public partial class BakeManagerWindow : EditorWindow
     private enum Tab { Overview, Meshes, Probes, Materials, Textures, Preview, LOD }
     private static readonly string[] TabNames = { "Overview", "Meshes", "Probes", "Materials", "Textures", "Preview", "LOD" };
 
-    // Same order as MeshArrayBaker.ChannelNames (Albedo, Normal, Metallic, Roughness, Emission)
+    // Same order as MeshArrayBaker.ChannelNames (Diffuse, Normal, Metallic, Roughness, Emission)
     private static readonly string[] ChannelTexProps = { "_MainTex", "_BumpMap", "_MetallicMap", "_GlossinessMap", "_EmissionMap" };
 
     private const int ThumbRes = 128;
@@ -83,6 +83,8 @@ public partial class BakeManagerWindow : EditorWindow
         EditorApplication.update -= UpdateRenderStats;
         ClearMeshPreview();
         ClearThumbs();
+        ClearProbeThumbs();
+        ClearLightmapThumbs();
     }
 
     private void UpdateRenderStats()

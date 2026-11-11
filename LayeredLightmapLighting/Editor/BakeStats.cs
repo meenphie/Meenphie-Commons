@@ -120,6 +120,8 @@ internal static class BakeStats
     public static Mesh CurrentMesh(MeshArrayBaker.RendererReport r)
     {
         if (r.renderer == null) return null;
+        if (r.renderer is SkinnedMeshRenderer skinnedRenderer)
+            return skinnedRenderer.sharedMesh;
         var mf = r.renderer.GetComponent<MeshFilter>();
         return mf != null ? mf.sharedMesh : null;
     }

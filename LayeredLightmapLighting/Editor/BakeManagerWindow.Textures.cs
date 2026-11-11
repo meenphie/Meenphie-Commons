@@ -7,7 +7,7 @@ using UnityEngine.Experimental.Rendering;
 using Meenphie.Commons;
 
 /// <summary>
-/// Textures tab: one entry per channel (Albedo, Normal, ...) showing every slice of the array with its usage count,
+/// Textures tab: one entry per channel (Diffuse, Normal, ...) showing every slice of the array with its usage count,
 /// the array memory vs the source textures it replaces, and, as the last entry, the material table.
 /// </summary>
 public partial class BakeManagerWindow
@@ -27,6 +27,8 @@ public partial class BakeManagerWindow
     private int _thumbSize = 110;
     private int _selectedSlice = -1;
     private int _selectedColumn = -1;
+    private readonly Dictionary<int, Texture2D> _probeThumbs = new Dictionary<int, Texture2D>();
+    private int _selectedProbeSlice = -1;
 
     private ChannelData Channel(int i)
     {
@@ -78,18 +80,25 @@ public partial class BakeManagerWindow
     private void DrawTexturesTab()
     {
         var names = ChannelNames;
-        var labels = new string[names.Length + 1];
+        // On ajoute 4 boutons à la fin
+        var labels = new string[names.Length + 4];
         for (int i = 0; i < names.Length; i++)
         {
             var c = Channel(i);
             labels[i] = c.array != null ? $"{names[i]} ({c.array.depth})" : names[i];
         }
         labels[names.Length] = "Material table";
+        labels[names.Length + 1] = "Lightmap Array";
+        labels[names.Length + 2] = "Cookie Array";
+        labels[names.Length + 3] = "Reflection Probes"; // <-- AJOUT
 
-        _channel = Mathf.Clamp(GUILayout.Toolbar(_channel, labels, GUILayout.Height(26)), 0, names.Length);
+        _channel = Mathf.Clamp(GUILayout.Toolbar(_channel, labels, GUILayout.Height(26)), 0, names.Length + 3);
         GUILayout.Space(4);
 
         if (_channel == names.Length) DrawMaterialTable();
+        else if (_channel == names.Length + 1) DrawLightmapArray();
+        else if (_channel == names.Length + 2) DrawCookieArray();
+        else if (_channel == names.Length + 3) DrawReflectionProbeArray();
         else DrawArrayChannel(_channel);
     }
 
@@ -221,7 +230,7 @@ public partial class BakeManagerWindow
         {
             Graphics.Blit(tmp, rt);
             var outTex = new Texture2D(size, size, TextureFormat.RGBA32, false, !srgb)
-                { hideFlags = HideFlags.HideAndDontSave };
+            { hideFlags = HideFlags.HideAndDontSave };
             RenderTexture.active = rt;
             outTex.ReadPixels(new Rect(0, 0, size, size), 0, 0, false);
 
@@ -252,6 +261,7 @@ public partial class BakeManagerWindow
             DestroyImmediate(tmp);
         }
     }
+
 
     private void DrawMaterialTable()
     {
@@ -318,5 +328,118 @@ public partial class BakeManagerWindow
         }
         if (_tableW > count)
             GUILayout.Label($"… {_tableW - count} more", _muted);
+    }
+
+    private void DrawReflectionProbeArray()
+    {
+        var mgr = Object.FindObjectOfType<LightingManager>();
+        CubemapArray arr = mgr != null ? mgr.reflectionProbeArrayPC : null;
+
+        if (arr == null)
+        {
+            Callout(Tone.Neutral, "No Reflection Probe Array baked. Run the Reflection Probe Bake first.");
+            return;
+        }
+
+        long bytes = BakeStats.RuntimeBytes(arr);
+        long diskBytes = BakeStats.FileBytes(AssetDatabase.GetAssetPath(arr));
+
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            StatRow("Array PC", $"{arr.width}px · {arr.cubemapCount} probes · {arr.graphicsFormat}");
+            StatRow("Memory", $"{BakeStats.Mb(bytes)} runtime · {BakeStats.Mb(diskBytes)} on disk");
+            StatRow("Max Mip", $"{mgr.reflectionProbeMaxMip}");
+        }
+        GUILayout.Space(4);
+
+        if (Event.current.type == EventType.Layout) PumpProbeThumbs(arr);
+
+        float cell = 110f, labelH = 20f, pad = 6f;
+        var area = BeginGrid(arr.cubemapCount, cell, cell + labelH, pad, out int cols);
+        var e = Event.current;
+
+        for (int i = 0; i < arr.cubemapCount; i++)
+        {
+            var r = CellRect(area, i, cols, cell, cell + labelH, pad);
+            var texRect = new Rect(r.x, r.y, cell, cell);
+
+            if (e.type == EventType.Repaint)
+            {
+                bool hover = r.Contains(e.mousePosition);
+                EditorGUI.DrawRect(r, i == _selectedProbeSlice ? CellSel : hover ? CellHot : CellBg);
+
+                // On affiche la face +X (face 0)
+                int key = ThumbKey(300, i * 6);
+                if (_probeThumbs.TryGetValue(key, out var tex) && tex != null)
+                    GUI.DrawTexture(texRect, tex, ScaleMode.ScaleToFit, false);
+                else
+                    EditorGUI.DrawRect(texRect, new Color(0, 0, 0, 0.25f));
+
+                GUI.Label(new Rect(r.x + 4, r.y + cell + 2, cell - 8, 18), $"Probe #{i}", _cellLabel);
+            }
+
+            if (e.type == EventType.MouseDown && e.button == 0 && r.Contains(e.mousePosition))
+            {
+                _selectedProbeSlice = i;
+                e.Use();
+                Repaint();
+            }
+        }
+
+        if (_selectedProbeSlice >= 0 && _selectedProbeSlice < mgr.reflectionProbeCount)
+        {
+            GUILayout.Space(8);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                int b = _selectedProbeSlice * 3;
+                Vector4 pos = mgr.reflectionProbeData[b + 0];
+                Vector4 boundsMin = mgr.reflectionProbeData[b + 1];
+                Vector4 boundsMax = mgr.reflectionProbeData[b + 2];
+
+                GUILayout.Label($"Probe #{_selectedProbeSlice} Details", _bold);
+                StatRow("Position", $"X:{pos.x:F2} Y:{pos.y:F2} Z:{pos.z:F2}");
+                StatRow("Bounds", $"Min: {boundsMin} / Max: {boundsMax}");
+                StatRow("Box Proj", boundsMin.w > 0.5f ? "Enabled" : "Disabled");
+            }
+        }
+    }
+
+    private void PumpProbeThumbs(CubemapArray arr)
+    {
+        int budget = ThumbBudgetPerPass;
+        for (int i = 0; i < arr.cubemapCount; i++)
+        {
+            int key = ThumbKey(300, i * 6);
+            if (_probeThumbs.TryGetValue(key, out var t) && t != null) continue;
+            if (budget-- <= 0) { Repaint(); return; }
+
+            int mip = Mathf.Clamp(Mathf.FloorToInt(Mathf.Log(Mathf.Max(1f, arr.width / (float)ThumbRes), 2f)), 0, arr.mipmapCount - 1);
+            int w = Mathf.Max(1, arr.width >> mip);
+
+            var tmp = new Texture2D(w, w, arr.graphicsFormat, UnityEngine.Experimental.Rendering.TextureCreationFlags.None);
+            // On copie la face 0 du cubemap (i * 6 + 0)
+            Graphics.CopyTexture(arr, i * 6, mip, tmp, 0, 0);
+
+            var rt = RenderTexture.GetTemporary(ThumbRes, ThumbRes, 0, RenderTextureFormat.ARGB32);
+            var prev = RenderTexture.active;
+
+            Graphics.Blit(tmp, rt);
+            var outTex = new Texture2D(ThumbRes, ThumbRes, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+            RenderTexture.active = rt;
+            outTex.ReadPixels(new Rect(0, 0, ThumbRes, ThumbRes), 0, 0, false);
+            outTex.Apply(false);
+
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            Object.DestroyImmediate(tmp);
+
+            _probeThumbs[key] = outTex;
+        }
+    }
+
+    private void ClearProbeThumbs()
+    {
+        foreach (var t in _probeThumbs.Values) if (t != null) Object.DestroyImmediate(t);
+        _probeThumbs.Clear();
     }
 }

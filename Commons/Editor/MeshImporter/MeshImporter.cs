@@ -79,8 +79,8 @@ public class MeshImporter : AssetPostprocessor
         string colorHex = GetValue(data, "ColorHex", "FFFFFF");
         if (ColorUtility.TryParseHtmlString("#" + colorHex, out Color c))
         {
-            c.a = ParseF(GetValue(data, "AlbedoAlpha", GetValue(data, "AlphaValue", "1.0")));
-            SetColorAny(mat, c, "_AlbedoColor", "_Color");   // nouveau nom d'abord, ancien en secours
+            c.a = ParseF(GetValue(data, "DIffuseAlpha", GetValue(data, "AlphaValue", "1.0")));
+            SetColorAny(mat, c, "_DiffuseColor", "_Color");   // nouveau nom d'abord, ancien en secours
         }
 
         // 2. Metallic & Smoothness
@@ -119,7 +119,7 @@ public class MeshImporter : AssetPostprocessor
         foreach (var p in texProps)
             if (mat.HasProperty(p)) mat.SetTexture(p, null);
 
-        SetColorAny(mat, Color.white, "_AlbedoColor", "_Color");
+        SetColorAny(mat, Color.white, "_DiffuseColor", "_Color");
         mat.SetColor("_EmissionColor", Color.black);
         mat.SetFloat("_Metallic", 0);
         mat.SetFloat("_Glossiness", 0);

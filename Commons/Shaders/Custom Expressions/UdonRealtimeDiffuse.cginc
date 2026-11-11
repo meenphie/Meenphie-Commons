@@ -2,7 +2,7 @@
 #ifndef UDON_REALTIME_DIFFUSE
 #define UDON_REALTIME_DIFFUSE
 
-uniform float4 _UdonLightData[513];
+uniform float4 _UdonLightData[257];
 uniform float  _UdonDiffuseRealtimeEnabled;
 uniform float  _UdonRealtimeShadowsEnabled;
 

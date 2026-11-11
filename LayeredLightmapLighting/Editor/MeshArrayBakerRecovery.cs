@@ -54,8 +54,8 @@ public static partial class MeshArrayBaker
 
     private static readonly Channel[] Channels =
     {
-        new Channel("Albedo", "_MainTex", "albedoArray", "_UdonAlbedoArray",
-            BakePaths.Albedo, "AlbedoArray", true, false, new Color32(255, 255, 255, 255)),
+        new Channel("Diffuse", "_MainTex", "diffuseArray", "_UdonDiffuseArray",
+            BakePaths.Diffuse, "DiffuseArray", true, false, new Color32(255, 255, 255, 255)),
         new Channel("Normal", "_BumpMap", "normalArray", "_UdonNormalArray",
             BakePaths.Normal, "NormalArray", false, true, new Color32(128, 128, 255, 255)),
         new Channel("Metallic", "_MetallicMap", "metallicArray", "_UdonMetallicArray",
@@ -81,7 +81,7 @@ public static partial class MeshArrayBaker
     {
         bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
 
-        Color color = ReadColor(material, "_AlbedoColor", Color.white);
+        Color color = ReadColor(material, "_DiffuseColor", Color.white);
         Color subsurface = ReadColor(material, "_SubsurfaceColor", Color.white);
         Color emission = ReadColor(material, "_EmissionColor", Color.white);
 
@@ -91,17 +91,40 @@ public static partial class MeshArrayBaker
             subsurface = subsurface.linear;
         }
 
+        bool hasNormalMap =
+            material.IsKeywordEnabled("_BUMPMAP") &&
+            GetTex(material, "_BumpMap") != null;
+
+        bool hasEmissionMap =
+            GetTex(material, "_EmissionMap") != null;
+
+        bool hasDiffuseMap =
+            GetTex(material, "_MainTex") != null;
+
         return new[]
         {
-        new Vector4(color.r, color.g, color.b, color.a),
-        new Vector4(subsurface.r, subsurface.g, subsurface.b,
+        new Vector4(
+            color.r, color.g, color.b, color.a),
+
+        new Vector4(
+            subsurface.r, subsurface.g, subsurface.b,
             ReadFloat(material, "_Thickness", 0f)),
-        new Vector4(emission.r, emission.g, emission.b,
+
+        new Vector4(
+            emission.r, emission.g, emission.b,
             ReadFloat(material, "_EmissionIntensity", 0f)),
-        new Vector4(ReadFloat(material, "_Metallic", 0f),
+
+        new Vector4(
+            ReadFloat(material, "_Metallic", 0f),
             ReadFloat(material, "_Glossiness", 0.5f),
             material.IsKeywordEnabled("_METALLICMAP") ? 1f : 0f,
-            material.IsKeywordEnabled("_GLOSSINESSMAP") ? 1f : 0f)
+            material.IsKeywordEnabled("_GLOSSINESSMAP") ? 1f : 0f),
+
+        new Vector4(
+            ReadFloat(material, "_Anisotropy", 0f),
+            hasNormalMap ? 1f : 0f,
+            hasEmissionMap ? 1f : 0f,
+            hasDiffuseMap ? 1f : 0f)
     };
     }
 
@@ -123,7 +146,27 @@ public static partial class MeshArrayBaker
     {
         resolution = Mathf.Max(4, resolution);
         bool questArray = name.EndsWith("_Quest", StringComparison.Ordinal);
-        TextureFormat format = questArray ? TextureFormat.DXT5 : BakeUtil.BestSrgbFormat().tex;
+
+        // =========================================================
+        // CHOIX DU FORMAT DE COMPRESSION
+        // =========================================================
+        TextureFormat format;
+        if (questArray)
+        {
+            format = TextureFormat.ASTC_6x6;
+        }
+        else
+        {
+            if (channel.IsNormal)
+            {
+                format = TextureFormat.BC5;
+            }
+            else
+            {
+                format = TextureFormat.DXT5;
+            }
+        }
+
         int fallbackSlice = channel.Textures.Count;
         var array = new Texture2DArray(
             resolution, resolution, channel.Textures.Count + 1, format, true, !channel.Srgb)
@@ -216,7 +259,23 @@ public static partial class MeshArrayBaker
         bool hasNormals;
         bool hasTangents;
         bool hasColors;
+        bool hasBoneWeights = source.bindposes.Length > 0;
+        byte[] sourceBonesPerVertex = Array.Empty<byte>();
+        BoneWeight1[] sourceBoneWeights = Array.Empty<BoneWeight1>();
+        int[] sourceBoneWeightOffsets = Array.Empty<int>();
         int[][] sourceIndices = new int[source.subMeshCount][];
+
+        if (hasBoneWeights)
+        {
+            using (var bonesPerVertex = source.GetBonesPerVertex())
+                sourceBonesPerVertex = bonesPerVertex.ToArray();
+            using (var boneWeights = source.GetAllBoneWeights())
+                sourceBoneWeights = boneWeights.ToArray();
+
+            sourceBoneWeightOffsets = new int[source.vertexCount + 1];
+            for (int i = 0; i < source.vertexCount; i++)
+                sourceBoneWeightOffsets[i + 1] = sourceBoneWeightOffsets[i] + sourceBonesPerVertex[i];
+        }
 
         using (Mesh.MeshDataArray meshDataArray = MeshUtility.AcquireReadOnlyMeshData(source))
         {
@@ -266,6 +325,9 @@ public static partial class MeshArrayBaker
         var normals = new List<Vector3>();
         var tangents = new List<Vector4>();
         var colors = new List<Color32>();
+        var bakedBonesPerVertex = new List<byte>();
+        var bakedBoneWeights = new List<BoneWeight1>();
+        var bakedSourceIndices = new List<int>();
         var subIndices = new List<int>[resolved.matPaths.Length];
         var materialPathIndices = new Dictionary<string, int>();
         for (int i = 0; i < resolved.matPaths.Length; i++)
@@ -282,7 +344,7 @@ public static partial class MeshArrayBaker
             if (!materialPathIndices.TryGetValue(resolved.submeshMatPaths[submesh], out int outputSubmesh))
                 throw new InvalidOperationException($"No output submesh was generated for '{material.name}'.");
 
-            int albedo = GetSlice(Channels[0], material);
+            int diffuse = GetSlice(Channels[0], material);
             int normal = GetSlice(Channels[1], material);
             int metallic = GetSlice(Channels[2], material);
             int roughness = GetSlice(Channels[3], material);
@@ -299,6 +361,16 @@ public static partial class MeshArrayBaker
                     if (hasNormals) normals.Add(sourceNormals[sourceIndex]);
                     if (hasTangents) tangents.Add(sourceTangents[sourceIndex]);
                     if (hasColors) colors.Add(sourceColors[sourceIndex]);
+                    bakedSourceIndices.Add(sourceIndex);
+
+                    if (hasBoneWeights)
+                    {
+                        byte boneCount = sourceBonesPerVertex[sourceIndex];
+                        bakedBonesPerVertex.Add(boneCount);
+                        int weightOffset = sourceBoneWeightOffsets[sourceIndex];
+                        for (int i = 0; i < boneCount; i++)
+                            bakedBoneWeights.Add(sourceBoneWeights[weightOffset + i]);
+                    }
 
                     for (int channel = 0; channel < sourceUvs.Length; channel++)
                     {
@@ -313,7 +385,7 @@ public static partial class MeshArrayBaker
                         }
                         else if (channel == 3)
                         {
-                            uv = new Vector4(albedo, normal, metallic, roughness);
+                            uv = new Vector4(diffuse, normal, metallic, roughness);
                         }
                         else if (channel == 7)
                         {
@@ -340,12 +412,48 @@ public static partial class MeshArrayBaker
         if (hasNormals) baked.SetNormals(normals);
         if (hasTangents) baked.SetTangents(tangents);
         if (hasColors) baked.SetColors(colors);
+        if (hasBoneWeights)
+        {
+            baked.bindposes = source.bindposes;
+            using (var bonesPerVertex = new NativeArray<byte>(bakedBonesPerVertex.ToArray(), Allocator.Temp))
+            using (var boneWeights = new NativeArray<BoneWeight1>(bakedBoneWeights.ToArray(), Allocator.Temp))
+                baked.SetBoneWeights(bonesPerVertex, boneWeights);
+        }
         for (int channel = 0; channel < bakedUvs.Length; channel++)
             if (bakedUvs[channel].Count > 0) baked.SetUVs(channel, bakedUvs[channel]);
 
         baked.subMeshCount = subIndices.Length;
         for (int i = 0; i < subIndices.Length; i++)
             baked.SetIndices(subIndices[i], MeshTopology.Triangles, i, false);
+
+        for (int shape = 0; shape < source.blendShapeCount; shape++)
+        {
+            string shapeName = source.GetBlendShapeName(shape);
+            int frameCount = source.GetBlendShapeFrameCount(shape);
+            for (int frame = 0; frame < frameCount; frame++)
+            {
+                var sourceDeltaVertices = new Vector3[source.vertexCount];
+                var sourceDeltaNormals = new Vector3[source.vertexCount];
+                var sourceDeltaTangents = new Vector3[source.vertexCount];
+                source.GetBlendShapeFrameVertices(
+                    shape, frame, sourceDeltaVertices, sourceDeltaNormals, sourceDeltaTangents);
+
+                var deltaVertices = new Vector3[bakedSourceIndices.Count];
+                var deltaNormals = new Vector3[bakedSourceIndices.Count];
+                var deltaTangents = new Vector3[bakedSourceIndices.Count];
+                for (int i = 0; i < bakedSourceIndices.Count; i++)
+                {
+                    int sourceIndex = bakedSourceIndices[i];
+                    deltaVertices[i] = sourceDeltaVertices[sourceIndex];
+                    deltaNormals[i] = sourceDeltaNormals[sourceIndex];
+                    deltaTangents[i] = sourceDeltaTangents[sourceIndex];
+                }
+
+                baked.AddBlendShapeFrame(
+                    shapeName, source.GetBlendShapeFrameWeight(shape, frame),
+                    deltaVertices, deltaNormals, deltaTangents);
+            }
+        }
 
         return baked;
     }
@@ -388,13 +496,14 @@ public static partial class MeshArrayBaker
         SetTextureIfPresent(material, "_MetallicMap", null);
         SetTextureIfPresent(material, "_GlossinessMap", null);
         SetTextureIfPresent(material, "_EmissionMap", null);
-        SetColorIfPresent(material, "_AlbedoColor", Color.white);
+        SetColorIfPresent(material, "_DiffuseColor", Color.white);
         SetColorIfPresent(material, "_SubsurfaceColor", Color.white);
         SetFloatIfPresent(material, "_Thickness", 0f);
-        SetFloatIfPresent(material, "_Metallic", 1f);
-        SetFloatIfPresent(material, "_Glossiness", 1f);
-        SetColorIfPresent(material, "_EmissionColor", Color.white);
-        SetFloatIfPresent(material, "_EmissionIntensity", 1f);
+        SetFloatIfPresent(material, "_Metallic", 0f);
+        SetFloatIfPresent(material, "_Glossiness", 0.5f);
+        SetFloatIfPresent(material, "_Anisotropy", 0f);
+        SetColorIfPresent(material, "_EmissionColor", Color.black);
+        SetFloatIfPresent(material, "_EmissionIntensity", 0f);
         EditorUtility.SetDirty(material);
     }
 
@@ -446,6 +555,7 @@ public static partial class MeshArrayBaker
         AppendFloat(key, material, "_LightGroupMask");
         AppendFloat(key, material, "_Offset");
         AppendFloat(key, material, "_MaskClipValue");
+        AppendFloat(key, material, "_IsDynamicMesh");
 
         return key.ToString();
     }

@@ -9,7 +9,7 @@ using Object = UnityEngine.Object;
 
 /// <summary>
 /// Bakes the "Meenphie/Standard/Opaque" shader's array inputs:
-///  5 texture arrays (albedo, normal, metallic, roughness, emission), PC + Quest,
+///  5 texture arrays (diffuse, normal, metallic, roughness, emission), PC + Quest,
 ///  a 4-row material table, one shared material per variant, baked meshes with
 ///  slice/column indices packed into UV2/UV3 and the shared reflection-probe plan packed into UV8.
 /// Rebake always re-reads the original meshes/materials from the registry, so it is stable.
@@ -23,7 +23,7 @@ public static partial class MeshArrayBaker
 
     private sealed class Resolved
     {
-        public MeshRenderer r;
+        public Renderer renderer;
         public MeshFilter mf;
         public string id;
         public Mesh origMesh;
@@ -126,11 +126,11 @@ public static partial class MeshArrayBaker
             // 2. Material table columns
             var matId = new Dictionary<Material, int>();
             var cols = new List<Vector4[]>();
-            var colIdx = new Dictionary<(Vector4, Vector4, Vector4, Vector4), int>();
+            var colIdx = new Dictionary<(Vector4, Vector4, Vector4, Vector4, Vector4), int>();
             foreach (var m in mats)
             {
                 var p = ReadParams(m);
-                var key = (p[0], p[1], p[2], p[3]);
+                var key = (p[0], p[1], p[2], p[3], p[4]);
                 if (!colIdx.TryGetValue(key, out int id)) { id = cols.Count; colIdx[key] = id; cols.Add(p); }
                 matId[m] = id;
             }
@@ -144,7 +144,8 @@ public static partial class MeshArrayBaker
             var builtMeshes = new HashSet<string>();
             foreach (var assignment in probePlan.Assignments)
             {
-                if (!(assignment.Key is SkinnedMeshRenderer skinnedRenderer))
+                if (!(assignment.Key is SkinnedMeshRenderer skinnedRenderer) ||
+                    Resolve(skinnedRenderer, reg, assignment.Value).reason == null)
                     continue;
 
                 Mesh originalMesh = GetOriginalSkinnedMesh(skinnedRenderer, reg);
@@ -180,8 +181,13 @@ public static partial class MeshArrayBaker
             // 4. Hand references to LightingManager + editor globals
             foreach (var ch in Channels)
             {
-                BakeUtil.SetManagerField(ch.MgrField + "PC", AssetDatabase.LoadAssetAtPath<Texture2DArray>(ch.PathPC));
+#if UNITY_ANDROID
                 BakeUtil.SetManagerField(ch.MgrField + "Quest", AssetDatabase.LoadAssetAtPath<Texture2DArray>(ch.PathQuest));
+                BakeUtil.SetManagerField(ch.MgrField + "PC", null);
+#else
+                BakeUtil.SetManagerField(ch.MgrField + "PC", AssetDatabase.LoadAssetAtPath<Texture2DArray>(ch.PathPC));
+                BakeUtil.SetManagerField(ch.MgrField + "Quest", null);
+#endif
             }
             BakeUtil.SetManagerField("materialTable", AssetDatabase.LoadAssetAtPath<Texture2D>(TablePath));
             PushGlobals();
@@ -201,21 +207,51 @@ public static partial class MeshArrayBaker
         finally { EditorUtility.ClearProgressBar(); }
     }
 
+    // 1 = plus grosse source ; 0.9 = on réduit les 10 % de textures les plus grosses
+    private const float ResPercentile = 0.5f;
+
+    // Taille après import (maxTextureSize déjà appliqué)
+    private static int SourceRes(Texture2D t) => Mathf.Max(t.width, t.height);
+
+    private static int ChooseResolution(Channel ch)
+    {
+        if (ch.Textures.Count == 0) return 4;
+        int[] sizes = ch.Textures.Select(SourceRes).OrderBy(s => s).ToArray();
+        int idx = Mathf.Clamp(Mathf.CeilToInt(ResPercentile * sizes.Length) - 1, 0, sizes.Length - 1);
+        int res = Mathf.Clamp(Mathf.ClosestPowerOfTwo(sizes[idx]), 4, MaxPcRes);
+        ReportUpscale(ch, res);
+        return res;
+    }
+
+    private static void ReportUpscale(Channel ch, int res)
+    {
+        var up = ch.Textures.Where(t => SourceRes(t) < res).ToList();
+        var big = up.Where(t => SourceRes(t) * 2 <= res).ToList();   // upscale x2 ou plus
+        float mb = (ch.Textures.Count + 1) * (long)res * res * (4f / 3f) / (1024f * 1024f); // ~1 octet/px (DXT5/BC7) + mips
+        Debug.Log($"[MeshArrays] {ch.Name}: {res}px, {ch.Textures.Count + 1} slices, ~{mb:F0} MB (PC)");
+        if (up.Count > 0)
+            Debug.LogWarning($"[MeshArrays] {ch.Name}: {up.Count}/{ch.Textures.Count} slices upscalées vers {res}px" +
+                (big.Count > 0 ? $" dont {big.Count} en x2+ : " +
+                    string.Join(", ", big.Take(10).Select(t => $"{t.name}({SourceRes(t)})")) : ""));
+    }
+
     private static void BakeChannel(Channel ch, float progress)
     {
         Progress($"Building {ch.Name} array ({ch.Textures.Count} slices)…", progress);
         if (ch.Textures.Count > SliceWarn)
             Debug.LogWarning($"[MeshArrays] {ch.Name}: {ch.Textures.Count} slices (> {SliceWarn}).");
 
-        int pcRes = ch.Textures.Count == 0
-            ? 4
-            : Mathf.Min(Mathf.NextPowerOfTwo(ch.Textures.Max(t => Mathf.Max(t.width, t.height))), MaxPcRes);
-        var pc = BuildArray(ch, pcRes, ch.ArrayName + "_PC");
-        var quest = BuildArray(ch, Mathf.Max(4, pcRes / 2), ch.ArrayName + "_Quest");
-        if (pc == null || quest == null) return;
+        int pcRes = ChooseResolution(ch);
 
-        BakeUtil.SaveOrReplace(pc, ch.PathPC);
+#if UNITY_ANDROID
+        var quest = BuildArray(ch, Mathf.Max(4, pcRes / 2), ch.ArrayName + "_Quest");
+        if (quest == null) return;
         BakeUtil.SaveOrReplace(quest, ch.PathQuest);
+#else
+        var pc = BuildArray(ch, pcRes, ch.ArrayName + "_PC");
+        if (pc == null) return;
+        BakeUtil.SaveOrReplace(pc, ch.PathPC);
+#endif
         File.WriteAllLines(Path.GetFullPath(ch.NamesPath),
             ch.Textures.Select((t, i) => i + "\t" + AssetDatabase.GetAssetPath(t)));
         AssetDatabase.ImportAsset(ch.NamesPath);
@@ -225,11 +261,11 @@ public static partial class MeshArrayBaker
     {
         Progress("Building material table…", 0.6f);
         int w = Mathf.Max(1, cols.Count);
-        var table = new Texture2D(w, 4, TextureFormat.RGBAFloat, false, true)
+        var table = new Texture2D(w, 5, TextureFormat.RGBAHalf, false, true)
         { name = "MaterialTable", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
-        var px = new Color[w * 4];
+        var px = new Color[w * 5];
         for (int x = 0; x < cols.Count; x++)
-            for (int row = 0; row < 4; row++)
+            for (int row = 0; row < 5; row++)
             {
                 var q = cols[x][row];
                 px[row * w + x] = new Color(q.x, q.y, q.z, q.w);
@@ -253,7 +289,7 @@ public static partial class MeshArrayBaker
         if (BlockedInPlayMode("Apply")) return;
         if (!BakeUtil.EnsureScenesSaved()) return;
         var reg = LoadOrCreateRegistry();
-        int ok = 0, skinnedOk = 0, missing = 0, skinnedSkipped = 0;
+        int ok = 0, skinnedOk = 0, missing = 0;
 
         Undo.IncrementCurrentGroup();
         Undo.SetCurrentGroupName("Apply Mesh Arrays");
@@ -273,9 +309,12 @@ public static partial class MeshArrayBaker
                 foreach (var p in v.matPaths) if (AssetDatabase.LoadAssetAtPath<Material>(p) == null) missingMat = true;
                 if (missingMat) { missing++; continue; }
 
-                reg.Register(v.id, v.origMesh, v.origMats);
+                reg.Register(v.renderer, v.origMesh, v.origMats);
                 ApplyOne(v, baked);
-                ok++;
+                if (v.renderer is SkinnedMeshRenderer)
+                    skinnedOk++;
+                else
+                    ok++;
             }
 
             var skinnedAssignments = probePlan.Assignments
@@ -285,14 +324,15 @@ public static partial class MeshArrayBaker
             {
                 var assignment = skinnedAssignments[i];
                 var renderer = (SkinnedMeshRenderer)assignment.Key;
+                if (Resolve(renderer, reg, assignment.Value).reason == null)
+                    continue;
+
                 if (i % 50 == 0)
                     Progress($"Applying skinned probes… {i}/{skinnedAssignments.Count}",
                         (float)i / Mathf.Max(skinnedAssignments.Count, 1));
 
                 if (ApplySkinnedProbeAssignment(renderer, assignment.Value, reg))
                     skinnedOk++;
-                else
-                    skinnedSkipped++;
             }
 
             EditorUtility.SetDirty(reg);
@@ -301,10 +341,8 @@ public static partial class MeshArrayBaker
         finally { EditorUtility.ClearProgressBar(); }
 
         string skippedSummary = missing > 0
-            ? $", {missing} mesh renderer(s) skipped (run Bake first)"
+            ? $", {missing} renderer(s) skipped (run Bake first)"
             : "";
-        if (skinnedSkipped > 0)
-            skippedSummary += $", {skinnedSkipped} skinned renderer(s) skipped";
         Debug.Log($"[MeshArrays] Apply: {ok} mesh renderers and {skinnedOk} skinned renderers updated" +
                   skippedSummary + ".");
     }
@@ -374,15 +412,22 @@ public static partial class MeshArrayBaker
         for (int i = 0; i < v.matPaths.Length; i++)
             sharedMats[i] = AssetDatabase.LoadAssetAtPath<Material>(v.matPaths[i]);
 
-        Undo.RecordObject(v.mf, "Apply Mesh Arrays");
-        Undo.RecordObject(v.r, "Apply Mesh Arrays");
-        v.mf.sharedMesh = baked;
-        v.r.sharedMaterials = sharedMats;
-        PrefabUtility.RecordPrefabInstancePropertyModifications(v.mf);
-        PrefabUtility.RecordPrefabInstancePropertyModifications(v.r);
-        EditorUtility.SetDirty(v.mf);
-        EditorUtility.SetDirty(v.r);
-        EditorSceneManager.MarkSceneDirty(v.r.gameObject.scene);
+        Undo.RecordObject(v.renderer, "Apply Mesh Arrays");
+        if (v.renderer is SkinnedMeshRenderer skinnedRenderer)
+        {
+            skinnedRenderer.sharedMesh = baked;
+        }
+        else
+        {
+            Undo.RecordObject(v.mf, "Apply Mesh Arrays");
+            v.mf.sharedMesh = baked;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(v.mf);
+            EditorUtility.SetDirty(v.mf);
+        }
+        v.renderer.sharedMaterials = sharedMats;
+        PrefabUtility.RecordPrefabInstancePropertyModifications(v.renderer);
+        EditorUtility.SetDirty(v.renderer);
+        EditorSceneManager.MarkSceneDirty(v.renderer.gameObject.scene);
     }
 
     public static int Restore()
@@ -394,32 +439,25 @@ public static partial class MeshArrayBaker
         var restored = new HashSet<string>();
         Undo.IncrementCurrentGroup();
         Undo.SetCurrentGroupName("Restore Original Meshes");
-        foreach (var r in FindRenderers())
-        {
-            var mf = r.GetComponent<MeshFilter>();
-            if (mf == null) continue;
-            string id = BakedMeshRegistry.IdOf(r);
-            if (!reg.TryGet(id, out var e)) continue;
-
-            Undo.RecordObject(mf, "Restore");
-            Undo.RecordObject(r, "Restore");
-            mf.sharedMesh = e.originalMesh;
-            r.sharedMaterials = e.originalMaterials;
-            PrefabUtility.RecordPrefabInstancePropertyModifications(mf);
-            PrefabUtility.RecordPrefabInstancePropertyModifications(r);
-            EditorUtility.SetDirty(mf);
-            EditorUtility.SetDirty(r);
-            EditorSceneManager.MarkSceneDirty(r.gameObject.scene);
-            restored.Add(id);
-        }
-
-        foreach (SkinnedMeshRenderer renderer in FindProbeAssignmentRenderers().OfType<SkinnedMeshRenderer>())
+        foreach (var renderer in FindRenderers())
         {
             if (!reg.TryGet(renderer, out var entry) || entry.originalMesh == null)
                 continue;
 
-            Undo.RecordObject(renderer, "Restore Skinned Mesh");
-            renderer.sharedMesh = entry.originalMesh;
+            Undo.RecordObject(renderer, "Restore Original Mesh");
+            if (renderer is SkinnedMeshRenderer skinnedRenderer)
+            {
+                skinnedRenderer.sharedMesh = entry.originalMesh;
+            }
+            else if (renderer is MeshRenderer)
+            {
+                var mf = renderer.GetComponent<MeshFilter>();
+                if (mf == null) continue;
+                Undo.RecordObject(mf, "Restore Original Mesh");
+                mf.sharedMesh = entry.originalMesh;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(mf);
+                EditorUtility.SetDirty(mf);
+            }
             if (entry.originalMaterials != null)
                 renderer.sharedMaterials = entry.originalMaterials;
             PrefabUtility.RecordPrefabInstancePropertyModifications(renderer);
@@ -451,6 +489,8 @@ public static partial class MeshArrayBaker
             AssetDatabase.DeleteAsset(ch.PathPC);
             AssetDatabase.DeleteAsset(ch.PathQuest);
             AssetDatabase.DeleteAsset(ch.NamesPath);
+            var channelFolder = System.IO.Path.GetDirectoryName(ch.PathPC);
+            if (!string.IsNullOrEmpty(channelFolder)) AssetDatabase.DeleteAsset(channelFolder);
             BakeUtil.SetManagerField(ch.MgrField + "PC", null);
             BakeUtil.SetManagerField(ch.MgrField + "Quest", null);
         }
@@ -468,9 +508,10 @@ public static partial class MeshArrayBaker
 
     // ───────────────────────── Resolve / Scan ─────────────────────────
 
-    private static IEnumerable<MeshRenderer> FindRenderers() =>
-        Object.FindObjectsOfType<MeshRenderer>(true)
-              .Where(r => r != null && r.gameObject.scene.IsValid() && !EditorUtility.IsPersistent(r));
+    private static IEnumerable<Renderer> FindRenderers() =>
+        Object.FindObjectsOfType<Renderer>(true)
+              .Where(r => r != null && r.gameObject.scene.IsValid() && !EditorUtility.IsPersistent(r))
+              .Where(r => r is MeshRenderer || r is SkinnedMeshRenderer);
 
     private static IEnumerable<Renderer> FindProbeAssignmentRenderers() =>
         Object.FindObjectsOfType<Renderer>(true)
@@ -497,37 +538,58 @@ public static partial class MeshArrayBaker
         return true;
     }
 
-    private static Resolved Resolve(MeshRenderer r, BakedMeshRegistry reg, int reflectionProbeIndex)
+    private static Resolved Resolve(Renderer renderer, BakedMeshRegistry reg, int reflectionProbeIndex)
     {
-        var v = new Resolved { r = r, mf = r.GetComponent<MeshFilter>() };
-        if (v.mf == null || v.mf.sharedMesh == null) { v.reason = "no mesh"; return v; }
+        var v = new Resolved { renderer = renderer };
+        Mesh currentMesh;
+        if (renderer is SkinnedMeshRenderer skinnedRenderer)
+        {
+            currentMesh = skinnedRenderer.sharedMesh;
+        }
+        else if (renderer is MeshRenderer)
+        {
+            v.mf = renderer.GetComponent<MeshFilter>();
+            currentMesh = v.mf != null ? v.mf.sharedMesh : null;
+        }
+        else
+        {
+            v.reason = "unsupported renderer";
+            return v;
+        }
 
-        v.id = BakedMeshRegistry.IdOf(r);
-        if (reg != null && reg.TryGet(v.id, out var e) && e.originalMesh != null && e.originalMaterials != null)
+        if (currentMesh == null) { v.reason = "no mesh"; return v; }
+
+        v.id = BakedMeshRegistry.IdOf(renderer);
+        if (reg != null && reg.TryGet(renderer, out var e) && e.originalMesh != null && e.originalMaterials != null)
         {
             v.origMesh = e.originalMesh;
             v.origMats = e.originalMaterials;
         }
         else
         {
-            if (r.isPartOfStaticBatch)
+            if (renderer.isPartOfStaticBatch)
             { v.reason = "static-batched at runtime (combined mesh)"; return v; }
 
-            v.origMesh = v.mf.sharedMesh;
-            v.origMats = r.sharedMaterials;
+            v.origMesh = currentMesh;
+            v.origMats = renderer.sharedMaterials;
             if (AssetDatabase.GetAssetPath(v.origMesh).StartsWith(BakePaths.Meshes))
             { v.reason = "baked mesh without registry entry"; return v; }
         }
 
         int sub = v.origMesh.subMeshCount;
-        if (v.origMats == null || v.origMats.Length != sub)
+        if (v.origMats == null || v.origMats.Length == 0 || v.origMats.Length != sub)
         { v.reason = $"material count mismatch ({v.origMats?.Length ?? 0} vs {sub})"; return v; }
 
         foreach (var m in v.origMats)
         {
             if (m == null || m.shader == null) { v.reason = "null material"; return v; }
             if (!TargetShaders.Contains(m.shader.name)) { v.reason = "other shader"; return v; }
-            if (m.HasProperty("_IsDynamicMesh") && m.GetFloat("_IsDynamicMesh") > 0.5f) { v.reason = "dynamic mesh"; return v; }
+            if (!(renderer is SkinnedMeshRenderer) &&
+                m.HasProperty("_IsDynamicMesh") && m.GetFloat("_IsDynamicMesh") > 0.5f)
+            {
+                v.reason = "dynamic mesh";
+                return v;
+            }
         }
         for (int s = 0; s < sub; s++)
             if (v.origMesh.GetTopology(s) != MeshTopology.Triangles) { v.reason = "non-triangle topology"; return v; }
@@ -561,7 +623,7 @@ public static partial class MeshArrayBaker
 
     public sealed class RendererReport
     {
-        public MeshRenderer renderer;
+        public Renderer renderer;
         public Mesh originalMesh;
         public Material[] originalMaterials;
         public ReflectionProbe reflectionProbe;
@@ -583,7 +645,7 @@ public static partial class MeshArrayBaker
                 renderer,
                 value = Resolve(renderer, reg, plan.GetProbeIndex(renderer))
             })
-            .Where(item => item.value.mf != null && item.value.mf.sharedMesh != null)
+            .Where(item => item.value.origMesh != null)
             .ToList();
 
         var reports = new List<RendererReport>(resolved.Count);
@@ -604,7 +666,7 @@ public static partial class MeshArrayBaker
                     : "(no probe contains mesh surface)",
                 eligible = value.reason == null,
                 reason = value.reason,
-                applied = reg != null && value.id != null && reg.TryGet(value.id, out _),
+                applied = reg != null && reg.TryGet(item.renderer, out _),
                 sharedMaterialPath = value.matPath,
                 sharedMaterialPaths = value.matPaths
             });
@@ -684,9 +746,9 @@ public static partial class MeshArrayBaker
         long bytes = 0;
         foreach (var ch in Channels)
         {
-            var a = AssetDatabase.LoadAssetAtPath<Texture2DArray>(ch.PathPC);
+            var a = AssetDatabase.LoadAssetAtPath<Texture2DArray>(ActivePath(ch));
             sb.Append($"{ch.Name[0]}:{(a != null ? a.depth : 0)} ");
-            bytes += BakeUtil.SizeOnDiskBytes(ch.PathPC);
+            bytes += BakeUtil.SizeOnDiskBytes(ActivePath(ch));
         }
         var t = AssetDatabase.LoadAssetAtPath<Texture2D>(TablePath);
         sb.Append($"· {t.width} materials · {bytes / (1024f * 1024f):F1} MB");
@@ -698,15 +760,14 @@ public static partial class MeshArrayBaker
         int max = 0;
         foreach (var ch in Channels)
         {
-            var a = AssetDatabase.LoadAssetAtPath<Texture2DArray>(ch.PathPC);
+            var a = AssetDatabase.LoadAssetAtPath<Texture2DArray>(ActivePath(ch));
             if (a != null) max = Mathf.Max(max, a.depth);
         }
         return (max, max > SliceWarn);
     }
 
     public static string[] ChannelNames => Channels.Select(c => c.Name).ToArray();
-    public static Texture2DArray LoadArray(int channel) => AssetDatabase.LoadAssetAtPath<Texture2DArray>(Channels[channel].PathPC);
-    public static bool IsSrgbChannel(int channel) => Channels[channel].Srgb;
+    public static Texture2DArray LoadArray(int channel) => AssetDatabase.LoadAssetAtPath<Texture2DArray>(ActivePath(Channels[channel])); public static bool IsSrgbChannel(int channel) => Channels[channel].Srgb;
     public static bool IsNormalChannel(int channel) => Channels[channel].IsNormal;
     public static Texture2D LoadTable() => AssetDatabase.LoadAssetAtPath<Texture2D>(TablePath);
 
@@ -731,7 +792,7 @@ public static partial class MeshArrayBaker
     public static void PushGlobals()
     {
         foreach (var ch in Channels)
-            Shader.SetGlobalTexture(ch.GlobalName, AssetDatabase.LoadAssetAtPath<Texture2DArray>(ch.PathPC));
+            Shader.SetGlobalTexture(ch.GlobalName, AssetDatabase.LoadAssetAtPath<Texture2DArray>(ActivePath(ch)));
         var table = AssetDatabase.LoadAssetAtPath<Texture2D>(TablePath);
         Shader.SetGlobalTexture("_UdonMaterialTable", table);
         if (table != null)
@@ -740,6 +801,15 @@ public static partial class MeshArrayBaker
     }
 
     // ───────────────────────── Helpers ─────────────────────────
+
+    private static string ActivePath(Channel ch)
+    {
+#if UNITY_ANDROID
+        return ch.PathQuest;
+#else
+        return ch.PathPC;
+#endif
+    }
 
     private static bool BlockedInPlayMode(string action)
     {

@@ -41,7 +41,7 @@ public class LightmapBakeOp : IBakeOperation
             mgr.cookieArray = null;
             EditorUtility.SetDirty(mgr);
         }
-        Shader.SetGlobalTexture("_UdonLightLayerArray", null);
+        Shader.SetGlobalTexture("_UdonLightmapArray", null);
         Shader.SetGlobalTexture("_UdonCookieArray", null);
         Shader.SetGlobalFloat("_UdonCookieArrayValid", 0f);
         AssetDatabase.Refresh();

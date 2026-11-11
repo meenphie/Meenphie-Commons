@@ -152,17 +152,23 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         }
 
         GraphicsFormat pcFormat = firstCube.graphicsFormat;
-        TextureFormat pcTextureFormat;
-        if (SystemInfo.SupportsTextureFormat(TextureFormat.BC7))
+        if (!SystemInfo.IsFormatSupported(pcFormat, FormatUsage.Sample))
         {
-            pcTextureFormat = TextureFormat.BC7;
+            Debug.LogError($"Les cubemaps des probes sont en {pcFormat}, que le GPU de l'éditeur ne peut pas lire. " +
+                           "Passe le Build Target sur la plateforme voulue (Windows pour PC), rebake les probes, puis relance.");
+            ResetTempBuffers();
+            return;
         }
-        else
-        {
-            pcTextureFormat = TextureFormat.DXT5;
-            Debug.LogWarning("PC reflection probes: BC7 compression is unavailable; using DXT5.");
-        }
+        // PC : DXT5 uniquement
+        TextureFormat pcTextureFormat = TextureFormat.DXT5;
         GraphicsFormat pcArrayFormat = GraphicsFormatUtility.GetGraphicsFormat(pcTextureFormat, false);
+
+        if (!SystemInfo.IsFormatSupported(pcArrayFormat, FormatUsage.Sample))
+        {
+            Debug.LogError($"PC reflection probe array format {pcArrayFormat} is not supported for sampling.");
+            ResetTempBuffers();
+            return;
+        }
 
         // Unity samples up to mip 6. Keep only complete compressed mip levels (minimum 4x4).
         int probeMaxMip = Mathf.Min(SPECCUBE_LOD_STEPS, pcMipCount - 1);
@@ -199,16 +205,25 @@ public class ReflectionProbeArrayBuilder : EditorWindow
         GraphicsFormat questFormat;
         TextureFormat questTexFormat;
 
-        if (SystemInfo.SupportsTextureFormat(TextureFormat.BC7))
+        // On vérifie si la plateforme ACTUELLE supporte l'ASTC (pas le BC7 !)
+        if (SystemInfo.SupportsTextureFormat(TextureFormat.ASTC_6x6))
         {
-            questFormat = GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.BC7, false);
-            questTexFormat = TextureFormat.BC7;
+            questTexFormat = TextureFormat.ASTC_6x6;
+            questFormat = GraphicsFormatUtility.GetGraphicsFormat(questTexFormat, false);
+
+            // Vérification ultime de sécurité
+            if (!SystemInfo.IsFormatSupported(questFormat, FormatUsage.Sample))
+            {
+                Debug.LogWarning("[ReflectionProbeBuilder] ASTC is reported as supported but cannot be sampled. Falling back to DXT5.");
+                questTexFormat = TextureFormat.DXT5;
+                questFormat = GraphicsFormatUtility.GetGraphicsFormat(questTexFormat, false);
+            }
         }
         else
         {
-            questFormat = GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.DXT5, false);
             questTexFormat = TextureFormat.DXT5;
-            Debug.LogWarning("Quest : Format BC7 non supporté par la plateforme actuelle, utilisation de DXT5.");
+            questFormat = GraphicsFormatUtility.GetGraphicsFormat(questTexFormat, false);
+            Debug.LogWarning("[ReflectionProbeBuilder] ASTC_6x6 non supporté par l'éditeur. Le tableau Quest est généré en DXT5 pour éviter un crash.");
         }
 
         if (!SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf))

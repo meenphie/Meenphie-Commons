@@ -4,7 +4,7 @@ public static class BakePaths
 {
     public const string Root             = "Assets/Ligne 13/Scenes/LayeredLightmapLighting/";
 
-    public const string Albedo           = Root + "Albedo/";
+    public const string Diffuse           = Root + "Diffuse/";
     public const string Roughness        = Root + "Roughness/";
     public const string Normal           = Root + "Normal/";
     public const string Metallic         = Root + "Metallic/";
@@ -21,7 +21,7 @@ public static class BakePaths
     public static void EnsureAll()
     {
         foreach (var p in new[] {
-            Albedo, Roughness, Normal, Metallic, Emission,
+            Diffuse, Roughness, Normal, Metallic, Emission,
             Lightmaps, ReflectionProbes, Cookies, Meshes, Materials, Tables
         }) Ensure(p);
     }

@@ -7,7 +7,7 @@ using Meenphie.Commons;
 [InitializeOnLoad]
 public static class LightingEditorScene
 {
-    public const int MAX_LIGHTS = 64;
+    public const int MAX_LIGHTS = 32;
     private const int BUFFER_SIZE = MAX_LIGHTS * 8 + 1;
 
     private const float DEFAULT_RANGE_SCALE = 100f;
@@ -448,8 +448,8 @@ public static class LightingEditorScene
         }
 
         _previewLayerArray = mgr.lightLayerArrayPC;
-        Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
-        Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
+        Shader.SetGlobalTexture("_UdonLightmapArray", _previewLayerArray);
+        Shader.SetGlobalFloat("_UdonLightmapArrayValid", _previewLayerArray != null ? 1f : 0f);
         Shader.SetGlobalFloat("_UdonLightmapSliceOffset", (float)mgr.lightmapGroupCount);
 
         _previewCookieArray = mgr.cookieArray;
@@ -646,8 +646,8 @@ public static class LightingEditorScene
         if (_worldRoot == null) return;
 
         Shader.SetGlobalVectorArray("_UdonLightData", _shaderBuffer);
-        Shader.SetGlobalTexture("_UdonLightLayerArray", _previewLayerArray);
-        Shader.SetGlobalFloat("_UdonLightLayerArrayValid", _previewLayerArray != null ? 1f : 0f);
+        Shader.SetGlobalTexture("_UdonLightmapArray", _previewLayerArray);
+        Shader.SetGlobalFloat("_UdonLightmapArrayValid", _previewLayerArray != null ? 1f : 0f);
 
         Shader.SetGlobalTexture("_UdonCookieArray", _previewCookieArray);
         Shader.SetGlobalFloat("_UdonCookieArrayValid", _previewCookieArray != null ? 1f : 0f);

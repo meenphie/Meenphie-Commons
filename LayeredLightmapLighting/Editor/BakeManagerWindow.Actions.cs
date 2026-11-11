@@ -25,7 +25,7 @@ public partial class BakeManagerWindow
         {
             if (EditorUtility.DisplayDialog("Revert Prefab",
                 "Restaure le Mesh ET les Matériaux d'origine des Prefabs (ex: FBX) ?\n\n" +
-                "⚠️ Seuls le MeshFilter et les Matériaux seront restaurés.", "Revert", "Cancel"))
+                "⚠️ Seuls les meshes et les Matériaux seront restaurés.", "Revert", "Cancel"))
             {
                 BakePreview.Suspend();
                 RevertPrefabMeshAndMaterials();
@@ -98,19 +98,20 @@ public partial class BakeManagerWindow
     {
         int count = 0;
 #if UNITY_2022_2_OR_NEWER
-        var renderers = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+        var renderers = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 #else
-        var renderers = Object.FindObjectsOfType<MeshRenderer>();
+        var renderers = Object.FindObjectsOfType<Renderer>(true);
 #endif
         foreach (var r in renderers)
         {
+            if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
             if (!PrefabUtility.IsPartOfPrefabInstance(r.gameObject)) continue;
 
-            var mf = r.GetComponent<MeshFilter>();
-            if (mf != null)
+            Component meshComponent = r is SkinnedMeshRenderer ? (Component)r : r.GetComponent<MeshFilter>();
+            if (meshComponent != null)
             {
-                var mfSO = new SerializedObject(mf);
-                var meshProp = mfSO.FindProperty("m_Mesh");
+                var meshSO = new SerializedObject(meshComponent);
+                var meshProp = meshSO.FindProperty("m_Mesh");
                 if (meshProp != null) PrefabUtility.RevertPropertyOverride(meshProp, InteractionMode.UserAction);
             }
 

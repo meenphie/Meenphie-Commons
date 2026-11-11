@@ -240,9 +240,9 @@ public static class BakePreview
             new KeywordToggle("Mesh arrays (master)",
                 "_UDON_MESH_ARRAYS_ON. Disabled: the shader reads the material's own _MainTex/_BumpMap/... (empty on a shared material).",
                 "_UDON_MESH_ARRAYS_ON"),
-            new ArrayOverrideToggle("Albedo array",
-                "Replaces the global _UdonAlbedoArray by a white array of the same depth: you only see _Color.",
-                "_UdonAlbedoArray", new Color32(255, 255, 255, 255)),
+            new ArrayOverrideToggle("Diffuse array",
+                "Replaces the global _UdonDiffuseArray by a white array of the same depth: you only see _Color.",
+                "_UdonDiffuseArray", new Color32(255, 255, 255, 255)),
             new KeywordToggle("Normal array (_BUMPMAP)",
                 "Disabled: flat normal. Enabled but 0/n mats: the shared materials don't have the keyword.", "_BUMPMAP"),
             new KeywordToggle("Metallic array (_METALLICMAP)",
@@ -286,10 +286,10 @@ public static class BakePreview
     }
 
     private static readonly string[] ArrayGlobals =
-        { "_UdonAlbedoArray", "_UdonNormalArray", "_UdonMetallicArray", "_UdonRoughnessArray", "_UdonEmissionArray" };
+        { "_UdonDiffuseArray", "_UdonNormalArray", "_UdonMetallicArray", "_UdonRoughnessArray", "_UdonEmissionArray" };
 
     /// <summary>
-    /// Edit-mode test: binds the baked arrays (MeshArrayBaker.LoadArray, channel order Albedo, Normal, Metallic, Roughness)
+    /// Edit-mode test: binds the baked arrays (MeshArrayBaker.LoadArray, channel order Diffuse, Normal, Metallic, Roughness)
     /// to the shader globals. If the look is fixed after this, nothing was binding them (LightingManager has no field for them).
     /// </summary>
     public static void PushArraysToGlobals()
@@ -433,7 +433,7 @@ public static class BakePreview
                     EditorStyles.miniButton, GUILayout.Width(180)))
             {
                 PushArraysToGlobals();
-                Reapply(mats);   // keeps the Albedo override if it is currently Disabled
+                Reapply(mats);   // keeps the Diffuse override if it is currently Disabled
             }
         }
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
