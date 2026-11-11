@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
-using Meenphie.Commons;
 
 [InitializeOnLoad]
 public static class LightingEditorScene
@@ -45,9 +44,9 @@ public static class LightingEditorScene
     private static int _lastUploadedSlotCount = 0;
 
     private static int[] _indices = new int[MAX_LIGHTS];
-    private static readonly int[]   _bakedIdx     = new int[MAX_LIGHTS];
-    private static readonly int[]   _realtimeIdx  = new int[MAX_LIGHTS];
-    private static readonly float[] _bakedDist    = new float[MAX_LIGHTS];
+    private static readonly int[] _bakedIdx = new int[MAX_LIGHTS];
+    private static readonly int[] _realtimeIdx = new int[MAX_LIGHTS];
+    private static readonly float[] _bakedDist = new float[MAX_LIGHTS];
     private static readonly float[] _realtimeDist = new float[MAX_LIGHTS];
 
     private static float _specCullDistanceSq = 400f * 400f;
@@ -67,9 +66,9 @@ public static class LightingEditorScene
         EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
 
-        // Manager -> editor coupling (both ways avoided at compile time).
-        LightingManager.EditorPreviewRefreshRequested -= RebuildLightData;
-        LightingManager.EditorPreviewRefreshRequested += RebuildLightData;
+        // Manager -> editor coupling
+        LightingManagerEvents.EditorPreviewRefreshRequested -= RebuildLightData;
+        LightingManagerEvents.EditorPreviewRefreshRequested += RebuildLightData;
     }
 
     private static void OnPlayModeStateChanged(PlayModeStateChange change)
@@ -500,9 +499,9 @@ public static class LightingEditorScene
         int bakedCount = 0, realtimeCount = 0;
         float maxDistSq = _rangeScale * _rangeScale;
 
-        float cosHalfFovGeneral  = Mathf.Cos(mgr.fovCullAngle * 0.5f * Mathf.Deg2Rad);
+        float cosHalfFovGeneral = Mathf.Cos(mgr.fovCullAngle * 0.5f * Mathf.Deg2Rad);
         float cosHalfFovSpecular = Mathf.Cos(mgr.specularFovCullAngle * 0.5f * Mathf.Deg2Rad);
-        float minDistSqForCone   = mgr.coneCullMinDistance * mgr.coneCullMinDistance;
+        float minDistSqForCone = mgr.coneCullMinDistance * mgr.coneCullMinDistance;
 
         float vx = viewerPos.x, vy = viewerPos.y, vz = viewerPos.z;
         float fx = viewForward.x, fy = viewForward.y, fz = viewForward.z;
@@ -518,9 +517,9 @@ public static class LightingEditorScene
             float dx = p.x - vx, dy = p.y - vy, dz = p.z - vz;
             float distSq = dx * dx + dy * dy + dz * dz;
 
-            bool diffuseOn  = _diffuseEnabled  == null || i >= _diffuseEnabled.Length  || _diffuseEnabled[i];
+            bool diffuseOn = _diffuseEnabled == null || i >= _diffuseEnabled.Length || _diffuseEnabled[i];
             bool specularOn = _specularEnabled == null || i >= _specularEnabled.Length || _specularEnabled[i];
-            bool canDiffuse  = diffuseOn;
+            bool canDiffuse = diffuseOn;
             bool canSpecular = specularOn && distSq <= _specCullDistanceSq;
             if (!canDiffuse && !canSpecular) continue;
             if (distSq > maxDistSq) continue;
@@ -568,7 +567,7 @@ public static class LightingEditorScene
         }
 
         int count = 0;
-        for (int i = 0; i < bakedCount    && count < MAX_LIGHTS; i++) _indices[count++] = _bakedIdx[i];
+        for (int i = 0; i < bakedCount && count < MAX_LIGHTS; i++) _indices[count++] = _bakedIdx[i];
         for (int i = 0; i < realtimeCount && count < MAX_LIGHTS; i++) _indices[count++] = _realtimeIdx[i];
         return count;
     }

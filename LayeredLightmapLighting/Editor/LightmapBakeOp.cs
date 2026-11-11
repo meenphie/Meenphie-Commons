@@ -1,6 +1,5 @@
 using UnityEditor;
 using UnityEngine;
-using Meenphie.Commons;
 
 public class LightmapBakeOp : IBakeOperation
 {

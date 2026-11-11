@@ -20,7 +20,7 @@ MonoBehaviour:
   compiledVersion: 2
   behaviourSyncMode: 1
   hasInteractEvent: 0
-  scriptID: -979092963075893702
+  scriptID: -7814063269689798176
   serializationData:
     SerializedFormat: 2
     SerializedBytes: 
@@ -2008,7 +2008,7 @@ MonoBehaviour:
       Data: 105|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: Meenphie.Commons.ShadowAtlasCaster, Meenphie.Lighting.Runtime
+      Data: ShadowAtlasCaster, Meenphie.Commons
     - Name: 
       Entry: 8
       Data: 
@@ -3061,7 +3061,7 @@ MonoBehaviour:
       Data: 165|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: Meenphie.Commons.LightFaultState[], Meenphie.Lighting.Runtime
+      Data: LightFaultState[], Meenphie.Commons
     - Name: 
       Entry: 8
       Data: 

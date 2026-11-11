@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using Meenphie.Commons;
 
 /// <summary>
 /// Bake Manager: single place to bake, apply and audit everything the baker produces.

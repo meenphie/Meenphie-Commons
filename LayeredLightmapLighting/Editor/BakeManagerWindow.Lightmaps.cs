@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using Meenphie.Commons;
 
 public partial class BakeManagerWindow
 {

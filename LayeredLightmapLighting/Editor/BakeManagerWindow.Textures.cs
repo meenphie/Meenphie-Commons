@@ -4,7 +4,6 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using Meenphie.Commons;
 
 /// <summary>
 /// Textures tab: one entry per channel (Diffuse, Normal, ...) showing every slice of the array with its usage count,

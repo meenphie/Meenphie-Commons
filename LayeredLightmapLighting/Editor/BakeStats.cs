@@ -4,7 +4,6 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Profiling;
-using Meenphie.Commons;
 
 /// <summary>
 /// Pure data layer for the Bake Manager: sizes, counts, formatting and scene aggregation.

@@ -2,7 +2,6 @@ using UnityEditor;
 using UnityEngine;
 using System.Linq;
 using UnityEngine.Experimental.Rendering;
-using Meenphie.Commons;
 
 public class ReflectionProbeArrayBuilder : EditorWindow
 {

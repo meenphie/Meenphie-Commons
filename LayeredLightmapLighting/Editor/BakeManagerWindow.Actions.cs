@@ -2,7 +2,6 @@ using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
-using Meenphie.Commons;
 
 /// <summary>Everything that changes the project or the scene. No drawing code in here.</summary>
 public partial class BakeManagerWindow

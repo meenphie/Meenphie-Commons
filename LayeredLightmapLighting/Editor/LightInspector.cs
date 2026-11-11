@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-using Meenphie.Commons;
 
 [CustomEditor(typeof(Light))]
 [CanEditMultipleObjects]

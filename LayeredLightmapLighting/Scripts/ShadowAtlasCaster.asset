@@ -20,7 +20,7 @@ MonoBehaviour:
   compiledVersion: 2
   behaviourSyncMode: 1
   hasInteractEvent: 0
-  scriptID: -8274047058411851231
+  scriptID: 2179455075839277735
   serializationData:
     SerializedFormat: 2
     SerializedBytes: 
@@ -61,7 +61,7 @@ MonoBehaviour:
       Data: 3|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: Meenphie.Commons.LightingManager, Meenphie.Lighting.Runtime
+      Data: LightingManager, Meenphie.Commons
     - Name: 
       Entry: 8
       Data: 
