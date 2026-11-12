@@ -158,8 +158,8 @@ public class ReflectionProbeArrayBuilder : EditorWindow
             ResetTempBuffers();
             return;
         }
-        // PC : DXT5 uniquement
-        TextureFormat pcTextureFormat = TextureFormat.DXT5;
+        // PC : BC7 (la probe est convertie en SDR RGBA32 linéaire avant compression, cf. WritePcFace)
+        TextureFormat pcTextureFormat = TextureFormat.BC7;
         GraphicsFormat pcArrayFormat = GraphicsFormatUtility.GetGraphicsFormat(pcTextureFormat, false);
 
         if (!SystemInfo.IsFormatSupported(pcArrayFormat, FormatUsage.Sample))

@@ -552,7 +552,7 @@ public static class LightmapArrayBuilder
             finalTextureListPC.AddRange(maskTextures);
             finalTextureListPC.AddRange(orderedTextures);
 
-            Texture2DArray builtArrayPC = BuildArray(finalTextureListPC, sizeX, sizeY, report, false);
+            Texture2DArray builtArrayPC = BuildArray(finalTextureListPC, sizeX, sizeY, report, false, finalTextureListPC);
             if (builtArrayPC == null)
             {
                 Debug.LogError("[Layered Lighting] PC texture array build failed.\n" + report);
@@ -573,7 +573,7 @@ public static class LightmapArrayBuilder
                 questTextures.Add(resized);
             }
 
-            Texture2DArray builtArrayQuest = BuildArray(questTextures, questSizeX, questSizeY, report, true);
+            Texture2DArray builtArrayQuest = BuildArray(questTextures, questSizeX, questSizeY, report, true, finalTextureListPC);
             if (builtArrayQuest == null)
             {
                 Debug.LogError("[Layered Lighting] Quest texture array build failed.\n" + report);
@@ -796,7 +796,8 @@ public static class LightmapArrayBuilder
     }
 
     // ── Texture2DArray construction ───────────────────────────────────────────
-    private static Texture2DArray BuildArray(List<Texture2D> textures, int sizeX, int sizeY, System.Text.StringBuilder report, bool isQuest)
+    // formatSources : textures d'origine (avec importer) dont on lit le format ; les textures redimensionnées/masques n'en ont pas.
+    private static Texture2DArray BuildArray(List<Texture2D> textures, int sizeX, int sizeY, System.Text.StringBuilder report, bool isQuest, List<Texture2D> formatSources = null)
     {
         if (textures.Count == 0) return null;
 
@@ -805,27 +806,31 @@ public static class LightmapArrayBuilder
 
         TextureFormat currentFormat = TextureFormat.RGBAHalf;
         bool supported = false;
+        var sources = formatSources ?? textures;
 
         if (isQuest)
         {
-            // On vérifie si on peut CRÉER et LIRE l'ASTC HDR
-            if (SystemInfo.SupportsTextureFormat(TextureFormat.ASTC_HDR_6x6) &&
-                SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.ASTC_HDR_6x6, true), FormatUsage.Sample))
+            // Format voulu lu dans l'importer (Android), puis repli ASTC HDR 6x6 -> ASTC 6x6 -> RGBAHalf
+            TextureFormat wanted = ImporterFormat.Resolve("Lightmaps", sources, ImporterFormat.Quest,
+                TextureFormat.ASTC_HDR_6x6, ImporterFormat.IsAstcHdr);
+            var candidates = new List<TextureFormat> { wanted };
+            if (wanted != TextureFormat.ASTC_HDR_6x6) candidates.Add(TextureFormat.ASTC_HDR_6x6);
+            candidates.Add(TextureFormat.ASTC_6x6);
+
+            foreach (var c in candidates)
             {
-                currentFormat = TextureFormat.ASTC_HDR_6x6;
-                supported = true;
-            }
-            // Sinon on teste l'ASTC normal
-            else if (SystemInfo.SupportsTextureFormat(TextureFormat.ASTC_6x6) &&
-                     SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.ASTC_6x6, true), FormatUsage.Sample))
-            {
-                currentFormat = TextureFormat.ASTC_6x6;
-                supported = true;
+                if (SystemInfo.SupportsTextureFormat(c) &&
+                    SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(c, true), FormatUsage.Sample))
+                {
+                    currentFormat = c;
+                    supported = true;
+                    break;
+                }
             }
 
             if (supported)
             {
-                report.AppendLine("  [format] Quest: ASTC (supported)");
+                report.AppendLine("  [format] Quest: " + currentFormat + " (supported)");
             }
             else
             {
@@ -836,18 +841,21 @@ public static class LightmapArrayBuilder
         }
         else
         {
-            // PC : BC6H
-            if (SystemInfo.SupportsTextureFormat(TextureFormat.BC6H) &&
-                SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.BC6H, true), FormatUsage.Sample))
+            // PC : format lu dans l'importer (Standalone), BC6H par défaut
+            TextureFormat wanted = ImporterFormat.Resolve("Lightmaps", sources, ImporterFormat.PC,
+                TextureFormat.BC6H, ImporterFormat.IsPcHdr);
+
+            if (SystemInfo.SupportsTextureFormat(wanted) &&
+                SystemInfo.IsFormatSupported(GraphicsFormatUtility.GetGraphicsFormat(wanted, true), FormatUsage.Sample))
             {
-                currentFormat = TextureFormat.BC6H;
-                report.AppendLine("  [format] PC: BC6H (supported)");
+                currentFormat = wanted;
+                report.AppendLine("  [format] PC: " + wanted + " (supported)");
             }
             else
             {
                 currentFormat = TextureFormat.RGBAHalf;
-                report.AppendLine("  [format] PC: RGBAHalf (BC6H fallback)");
-                Debug.LogWarning("[Layered Lighting] L'éditeur ne peut pas lire le BC6H. Le tableau PC est généré en RGBAHalf pour éviter un crash.");
+                report.AppendLine("  [format] PC: RGBAHalf (" + wanted + " fallback)");
+                Debug.LogWarning("[Layered Lighting] L'éditeur ne peut pas lire le " + wanted + ". Le tableau PC est généré en RGBAHalf pour éviter un crash.");
             }
         }
 

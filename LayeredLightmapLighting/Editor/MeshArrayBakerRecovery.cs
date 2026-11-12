@@ -150,21 +150,24 @@ public static partial class MeshArrayBaker
         // =========================================================
         // CHOIX DU FORMAT DE COMPRESSION
         // =========================================================
+        // Lu depuis les TextureImporter des textures du canal (override plateforme ou Automatic).
+        // Fallbacks : Quest ASTC_6x6, PC BC7. La normal PC reste en BC5 (décodage shader).
         TextureFormat format;
         if (questArray)
         {
-            format = TextureFormat.ASTC_6x6;
+            format = ImporterFormat.Resolve(channel.Name + " Quest", channel.Textures,
+                ImporterFormat.Quest, TextureFormat.ASTC_6x6, ImporterFormat.IsAstcLdr);
+        }
+        else if (channel.IsNormal)
+        {
+            format = TextureFormat.BC5;
         }
         else
         {
-            if (channel.IsNormal)
-            {
-                format = TextureFormat.BC5;
-            }
-            else
-            {
-                format = TextureFormat.DXT5;
-            }
+            bool redOnly = channel.Name == "Metallic" || channel.Name == "Roughness";
+            format = ImporterFormat.Resolve(channel.Name + " PC", channel.Textures,
+                ImporterFormat.PC, TextureFormat.BC7,
+                redOnly ? (System.Func<TextureFormat, bool>)ImporterFormat.IsPcRed : ImporterFormat.IsPcColor);
         }
 
         int fallbackSlice = channel.Textures.Count;
