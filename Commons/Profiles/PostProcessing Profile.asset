@@ -21,7 +21,7 @@ MonoBehaviour:
     value: 2
   externalLut:
     overrideState: 1
-    value: {fileID: 11700000, guid: badd745f61a987f2b9f88cfbda64467f, type: 3}
+    value: {fileID: 11700000, guid: 89c7b751a2669986f9ba2b3427008963, type: 3}
     defaultState: 1
   tonemapper:
     overrideState: 1
