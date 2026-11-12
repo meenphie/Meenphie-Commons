@@ -21,11 +21,11 @@ MonoBehaviour:
     value: 2
   externalLut:
     overrideState: 1
-    value: {fileID: 11700000, guid: d311d77e1e3d6c2bd828bb06e963e6b9, type: 3}
+    value: {fileID: 11700000, guid: badd745f61a987f2b9f88cfbda64467f, type: 3}
     defaultState: 1
   tonemapper:
     overrideState: 1
-    value: 2
+    value: 1
   toneCurveToeStrength:
     overrideState: 0
     value: 0.459

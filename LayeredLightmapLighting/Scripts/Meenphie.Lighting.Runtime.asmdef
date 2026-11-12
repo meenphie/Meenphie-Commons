@@ -1,0 +1,20 @@
+{
+    "name": "Meenphie.Lighting.Runtime",
+    "rootNamespace": "",
+    "references": [
+        "GUID:61ff68c92068b2428ae0c2ac0043a6df",
+        "GUID:99835874ee819da44948776e0df4ff1d",
+        "GUID:d60799ab2a985554ea1a39cd38695018"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UDON"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

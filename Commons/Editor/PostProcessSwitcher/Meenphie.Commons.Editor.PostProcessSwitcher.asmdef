@@ -1,0 +1,29 @@
+{
+    "name": "Meenphie.Commons.Editor.PostProcessSwitcher",
+    "references": [
+        "VRCSDK3",
+        "VRC.SDKBase",
+        "Unity.Postprocessing.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "defineConstraints": [
+        "UDON",
+        "MEENPHIE_POSTPROCESSING"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.postprocessing",
+            "expression": "",
+            "define": "MEENPHIE_POSTPROCESSING"
+        }
+    ],
+    "rootNamespace": "",
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "noEngineReferences": false
+}

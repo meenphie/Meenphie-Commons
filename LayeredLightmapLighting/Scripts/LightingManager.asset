@@ -2008,7 +2008,7 @@ MonoBehaviour:
       Data: 105|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: ShadowAtlasCaster, Meenphie.Commons
+      Data: ShadowAtlasCaster, Meenphie.Lighting.Runtime
     - Name: 
       Entry: 8
       Data: 
@@ -3061,7 +3061,7 @@ MonoBehaviour:
       Data: 165|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: LightFaultState[], Meenphie.Commons
+      Data: LightFaultState[], Meenphie.Lighting.Runtime
     - Name: 
       Entry: 8
       Data: 

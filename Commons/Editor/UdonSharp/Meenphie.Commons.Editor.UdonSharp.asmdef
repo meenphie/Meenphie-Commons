@@ -1,0 +1,25 @@
+{
+    "name": "Meenphie.Commons.Editor.UdonSharp",
+    "references": [
+        "UdonSharp.Runtime",
+        "UdonSharp.Editor",
+        "VRC.Udon.Editor",
+        "VRC.Udon",
+        "VRC.Udon.Common",
+        "VRC.SDKBase"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "defineConstraints": [
+        "UDON"
+    ],
+    "versionDefines": [],
+    "rootNamespace": "",
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "noEngineReferences": false
+}

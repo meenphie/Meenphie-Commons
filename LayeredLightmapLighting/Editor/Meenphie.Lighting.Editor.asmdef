@@ -1,0 +1,28 @@
+{
+    "name": "Meenphie.Lighting.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:61ff68c92068b2428ae0c2ac0043a6df",
+        "GUID:2ba4a2962c2c637a08b32c9985fc78e1",
+        "UdonSharp.Runtime",
+        "UdonSharp.Editor",
+        "VRC.SDKBase",
+        "VRC.Udon",
+        "VRC.Udon.Common",
+        "VRC.Udon.Editor",
+        "Meenphie.Commons.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UDON"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

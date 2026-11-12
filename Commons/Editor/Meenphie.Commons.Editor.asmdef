@@ -1,0 +1,16 @@
+{
+    "name": "Meenphie.Commons.Editor",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "defineConstraints": [],
+    "versionDefines": [],
+    "rootNamespace": "",
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "noEngineReferences": false
+}
